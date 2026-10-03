@@ -31,6 +31,7 @@ import {
   type ChessTextureQuality,
 } from '../graphics/chessGraphicsSettings';
 import { setChessAudioLevels } from '../host/chessTableAudio';
+import { bundledReleaseNote } from './bundledReleaseNotes';
 import {
   isShellLanguage,
   publishShellLanguage,
@@ -225,11 +226,22 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
   const [question, setQuestion] = useState('');
   const [coachNote, setCoachNote] = useState('');
   const [rankTab, setRankTab] = useState<'local' | 'online'>('local');
+  const [appVersion, setAppVersion] = useState('');
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     savePrefs(prefs);
   }, [prefs]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void window.chessMaster?.version().then((value) => {
+      if (!cancelled && value) setAppVersion(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => subscribeChessGraphics(setGraphics), []);
 
@@ -336,6 +348,9 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
             </button>
             <button type="button" onClick={() => dispatch({ type: 'go', screen: 'parametres' })}>
               {copy.settings}
+            </button>
+            <button type="button" onClick={() => dispatch({ type: 'go', screen: 'propos' })}>
+              {copy.about}
             </button>
           </nav>
         </section>
@@ -562,6 +577,15 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
         </div>
       ) : null}
 
+      {shell.screen === 'propos' ? (
+        <AboutSheet
+          copy={copy}
+          version={appVersion}
+          note={bundledReleaseNote(appVersion)}
+          onClose={() => dispatch({ type: 'escape' })}
+        />
+      ) : null}
+
       {shell.screen === 'options' ? (
         <OptionsSheet
           copy={copy}
@@ -753,6 +777,44 @@ function ScaleRange({
         </div>
       )}
     </div>
+  );
+}
+
+function AboutSheet({
+  copy,
+  version,
+  note,
+  onClose,
+}: {
+  copy: ShellCopy;
+  version: string;
+  note: string;
+  onClose: () => void;
+}): ReactElement {
+  return (
+    <section className="panel sheet">
+      <header className="sheet-head">
+        <div>
+          <h1>{copy.about}</h1>
+        </div>
+        <button type="button" className="ghost" data-primary onClick={onClose}>
+          {copy.close}
+        </button>
+      </header>
+      <section className="sheet-section">
+        <h2>{copy.aboutVersion}</h2>
+        <p className="about-version">{version}</p>
+      </section>
+      <section className="sheet-section">
+        <h2>{copy.aboutNote}</h2>
+        <p className="about-note">{note || copy.aboutNoteMissing}</p>
+      </section>
+      <section className="sheet-section">
+        <h2>{copy.aboutCredits}</h2>
+        <p>{copy.aboutCopyright}</p>
+        <p>{copy.aboutProprietary}</p>
+      </section>
+    </section>
   );
 }
 

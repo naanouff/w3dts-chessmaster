@@ -22,12 +22,8 @@ Un push sur `main` ou `release/*` construit l’exe. L’artefact s’appelle `w
 
 ## À propos
 
-L’écran se valide d’abord dans [la maquette](mockup/index.html), comme le demande [la maquette UI](maquette-ui.md). Le client ne le reçoit qu’après ça.
+L’écran est validé dans [la maquette](mockup/index.html) et repris par la coque. Lien « À propos » sur l’accueil, à côté de Classements, Options et Paramètres. Fermer ou Échap revient à l’écran précédent.
 
-Feuille du même verre qu’Options. Lien « À propos » sur l’accueil, à côté de Classements, Options et Paramètres. Fermer ou Échap revient à l’écran précédent.
-
-Dans cet ordre : la version de `package.json`, la note `docs/releases/X.Y.Z.md`, puis les crédits « ChessMaster & W3DTS copyright Cyril TARRIET » et le rappel que le logiciel est propriétaire ([LICENSE](../LICENSE)). La maquette montre `0.1.0` et une note d’exemple. Le fichier de note réel naît avec la première branche `release/X.Y.Z`.
-
-Quand le client prendra l’écran, il lira cette note et `app.getVersion()`. La ligne de version de [`src/renderer/main.tsx`](../src/renderer/main.tsx) disparaîtra, pour n’en garder qu’une.
+Dans cet ordre : la version de `package.json` via `app.getVersion()`, la note `docs/releases/X.Y.Z.md` de cette même version, puis les crédits « ChessMaster & W3DTS copyright Cyril TARRIET » et le rappel que le logiciel est propriétaire ([LICENSE](../LICENSE)). Tant que la branche `release/X.Y.Z` n’a pas créé la note, l’écran le dit. La ligne de version de [`src/renderer/main.tsx`](../src/renderer/main.tsx) n’existe plus.
 
 Sprint : [CHESS-B13](sprints/CHESS-B13.md).

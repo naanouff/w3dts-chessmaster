@@ -60,6 +60,13 @@ describe('shell screen', () => {
     expect(reduceShell(options, { type: 'escape' }).screen).toBe('accueil');
   });
 
+  it('returns home when about was opened from the welcome screen', () => {
+    const about = reduceShell(initialShell(false), { type: 'go', screen: 'propos' });
+    expect(about.screen).toBe('propos');
+    expect(shellBlocksPlay(about)).toBe(true);
+    expect(reduceShell(about, { type: 'escape' }).screen).toBe('accueil');
+  });
+
   it('returns to pause when options were opened from pause', () => {
     const pause = reduceShell(game(), { type: 'escape' });
     const options = reduceShell(pause, { type: 'go', screen: 'options' });

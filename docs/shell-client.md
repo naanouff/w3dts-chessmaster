@@ -24,4 +24,4 @@ Les classements restent des exemples. Pas de compte, pas de serveur de scores.
 
 Sans pont `coachSettings` publié, le tiroir dit qu’aucun modèle n’est branché et ouvre Paramètres.
 
-À propos est dans la maquette et pas encore dans cette coque. Quand il y entrera, il lira `docs/releases/X.Y.Z.md` et `app.getVersion()`. La ligne de version de [`main.tsx`](../src/renderer/main.tsx) disparaîtra alors.
+À propos est dans la coque, ouvert depuis l’accueil. La version affichée est `app.getVersion()`, donc le champ `version` de `package.json`. La note est le fichier `docs/releases/X.Y.Z.md` de cette version quand il existe. Il n’y a plus de ligne de version flottante dans [`main.tsx`](../src/renderer/main.tsx).
