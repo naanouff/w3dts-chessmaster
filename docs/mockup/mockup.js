@@ -597,7 +597,9 @@ document.addEventListener('click', (event) => {
   if (id === 'change-mode') show('modes', 'pause');
   if (id === 'leave-table') leaveTable();
   if (id === 'home') show('accueil');
-  if (id === 'options-back' || id === 'param-back' || id === 'rank-back') show(state.back || 'accueil');
+  if (id === 'options-back' || id === 'param-back' || id === 'rank-back' || id === 'propos-back') {
+    show(state.back || 'accueil');
+  }
   if (id === 'coach-explain') askCoach('explain');
   if (id === 'coach-hint') askCoach('hint');
   if (id === 'coach-ask') askCoach('ask');
@@ -679,7 +681,12 @@ document.addEventListener('keydown', (event) => {
     show(state.back === 'pause' ? 'pause' : 'accueil');
     return;
   }
-  if (state.screen === 'options' || state.screen === 'parametres' || state.screen === 'classements') {
+  if (
+    state.screen === 'options' ||
+    state.screen === 'parametres' ||
+    state.screen === 'classements' ||
+    state.screen === 'propos'
+  ) {
     show(state.back || 'accueil');
   }
 });

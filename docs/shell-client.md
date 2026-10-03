@@ -8,7 +8,7 @@ Le sprint qui réalise ce branchement est [CHESS-B10](sprints/CHESS-B10.md).
 
 Le verre (jetons, bourrelet, glissement des segments, interrupteurs, caustiques) vit dans [`src/renderer/shell/shell.css`](../src/renderer/shell/shell.css). Les couleurs ne sont pas recopiées dans les composants. Le blason est [`public/brand/w3dts-chessmaster-logo.png`](../public/brand/w3dts-chessmaster-logo.png).
 
-Au lancement, un écran noir couvre le studio. Le blason, grand et centré, est en niveaux de gris et se colore du bas vers le haut tant que le moteur démarre. Une fois le plateau prêt, le noir disparaît en fondu. En bas à droite : « ChessMaster & W3DTS copyright Cyril TARRIET ». Échap ne fait rien pendant ce temps. Dessous, l’accueil attend. La fenêtre pair (`chessPeer=1`) saute l’accueil et entre en partie.
+Au lancement, un écran blanc couvre le studio. Le blason, grand et centré, est en niveaux de gris et se colore du bas vers le haut tant que le moteur démarre. Une fois le plateau prêt, le blanc disparaît en fondu. En bas à droite : « ChessMaster & W3DTS copyright Cyril TARRIET ». Échap ne fait rien pendant ce temps. Dessous, l’accueil attend. La fenêtre pair (`chessPeer=1`) saute l’accueil et entre en partie.
 
 Un écran plein émet `mode-picker`, déjà lu par [`ChessDemoProject`](../src/renderer/host/ChessDemoProject.ts). La saisie et le CPU s’arrêtent. Le tiroir assistant ne bloque pas le plateau.
 
@@ -23,3 +23,5 @@ Le salon ouvre la seconde fenêtre sur le canal `BroadcastChannel` existant et a
 Les classements restent des exemples. Pas de compte, pas de serveur de scores.
 
 Sans pont `coachSettings` publié, le tiroir dit qu’aucun modèle n’est branché et ouvre Paramètres.
+
+À propos est dans la maquette et pas encore dans cette coque. Quand il y entrera, il lira `docs/releases/X.Y.Z.md` et `app.getVersion()`. La ligne de version de [`main.tsx`](../src/renderer/main.tsx) disparaîtra alors.

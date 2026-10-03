@@ -16,6 +16,7 @@ Le thème est un verre liquide : le fond se voit à travers un voile très clair
 flowchart LR
   chargement[Chargement]
   accueil[Accueil]
+  propos[APropos]
   modes[Modes]
   salon[SalonEnLigne]
   partie[Partie]
@@ -26,6 +27,7 @@ flowchart LR
   classements[Classements]
   chargement --> accueil
   accueil --> modes
+  accueil --> propos
   accueil --> classements
   accueil --> options
   accueil --> parametres
@@ -44,9 +46,9 @@ flowchart LR
 
 ## Écrans
 
-**Chargement.** Au lancement, fond noir : le studio n’est pas visible. Seul le blason, grand et centré. Il est en niveaux de gris, puis la couleur remonte du bas vers le haut pendant le chargement. Quand il est coloré, le noir disparaît en fondu et l’accueil apparaît sur le studio. Pas de carte, pas de bouton. En bas à droite, une ligne discrète : « ChessMaster & W3DTS copyright Cyril TARRIET ». Échap ne fait rien pendant ce temps.
+**Chargement.** Au lancement, fond blanc : le studio n’est pas visible. Seul le blason, grand et centré. Il est en niveaux de gris, puis la couleur remonte du bas vers le haut pendant le chargement. Quand il est coloré, le blanc disparaît en fondu et l’accueil apparaît sur le studio. Pas de carte, pas de bouton. En bas à droite, une ligne discrète : « ChessMaster & W3DTS copyright Cyril TARRIET ». Échap ne fait rien pendant ce temps.
 
-**Accueil.** Blason centré, une ligne « W3DTS ChessMaster », bouton principal Jouer, puis trois liens : Classements, Options, Paramètres. Le studio reste visible autour de la carte. Les pièces sont au repos.
+**Accueil.** Blason centré, une ligne « W3DTS ChessMaster », bouton principal Jouer, puis quatre liens : Classements, Options, Paramètres, À propos. Le studio reste visible autour de la carte. Les pièces sont au repos.
 
 **Modes.** Cinq cartes. Les quatre premières existent dans [`ChessModePicker.tsx`](../src/renderer/ui/ChessModePicker.tsx). La cinquième est le salon en ligne, distinct du P2P local.
 
@@ -69,6 +71,8 @@ Le bouton Commencer, hors ligne, correspond au chemin `apply-session` du picker 
 **Options.** Uniquement le rendu, repris de [`chessGraphicsSettings.ts`](../src/renderer/graphics/chessGraphicsSettings.ts) : préréglages Fluide / Équilibré / Qualité / Natif, résolution, textures 256 / 512 / 1024, ombres, occlusion, reflets, bloom, ligne « Rendu W×H · img/s ». Le réglage s’applique tout de suite.
 
 **Paramètres.** Volume des coups et de l’ambiance, langue de l’interface, rappel des contrôles, et le branchement de l’assistant. Deux choix, ceux de [CHESS-B7](sprints/CHESS-B7.md) : Ollama local (`http://127.0.0.1:11434/v1`, sans clé) ou API distante (URL, modèle, clé). La clé saisie ne revient pas à l’écran : seulement « clé enregistrée ». La liste des modèles vient de `GET /v1/models`. Ces réglages nourrissent le tiroir ; ils ne vivent pas dans la partie.
+
+**À propos.** Feuille du même verre qu’Options. Dans l’ordre : la version d’exemple `0.1.0`, une note d’exemple à la place de `docs/releases/X.Y.Z.md`, puis « ChessMaster & W3DTS copyright Cyril TARRIET » et le rappel que le logiciel est propriétaire. Fermer ou Échap revient à l’écran précédent. Le contrat de version est dans [semver.md](semver.md).
 
 **Classements.** Deux onglets. Local : victoires, défaites, nuls, série, cinq dernières parties, marqués « exemple ». En ligne : la même grille filtrée sur les parties du salon, encore en exemple tant qu’il n’y a pas de serveur de scores. Pas de formulaire de compte.
 

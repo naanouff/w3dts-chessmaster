@@ -31,6 +31,7 @@
           <button type="button" data-go="classements">Classements</button>
           <button type="button" data-go="options">Options</button>
           <button type="button" data-go="parametres">Paramètres</button>
+          <button type="button" data-go="propos">À propos</button>
         </nav>
       </section>
 
@@ -110,6 +111,31 @@
             <button type="button" class="ghost" id="home">Retour à l’accueil</button>
           </section>
         </div>
+      </section>
+
+      <section class="panel sheet" data-screen="propos" hidden aria-labelledby="propos-title">
+        <header class="sheet-head">
+          <div>
+            <h1 id="propos-title">À propos</h1>
+          </div>
+          <button type="button" class="ghost" id="propos-back" data-primary>Fermer</button>
+        </header>
+        <section class="sheet-section">
+          <h2>Version</h2>
+          <p class="about-version">0.1.0</p>
+        </section>
+        <section class="sheet-section">
+          <h2>Note de release</h2>
+          <p>
+            Exemple. Cette note tient la place de <code>docs/releases/0.1.0.md</code>, écrite au moment de la
+            release.
+          </p>
+        </section>
+        <section class="sheet-section">
+          <h2>Crédits</h2>
+          <p>ChessMaster &amp; W3DTS copyright Cyril TARRIET</p>
+          <p>Logiciel propriétaire. Tous droits réservés.</p>
+        </section>
       </section>
 
       <section class="panel sheet" data-screen="options" hidden aria-labelledby="options-title">
