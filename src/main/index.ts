@@ -57,7 +57,7 @@ function createWindow(search = ''): BrowserWindow {
     title: 'W3DTS ChessMaster',
     backgroundColor: '#0e1014',
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.mjs'),
+      preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
