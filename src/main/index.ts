@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, net, protocol } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, net, protocol } from 'electron';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -50,11 +51,18 @@ async function loadApp(win: BrowserWindow, search = ''): Promise<void> {
   await win.loadURL(`${APP_SCHEME}://localhost/index.html${qs}`);
 }
 
+function windowIcon(): string {
+  const packed = path.join(process.resourcesPath, 'icon.ico');
+  if (existsSync(packed)) return packed;
+  return path.join(__dirname, '../../resources/icon.ico');
+}
+
 function createWindow(search = ''): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
     title: 'W3DTS ChessMaster',
+    icon: windowIcon(),
     backgroundColor: '#0e1014',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
@@ -64,6 +72,7 @@ function createWindow(search = ''): BrowserWindow {
       backgroundThrottling: false,
     },
   });
+  win.setMenu(null);
   void loadApp(win, search);
   return win;
 }
@@ -71,6 +80,7 @@ function createWindow(search = ''): BrowserWindow {
 let peerWindow: BrowserWindow | null = null;
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   if (!process.env.ELECTRON_RENDERER_URL) registerAppProtocol();
   ipcMain.handle('app-version', () => app.getVersion());
   ipcMain.handle('open-peer-window', (_event, search: unknown) => {

@@ -1,0 +1,22 @@
+---
+description: Les textes visibles du shell passent par les huit catalogues
+alwaysApply: true
+---
+
+# i18n
+
+Les textes visibles du shell vivent dans `src/renderer/shell/copy/`. Le français (`fr.ts`) est la source. `zh` est le chinois simplifié.
+
+Une clé nouvelle s’ajoute aux huit catalogues dans le même changement : `fr`, `en`, `de`, `it`, `es`, `ru`, `zh`, `ja`. Une clé manquante est un oubli de ce changement.
+
+Les noms de langue du sélecteur sont les endonymes de `SHELL_LANGUAGE_LABELS`. Ils ne se traduisent pas.
+
+Pas de librairie i18n. Pas de chaîne visible en dur dans `ChessShell` ou le HUD d’apprentissage.
+
+```typescript
+// ❌ French left on a control that already has a catalog
+{ id: 'en', label: 'Anglais' }
+
+// ✅ the stored code, the endonym
+SHELL_LANGUAGES.map((id) => ({ id, label: SHELL_LANGUAGE_LABELS[id] }))
+```

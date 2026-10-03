@@ -70,7 +70,7 @@ fn sampleShadow(
     } else if (lightType == 1u) {
         layer = baseShadowIndex + pointFace(worldPos - lightWorldPos);
     }
-    if (layer < 0 || layer >= 16) { return 1.0; }
+    if (layer < 0 || layer >= 8) { return 1.0; }
 
     let shadowPos = shadowData.matrices[layer] * vec4<f32>(worldPos, 1.0);
     let shadowNDC = shadowPos.xyz / shadowPos.w;

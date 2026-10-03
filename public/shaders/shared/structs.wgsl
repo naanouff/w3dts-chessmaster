@@ -100,7 +100,6 @@ struct LightData {
     dirAndIntensity: vec4<f32>,  
     colorAndType: vec4<f32>,
     params: vec4<f32>,
-    tangentAndShape: vec4<f32>,
 };
 
 struct SceneLights {
@@ -115,5 +114,6 @@ struct SceneLights {
 // --- Structure Shadow Matrices (V2) ---
 // Buffer "ShadowUniforms" (Binding 2)
 struct ShadowUniforms {
-    matrices: array<mat4x4<f32>, 16>, // CSM (4) + point faces (6) + spots
+    // Packed to the 8 layers published by the engine (CSM + spots).
+    matrices: array<mat4x4<f32>, 8>,
 };

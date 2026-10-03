@@ -1,31 +1,36 @@
 # W3DTS ChessMaster
 
-Client Electron de la table d’échecs W3DTS. Le moteur 3D vient des paquets publiés `@naanouff/w3dts-*`. Les règles, les maillages Staunton, le grab et le HUD vivent dans ce dépôt.
+Une table d’échecs en 3D. On saisit les pièces et on les pose.
 
-## Prérequis
+![Accueil](docs/media/accueil.webp)
 
-- Node.js 22 ou plus récent
-- pnpm
-- Un GPU qui expose **WebGPU** (Direct3D 12 sous Windows). L’application n’active pas `--enable-unsafe-webgpu`.
+![Modes](docs/media/modes.webp)
 
-## Modes
+![Partie](docs/media/partie.webp)
 
-- CPU : heuristique locale
-- Hot-seat : deux joueurs, une souris
-- Learn : ligne ECO courte
-- P2P : une deuxième fenêtre du **même** processus (`BroadcastChannel`). Deux installations du système d’exploitation ne se voient pas.
+![Langues](docs/media/langues.webp)
 
-## Scripts
+## Jouer
 
-```bash
-pnpm install
-pnpm test
-pnpm dev
-pnpm dist
-```
+- Contre l’ordinateur.
+- À deux, la même souris.
+- Une seconde fenêtre sur ce poste, avec un code de table.
+- Une courte ouverture à apprendre.
 
-`pnpm dist` produit l’installateur NSIS Windows. Les cibles macOS et Linux sont déclarées, sans notarisation ni signature.
+Les classements affichés sont des exemples.
 
-Le code source de ce client et les paquets moteur sont sous licence propriétaire. Voir [LICENSE](LICENSE).
+## Langues
+
+Français, English, Deutsch, Italiano, Español, Русский, 中文, 日本語. Le français est la langue de départ.
+
+## Assistant
+
+Il commente la position. Il ne joue pas.
+
+L’image se règle, du plus fluide au plus détaillé.
+
+Compiler et lancer : [docs/build.md](docs/build.md).
+
+Le code source est sous licence propriétaire. Voir [LICENSE](LICENSE).
 
 Moteur : [naanouff/w3dts](https://github.com/naanouff/w3dts).

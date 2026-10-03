@@ -1,0 +1,12 @@
+---
+description: L'installateur Windows est un artefact du flux de release
+alwaysApply: true
+---
+
+# Release installer
+
+A push to `main` or `release/*` builds the NSIS installer and uploads `release/*.exe` as the `w3dts-chessmaster-nsis` artifact. That artifact is the downloadable build.
+
+`pnpm dist` passes `--publish never`. electron-builder must not publish during this job: a missing `GH_TOKEN` fails the build after the exe exists and the artifact is never uploaded.
+
+Do not build the installer on `develop` or on feature branches.

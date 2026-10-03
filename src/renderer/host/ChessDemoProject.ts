@@ -118,15 +118,17 @@ import {
   createChessMoveGlowMaterial,
   patchChessPhotoMaterialsFromCache,
 } from './chessLook';
+import { hdPieceCollider, hdPieceKey, loadHdChessPieces, type HdChessPiece } from './hdChessPieces';
 import {
   remapChessOverlayMaterialsToGlow,
   remapChessSceneMaterialsToPhoto,
 } from './chessSceneRuntime';
 import { createWoodMaterial, loadWoodShaderGraph } from './woodLook';
-import { CHESS_AMBIENCE_VOLUME, CHESS_SFX_VOLUME, installChessTableClips } from './chessTableAudio';
+import { chessAmbienceGain, chessSfxGain, installChessTableClips } from './chessTableAudio';
 
-/** Neon first (local `public/hdri`); monochrome is the CDN / dim-studio fallback. */
+/** Kontrast studio first; neon, then monochrome, if that file is missing. */
 const CHESS_HDR_CANDIDATES: { url: string; name: string; gain: number }[] = [
+  { url: '/hdri/studio_kontrast_04_2k.hdr', name: 'studio_kontrast_04_2k', gain: 1 },
   { url: '/hdri/neon_photostudio_2k.hdr', name: 'neon_photostudio_2k', gain: 0.9 },
   { url: '/hdri/monochrome_studio_04_2k.hdr', name: 'monochrome_studio_04_2k', gain: 1.45 },
 ];
@@ -228,6 +230,7 @@ export class ChessDemoProject extends LitAbstractProject {
   private squareByEntity = new Map<Entity, ChessSquareName>();
   private nodeByEntity = new Map<Entity, SceneNode>();
   private pieceMeshes = new Map<ChessPieceRole, ReturnType<typeof buildStauntonPieceMesh>>();
+  private hdPieces: Map<string, HdChessPiece> | null = null;
   private marbleMat: Material | null = null;
   private steelMat: Material | null = null;
   private sceneRef: SceneNode | null = null;
@@ -593,27 +596,42 @@ export class ChessDemoProject extends LitAbstractProject {
     const device = engine.webGPUContext.device;
     let photoPieces = false;
     try {
-      const photo = await loadChessPhotoPbrMaterials(device, resourceManager, pbrGraph);
-      this.marbleMat = photo.marble;
-      this.steelMat = photo.metal;
-      photoPieces = true;
+      this.hdPieces = await loadHdChessPieces(device, resourceManager, pbrGraph);
+      if (this.hdPieces) {
+        logger.info(LogChannel.DataLifecycle, 'ChessDemoProject: HD Staunton GLBs loaded.');
+      }
     } catch (e) {
+      this.hdPieces = null;
       logger.warn(
         LogChannel.DataLifecycle,
-        'ChessDemoProject: photo marble/steel maps skipped; using procedural graphs.',
+        'ChessDemoProject: HD piece GLBs skipped.',
         e as Error
       );
+    }
+    if (!this.hdPieces) {
       try {
-        const pieceGraphs = await loadChessPieceShaderGraphs();
-        this.marbleMat = createMarbleMaterial(resourceManager, pieceGraphs.marble);
-        this.steelMat = createBrushedSteelMaterial(resourceManager, pieceGraphs.steel);
-      } catch (graphErr) {
-        logger.error(
+        const photo = await loadChessPhotoPbrMaterials(device, resourceManager, pbrGraph);
+        this.marbleMat = photo.marble;
+        this.steelMat = photo.metal;
+        photoPieces = true;
+      } catch (e) {
+        logger.warn(
           LogChannel.DataLifecycle,
-          'ChessDemoProject: failed to load marble/steel shader graphs',
-          graphErr as Error
+          'ChessDemoProject: photo marble/steel maps skipped; using procedural graphs.',
+          e as Error
         );
-        return;
+        try {
+          const pieceGraphs = await loadChessPieceShaderGraphs();
+          this.marbleMat = createMarbleMaterial(resourceManager, pieceGraphs.marble);
+          this.steelMat = createBrushedSteelMaterial(resourceManager, pieceGraphs.steel);
+        } catch (graphErr) {
+          logger.error(
+            LogChannel.DataLifecycle,
+            'ChessDemoProject: failed to load marble/steel shader graphs',
+            graphErr as Error
+          );
+          return;
+        }
       }
     }
 
@@ -675,13 +693,15 @@ export class ChessDemoProject extends LitAbstractProject {
       }
     }
 
-    const roles: ChessPieceRole[] = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'];
-    // Bake each GPROC graph once; the 32 board slots share these six meshes (CHESS-B4e).
-    for (const role of roles) {
-      let mesh = buildStauntonPieceMesh(role);
-      if (photoPieces) mesh = applyCylindricalPieceUvs(mesh);
-      resourceManager.uploadMesh(mesh);
-      this.pieceMeshes.set(role, mesh);
+    if (!this.hdPieces) {
+      const roles: ChessPieceRole[] = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'];
+      // Bake each GPROC graph once; the 32 board slots share these six meshes (CHESS-B4e).
+      for (const role of roles) {
+        let mesh = buildStauntonPieceMesh(role);
+        if (photoPieces) mesh = applyCylindricalPieceUvs(mesh);
+        resourceManager.uploadMesh(mesh);
+        this.pieceMeshes.set(role, mesh);
+      }
     }
 
     const boardBodyMesh = buildChessBoardBodyMesh(CHESS_BOARD_MESH_EXTENT, BOARD_HALF_Y * 2);
@@ -946,8 +966,9 @@ export class ChessDemoProject extends LitAbstractProject {
     role: ChessPieceRole,
     color: ChessColor
   ): Entity | null {
-    const mesh = this.pieceMeshes.get(role);
-    const mat = color === 'white' ? this.marbleMat : this.steelMat;
+    const hd = this.hdPieces?.get(hdPieceKey(color, role));
+    const mesh = hd?.mesh ?? this.pieceMeshes.get(role);
+    const mat = hd?.material ?? (color === 'white' ? this.marbleMat : this.steelMat);
     if (!mesh || !mat) return null;
     const node = new SceneNode(`Chess-${color}-${role}-${square}`, world, mesh, mat);
     const pos = squareToWorld(square, CHESS_BOARD_SURFACE_Y);
@@ -971,7 +992,7 @@ export class ChessDemoProject extends LitAbstractProject {
     world.addComponent(
       node.entityId,
       new ColliderComponent({
-        shapes: stauntonPieceColliderShapes(role),
+        shapes: hd ? [hdPieceCollider(mesh)] : stauntonPieceColliderShapes(role),
         collisionGroup: CHESS_GROUP_PIECE,
       })
     );
@@ -1335,6 +1356,9 @@ export class ChessDemoProject extends LitAbstractProject {
     this.playMode = query.mode;
     this.localColor = query.localColor;
     this.learnQuiz = query.quiz;
+    if (query.mode === 'cpu') {
+      this.cpu = new HeuristicChessEngine({ depth: query.cpuDepth ?? 2, thinkMs: 280 });
+    }
     if (query.eco) this.learnEco = query.eco;
     this.trainer = query.mode === 'learn' ? new OpeningTrainer(this.learnEco) : null;
     if (this.trainer) this.learnEco = this.trainer.opening().eco;
@@ -2028,7 +2052,7 @@ export class ChessDemoProject extends LitAbstractProject {
       if (!this.ambience && this.audio.getClip('ambience')) {
         this.ambience = this.audio.playOneShot('ambience', {
           loop: true,
-          volume: CHESS_AMBIENCE_VOLUME,
+          volume: chessAmbienceGain(),
         });
       }
     } catch {
@@ -2060,7 +2084,7 @@ export class ChessDemoProject extends LitAbstractProject {
     for (const id of ids) {
       try {
         if (!audio.getClip(id)) continue;
-        audio.playOneShot(id, { volume: CHESS_SFX_VOLUME[id] });
+        audio.playOneShot(id, { volume: chessSfxGain(id) });
       } catch {
         /* clip missing */
       }

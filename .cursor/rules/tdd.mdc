@@ -1,0 +1,24 @@
+---
+description: TDD avec Vitest pour tout nouveau comportement
+alwaysApply: true
+---
+
+# TDD
+
+Tout comportement nouveau ou corrigé commence par un test dans `tests/**/*.test.ts`.
+
+1. Écrire un test qui échoue et qui nomme le comportement attendu, en anglais.
+2. Écrire le minimum de code pour le faire passer.
+3. Refactorer ensuite, sous DRY, YAGNI et SOLID, sans casser le test.
+
+```typescript
+// ❌ implementation first, test added afterwards as a mirror of the code
+export function formatChessClock(seconds: number): string { /* ... */ }
+
+// ✅ failing test first
+it('formats a clock under one hour as m:ss', () => {
+  expect(formatChessClock(65)).toBe('1:05');
+});
+```
+
+Un bugfix commence par un test qui reproduit le bug. Ne pas élargir un test à des cas sans appelant.

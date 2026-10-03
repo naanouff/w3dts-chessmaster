@@ -1,0 +1,35 @@
+---
+description: Commentaires en anglais et JSDoc consommé par la doc CI
+alwaysApply: true
+---
+
+# Comments and JSDoc
+
+Comments, test names, and JSDoc are written in English. Identifiers stay in English.
+
+Each module starts with the existing file header:
+
+```typescript
+/**
+ * @file chessTypes.ts
+ * @project w3dts
+ * @author Cyril TARRIET
+ * @description Shared chess square and piece types for rules and spawn.
+ */
+```
+
+Document exported functions, classes, and non-obvious types. State the contract, not the implementation steps.
+
+```typescript
+/**
+ * Maps a square name to the center of that square on the board.
+ * @param square - File and rank, such as `e4`.
+ * @param y - Height in metres. Defaults to the board surface.
+ * @returns World position in metres.
+ */
+export function squareToWorld(square: ChessSquareName, y?: number): vec3
+```
+
+Mark symbols that must stay out of the published API with `@internal`. Do not document private helpers whose names already state the contract.
+
+`pnpm run docs` runs TypeDoc on `src/chess/index.ts`. `pnpm docs` is the npm page opener, not this script. CI fails if generation fails.

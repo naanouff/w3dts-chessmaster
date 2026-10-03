@@ -1,0 +1,842 @@
+/**
+ * @file shell.css
+ * @description Liquid-glass tokens for the ChessMaster shell, scoped so the HUD keeps its own colors.
+ */
+
+.shell {
+  --accent: #e8b86d;
+  --accent-ink: #1a140c;
+  --ink: #2c261f;
+  --muted: rgba(44, 38, 31, 0.62);
+  --danger: #9a3d3d;
+  --glass: rgba(255, 255, 255, 0.07);
+  --glass-highlight:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.75),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.28),
+    inset 0 18px 28px rgba(255, 255, 255, 0.14);
+  --rim: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(255, 255, 255, 0.55) 14%,
+    rgba(255, 255, 255, 0.05) 42%,
+    rgba(255, 255, 255, 0.12) 68%,
+    rgba(255, 255, 255, 0.85) 100%
+  );
+  --blur: 8px;
+  --line: rgba(255, 255, 255, 0.55);
+  --shadow: 0 24px 50px rgba(60, 40, 20, 0.18);
+  --radius: 28px;
+  --radius-control: 16px;
+  --control-well: rgba(255, 255, 255, 0.16);
+  --toggle-off: rgba(44, 38, 31, 0.18);
+  --space: 1.15rem;
+  box-sizing: border-box;
+  position: absolute;
+  inset: 0;
+  z-index: 500;
+  pointer-events: none;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: system-ui, sans-serif;
+}
+
+.shell *,
+.shell *::before,
+.shell *::after {
+  box-sizing: border-box;
+}
+
+.shell.is-menu {
+  pointer-events: auto;
+  overflow: auto;
+}
+
+.shell button,
+.shell input,
+.shell select,
+.shell textarea {
+  font: inherit;
+  color: var(--ink);
+}
+
+.shell .panel,
+.shell .bar,
+.shell .drawer {
+  position: relative;
+  isolation: isolate;
+  background: var(--glass);
+  border: 0;
+  border-radius: var(--radius);
+  box-shadow: var(--glass-highlight), var(--shadow);
+  backdrop-filter: blur(var(--blur)) saturate(1.35);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(1.35);
+  pointer-events: auto;
+}
+
+.shell .panel::before,
+.shell .bar::before,
+.shell .drawer::before,
+.shell .split > div::before,
+.shell .stats > div::before,
+.shell .primary::before,
+.shell .ghost::before,
+.shell .danger::before,
+.shell .cards button::before,
+.shell .check::before,
+.shell .choice-thumb::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  padding: 4px;
+  background: var(--rim);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.shell .panel::after,
+.shell .drawer::after,
+.shell .bar::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 4px;
+  border-radius: calc(var(--radius) - 4px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(40, 24, 8, 0.22),
+    inset 0 0 0 1px rgba(40, 24, 8, 0.1);
+  pointer-events: none;
+}
+
+.shell .panel {
+  width: min(28rem, calc(100% - 2rem));
+  margin: 6vh auto;
+  padding: 1.4rem 1.45rem 1.5rem;
+}
+
+.shell .panel.sheet,
+.shell .panel.wide {
+  width: min(46rem, calc(100% - 2rem));
+}
+
+.shell .sheet {
+  margin-top: 4vh;
+  margin-bottom: 4vh;
+}
+
+.shell .sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: var(--space);
+}
+
+.shell .sheet-head h1,
+.shell .sheet-head .hint {
+  margin: 0;
+  text-align: left;
+}
+
+.shell .sheet-head h1 {
+  white-space: nowrap;
+}
+
+.shell .sheet-head .ghost {
+  width: auto;
+  margin: 0;
+  flex: none;
+}
+
+.shell .about-version {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.shell .about-note {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.shell .sheet-section {
+  margin-top: var(--space);
+  padding-top: var(--space);
+  border-top: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+.shell .sheet-section h2 {
+  margin: 0 0 0.75rem;
+}
+
+.shell .bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.shell .bar {
+  margin: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 999px;
+}
+
+.shell h1 {
+  margin: 0 0 0.55rem;
+  font-size: 1.45rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+.shell h2 {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.shell .hint,
+.shell .notice,
+.shell .banner,
+.shell .status-line {
+  margin: 0.2rem 0 0.8rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.shell .crest {
+  display: block;
+  width: min(11rem, 46vw);
+  height: auto;
+  margin: 0 auto 0.4rem;
+}
+
+.shell .crest-sm {
+  width: 2.6rem;
+  height: auto;
+}
+
+.shell .split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.shell .split > div {
+  position: relative;
+  isolation: isolate;
+  flex: 1 1 16rem;
+  padding: 0.9rem 1rem 1rem;
+  border-radius: var(--radius);
+  background: var(--glass);
+  box-shadow: var(--glass-highlight), var(--shadow);
+  backdrop-filter: blur(var(--blur)) saturate(1.35);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(1.35);
+}
+
+.shell .text-links {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.shell .text-links button {
+  width: auto;
+  flex: none;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+}
+
+.shell button.primary,
+.shell button.ghost,
+.shell button.danger,
+.shell .cards button,
+.shell .check {
+  position: relative;
+}
+
+.shell button.primary,
+.shell button.ghost,
+.shell button.danger {
+  display: block;
+  width: 100%;
+  margin-top: 0.7rem;
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: 0.62rem 0.95rem;
+  font-weight: 650;
+  background-color: rgba(255, 255, 255, 0.22);
+  background-image:
+    radial-gradient(ellipse 38% 130% at 28% 18%, rgba(255, 255, 255, 0.85), transparent 58%),
+    radial-gradient(ellipse 30% 110% at 74% 78%, rgba(255, 255, 255, 0.45), transparent 60%);
+  background-size: 180% 180%, 180% 180%;
+  animation: shell-caustic 5.5s ease-in-out infinite;
+  cursor: pointer;
+}
+
+.shell button.primary:hover,
+.shell button.ghost:hover,
+.shell button.danger:hover,
+.shell .cards button:hover {
+  background-color: rgba(255, 255, 255, 0.32);
+}
+
+.shell .bar button.primary,
+.shell .bar button.ghost,
+.shell .row-actions button {
+  width: auto;
+  margin-top: 0;
+}
+
+.shell .row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.shell .bar-copy {
+  flex: 1 1 8rem;
+}
+
+.shell .bar-copy p {
+  margin: 0;
+}
+
+.shell button.primary {
+  margin-top: 0.85rem;
+}
+
+.shell[data-screen='accueil'] > .panel > button.primary {
+  width: fit-content;
+  margin-inline: auto;
+  padding-inline: 2.4rem;
+}
+
+.shell button.ghost,
+.shell button.danger {
+  margin-top: 0.5rem;
+  background-color: var(--control-well);
+}
+
+.shell button.danger {
+  color: var(--danger);
+  background-color: rgba(255, 255, 255, 0.28);
+}
+
+.shell .choice {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.35rem 0 0.85rem;
+  padding: 0.3rem;
+  border-radius: calc(var(--radius-control) + 6px);
+  background: var(--control-well);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.shell .choice-thumb {
+  position: absolute;
+  z-index: 0;
+  border-radius: var(--radius-control);
+  pointer-events: none;
+  background-color: rgba(255, 255, 255, 0.34);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  transition:
+    left 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shell .choice button {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 6rem;
+  margin: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: 0.62rem 0.95rem;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+  animation: none;
+  cursor: pointer;
+}
+
+.shell .choice button:hover,
+.shell .choice button.is-selected {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  animation: none;
+}
+
+.shell .cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+  gap: 0.65rem;
+}
+
+.shell .cards button {
+  text-align: left;
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: 0.9rem 0.95rem;
+  background: var(--control-well);
+  cursor: pointer;
+}
+
+.shell .cards button.is-selected {
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--glass-highlight), 0 0 0 1px var(--accent);
+}
+
+.shell .cards strong,
+.shell .cards span {
+  display: block;
+}
+
+.shell .cards span,
+.shell .field {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.shell .check {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-control);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: var(--control-well);
+}
+
+.shell .toggle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.shell .check input {
+  appearance: none;
+  position: relative;
+  width: 2.7rem;
+  height: 1.5rem;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--toggle-off);
+  transition: background-color 220ms ease;
+  cursor: pointer;
+}
+
+.shell .check input::before {
+  content: "";
+  position: absolute;
+  top: 0.12rem;
+  left: 0.12rem;
+  width: 1.26rem;
+  height: 1.26rem;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shell .check input:checked {
+  background: var(--accent);
+}
+
+.shell .check input:checked::before {
+  transform: translateX(1.2rem);
+}
+
+.shell .drawer {
+  position: absolute;
+  top: 4.5rem;
+  right: 0.75rem;
+  width: min(22rem, calc(100% - 1.5rem));
+  padding: 1rem;
+}
+
+.shell .keys {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.7rem;
+  display: flex;
+  gap: 0.8rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  pointer-events: none;
+}
+
+.shell kbd {
+  padding: 0.12rem 0.4rem;
+  border-radius: 8px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  box-shadow: var(--glass-highlight);
+  color: var(--ink);
+}
+
+.shell .clock {
+  margin: 0;
+  font-family: ui-monospace, monospace;
+}
+
+.shell .banner {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: var(--radius-control);
+  background: var(--control-well);
+  color: var(--ink);
+}
+
+.shell input[type='text'],
+.shell input[type='url'],
+.shell input[type='password'],
+.shell textarea {
+  width: 100%;
+  margin: 0.25rem 0 0.7rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-control);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: var(--control-well);
+}
+
+.shell .status-line {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.shell input[type='range'] {
+  appearance: none;
+  width: 100%;
+  height: 1.5rem;
+  margin: 0.2rem 0 0.8rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.shell input[type='range']::-webkit-slider-runnable-track {
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--toggle-off);
+}
+
+.shell input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: -0.4rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 2px 6px rgba(60, 40, 20, 0.28);
+}
+
+.shell input[type='range']::-moz-range-track {
+  height: 0.35rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--toggle-off);
+}
+
+.shell input[type='range']::-moz-range-thumb {
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.shell .scale {
+  --thumb: 1.15rem;
+  position: relative;
+  margin: 0.1rem 0 0.35rem;
+}
+
+.shell .scale input[type='range'] {
+  display: block;
+  width: 100%;
+  margin: 0;
+}
+
+.shell .scale input[type='range']::-webkit-slider-thumb {
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+}
+
+.shell .scale input[type='range']::-moz-range-thumb {
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+}
+
+.shell .scale-thumb {
+  position: absolute;
+  z-index: 2;
+  top: 0.75rem;
+  left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--at));
+  width: var(--thumb);
+  height: var(--thumb);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 2px 6px rgba(60, 40, 20, 0.28);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: left 220ms cubic-bezier(0.34, 1.45, 0.64, 1);
+}
+
+.shell .scale.is-float .scale-thumb {
+  transition: left 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shell .scale.is-float.is-dragging .scale-thumb {
+  transition: none;
+}
+
+.shell .scale-marks {
+  position: relative;
+  height: 1.85rem;
+  margin: 0.15rem calc(var(--thumb) / 2) 0;
+}
+
+.shell .scale-mark {
+  position: absolute;
+  top: 0;
+  left: calc(100% * var(--i) / var(--last));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12rem;
+  width: 1.6rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  animation: none;
+}
+
+.shell .scale-mark::before {
+  content: "";
+  width: 1px;
+  height: 0.42rem;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.shell .scale-mark.is-on {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.shell .scale-mark.is-on::before {
+  width: 2px;
+  background: var(--accent);
+  opacity: 1;
+}
+
+.shell .scale-mark.is-catch {
+  animation: scale-catch 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.shell .scale-mark:hover {
+  background: none;
+  color: var(--ink);
+}
+
+@keyframes scale-catch {
+  0% {
+    transform: translateX(-50%) scale(1);
+  }
+  40% {
+    transform: translateX(-50%) scale(1.22);
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+.shell .stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem;
+  margin: 0.4rem 0 1rem;
+  padding: 0;
+}
+
+.shell .stats > div {
+  position: relative;
+  isolation: isolate;
+  padding: 0.7rem 0.75rem;
+  border-radius: var(--radius-control);
+  background: var(--glass);
+  box-shadow: var(--glass-highlight);
+}
+
+.shell .stats dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.shell .stats dd {
+  margin: 0.2rem 0 0;
+  font-size: 1.25rem;
+}
+
+.shell .games {
+  margin: 0 0 0.4rem;
+  padding-left: 1.15rem;
+}
+
+.shell .games li {
+  margin: 0.35rem 0;
+}
+
+.shell .controls {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shell .controls li {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0.45rem 0;
+}
+
+.shell .overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.shell .overlay .panel {
+  margin: 0;
+}
+
+@keyframes shell-caustic {
+  0%,
+  100% {
+    background-position: 8% 20%, 92% 80%;
+  }
+  50% {
+    background-position: 78% 70%, 12% 18%;
+  }
+}
+
+@media (max-width: 720px) {
+  .shell .stats,
+  .shell .toggle-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .shell .bar {
+    border-radius: var(--radius);
+  }
+}
+
+.shell .boot {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.7s ease;
+}
+
+.shell .boot.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shell .boot-credit {
+  position: absolute;
+  right: 1rem;
+  bottom: 0.7rem;
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+.shell .boot-crest {
+  position: relative;
+  width: min(22rem, 64vw);
+}
+
+.shell .boot-crest img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.shell .boot-crest .is-gray {
+  filter: grayscale(1);
+}
+
+.shell .boot-crest .is-color {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  object-fit: fill;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell .choice-thumb,
+  .shell .check input,
+  .shell .check input::before,
+  .shell button.primary,
+  .shell button.ghost,
+  .shell button.danger,
+  .shell .scale-thumb,
+  .shell .scale-mark.is-catch,
+  .shell .boot {
+    transition: none;
+    animation: none;
+  }
+}
