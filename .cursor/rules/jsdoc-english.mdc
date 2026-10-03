@@ -32,4 +32,4 @@ export function squareToWorld(square: ChessSquareName, y?: number): vec3
 
 Mark symbols that must stay out of the published API with `@internal`. Do not document private helpers whose names already state the contract.
 
-`pnpm docs` runs TypeDoc on `src/chess/index.ts`. CI fails if that generation fails.
+`pnpm run docs` runs TypeDoc on `src/chess/index.ts`. `pnpm docs` is the npm page opener, not this script. CI fails if generation fails.
