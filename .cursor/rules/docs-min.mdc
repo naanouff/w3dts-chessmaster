@@ -1,0 +1,8 @@
+---
+description: Au commit, la doc vivante suit docs/vitrine.md
+alwaysApply: true
+---
+
+# Documentation
+
+Avant un commit, appliquer `docs/vitrine.md`. Ne pas recopier cette page.
