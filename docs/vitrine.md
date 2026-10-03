@@ -15,6 +15,7 @@ La règle [`.cursor/rules/docs-min.mdc`](../.cursor/rules/docs-min.mdc) renvoie 
 - [Shell](shell-client.md)
 - [Langues](i18n.md)
 - [Assets 3D](assets-3d.md)
+- [Version](semver.md)
 
 Les fichiers de `docs/sprints/` sont des archives. On ne les rallonge pas quand le code bouge.
 

@@ -19,6 +19,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm test
+      - run: node scripts/semverPolicy.mjs "${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}"
       - run: pnpm run docs
       - uses: actions/upload-artifact@v4
         with:
@@ -41,8 +42,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm dist
+      - id: version
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: w3dts-chessmaster-nsis
+          name: w3dts-chessmaster-${{ steps.version.outputs.version }}
           path: release/*.exe
           if-no-files-found: error

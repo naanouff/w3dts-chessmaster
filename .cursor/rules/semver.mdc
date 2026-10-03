@@ -1,0 +1,14 @@
+---
+description: Version semver portée par package.json sur le flux de release
+alwaysApply: true
+---
+
+# Semver
+
+`package.json` `version` is the only version. Electron and the NSIS installer already read it. Do not add a second version file, and do not publish from CI.
+
+Use `MAJOR.MINOR.PATCH` with no suffix. While the major is `0`, a fix bumps the patch, a feature bumps the minor, and a breaking change bumps the minor. From `1.0.0`, a breaking change bumps the major.
+
+A `release/X.Y.Z` branch leaves `develop` with `package.json` set to `X.Y.Z`. That commit also adds `docs/releases/X.Y.Z.md`, the French note shown in About. Do not generate it from git history.
+
+After the merge to `main`, an annotated tag `vX.Y.Z` is placed on that commit by hand. CI does not push the tag. Merge the release back into `develop`, then bump `develop` to the next version.
