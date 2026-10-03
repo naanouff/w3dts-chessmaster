@@ -56,6 +56,6 @@ Fait quand :
 
 ## Hors de ce sprint
 
-- Brancher ce shell dans `src/renderer` à la place du HUD actuel.
+- Brancher ce shell dans `src/renderer` : c’est [CHESS-B10](CHESS-B10.md), décrit dans [docs/shell-client.md](../shell-client.md).
 - Relais réseau entre deux machines, serveur de scores, compte joueur.
 - IPC du coach (c’est [CHESS-B7](CHESS-B7.md)), Stockfish, ou un changement de règles.

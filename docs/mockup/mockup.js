@@ -125,7 +125,7 @@ function paintModes() {
   rememberChoiceThumb($('mode-color'));
   rememberChoiceThumb($('mode-openings'));
   if (state.mode === 'cpu') {
-    extra.innerHTML = `<h2>Couleur</h2><div class="choice" id="mode-color">${colorButtons(state.color, 'data-color')}</div><label class="field" for="level">Niveau ${state.level}</label><input id="level" type="range" min="1" max="5" value="${state.level}" />`;
+    extra.innerHTML = `<h2>Couleur</h2><div class="choice" id="mode-color">${colorButtons(state.color, 'data-color')}</div><label class="field" for="level">Niveau ${state.level}</label>${levelScale(state.level)}`;
   } else if (state.mode === 'learn') {
     extra.innerHTML = `<h2>Ligne</h2><div class="choice" id="mode-openings">${OPENINGS.map(
       (opening, index) =>
@@ -137,6 +137,60 @@ function paintModes() {
   $('start').textContent = state.mode === 'online' ? 'Ouvrir le salon' : 'Commencer';
   placeChoiceThumb($('mode-color'));
   placeChoiceThumb($('mode-openings'));
+}
+
+/**
+ * Integer slider with one tick and label per step, from 1 to 5.
+ * @param {number} value - Selected level.
+ * @returns {string}
+ */
+function levelScale(value) {
+  const min = 1;
+  const max = 5;
+  const marks = [];
+  for (let step = min; step <= max; step += 1) {
+    marks.push(
+      `<button type="button" class="scale-mark${step === value ? ' is-on' : ''}" style="--i:${step - min}" data-level="${step}">${step}</button>`
+    );
+  }
+  const at = (value - min) / (max - min);
+  return `<div class="scale"><input id="level" type="range" min="${min}" max="${max}" step="1" value="${value}" /><span class="scale-thumb" style="--at:${at}" aria-hidden="true"></span><div class="scale-marks" style="--last:${max - min}">${marks.join('')}</div></div>`;
+}
+
+/**
+ * Places the visible thumb from the input value.
+ * A float slider eases there on a track click, and follows the pointer while dragging.
+ * @param {HTMLInputElement | null} input
+ */
+function placeRangeThumb(input) {
+  if (!input) return;
+  const thumb = input.parentElement?.querySelector(':scope > .scale-thumb');
+  if (!thumb) return;
+  const min = Number(input.min);
+  const max = Number(input.max);
+  const at = max === min ? 0 : (Number(input.value) - min) / (max - min);
+  thumb.style.setProperty('--at', String(at));
+}
+
+/**
+ * Moves the thumb onto the nearest jalon and plays the catch when the step changes.
+ * @param {number} value - Snapped level.
+ */
+function paintLevelMarks(value) {
+  placeRangeThumb($('level'));
+  document.querySelectorAll('.scale-mark').forEach((mark) => {
+    const on = Number(mark.dataset.level) === value;
+    const was = mark.classList.contains('is-on');
+    mark.classList.toggle('is-on', on);
+    if (!on) {
+      mark.classList.remove('is-catch');
+      return;
+    }
+    if (was) return;
+    mark.classList.remove('is-catch');
+    void mark.offsetWidth;
+    mark.classList.add('is-catch');
+  });
 }
 
 /** Last measured pill, keyed by the segmented control id, so a rebuild can slide from it. */
@@ -293,6 +347,8 @@ function paintSettings() {
   rememberChoiceThumb($('coach-provider'));
   $('vol-sfx').value = String(state.sfx);
   $('vol-amb').value = String(state.ambience);
+  placeRangeThumb($('vol-sfx'));
+  placeRangeThumb($('vol-amb'));
   $('vol-sfx-val').textContent = `${state.sfx}`;
   $('vol-amb-val').textContent = `${state.ambience}`;
   $('languages').innerHTML = [
@@ -456,6 +512,14 @@ function matchPreset() {
 document.addEventListener('click', (event) => {
   const target = event.target instanceof Element ? event.target.closest('[data-go], [data-mode], [data-color], [data-opening], [data-host-color], [data-preset], [data-resolution], [data-texture], [data-lang], [data-provider], [data-rank], button') : null;
   if (!target) return;
+  if (target.dataset.level) {
+    const input = $('level');
+    if (input) {
+      input.value = target.dataset.level;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    return;
+  }
   if (target.dataset.go) {
     const destination = target.dataset.go;
     const back = state.screen === 'pause' ? 'pause' : state.screen;
@@ -544,21 +608,41 @@ document.addEventListener('click', (event) => {
   if (id === 'save-settings') saveSettings();
 });
 
+document.addEventListener('pointerdown', (event) => {
+  const input = event.target;
+  if (!(input instanceof HTMLInputElement) || input.type !== 'range') return;
+  input.closest('.scale')?.classList.remove('is-dragging');
+});
+
+document.addEventListener('pointermove', (event) => {
+  if (event.buttons === 0) return;
+  const input = event.target;
+  if (!(input instanceof HTMLInputElement) || input.type !== 'range') return;
+  input.closest('.is-float')?.classList.add('is-dragging');
+});
+
+document.addEventListener('pointerup', () => {
+  document.querySelectorAll('.scale.is-dragging').forEach((node) => node.classList.remove('is-dragging'));
+});
+
 document.addEventListener('input', (event) => {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
   if (target.id === 'level') {
     state.level = Number(target.value);
-    const label = target.previousElementSibling;
+    const label = document.querySelector('label[for="level"]');
     if (label) label.textContent = `Niveau ${state.level}`;
+    paintLevelMarks(state.level);
   }
   if (target.id === 'vol-sfx') {
     state.sfx = Number(target.value);
-    $('vol-sfx-val').textContent = `${state.sfx}`;
+    $('vol-sfx-val').textContent = `${Math.round(state.sfx)}`;
+    placeRangeThumb(target);
   }
   if (target.id === 'vol-amb') {
     state.ambience = Number(target.value);
-    $('vol-amb-val').textContent = `${state.ambience}`;
+    $('vol-amb-val').textContent = `${Math.round(state.ambience)}`;
+    placeRangeThumb(target);
   }
   if (target.id === 'opt-shadows' || target.id === 'opt-ao' || target.id === 'opt-reflections' || target.id === 'opt-bloom') {
     state.graphics.shadows = $('opt-shadows').checked;
@@ -572,6 +656,7 @@ document.addEventListener('input', (event) => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
+  if (state.screen === 'chargement') return;
   if (state.assistant && state.screen === 'partie') {
     state.assistant = false;
     $('assistant').hidden = true;
@@ -599,4 +684,23 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
-show('accueil');
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const bootMs = reduceMotion ? 0 : 2400;
+show('chargement');
+window.setTimeout(() => {
+  if (state.screen !== 'chargement') return;
+  const boot = document.querySelector('[data-screen="chargement"]');
+  show('accueil');
+  if (reduceMotion || !boot) return;
+  boot.hidden = false;
+  requestAnimationFrame(() => {
+    boot.classList.add('is-leaving');
+    boot.addEventListener(
+      'transitionend',
+      (event) => {
+        if (event.propertyName === 'opacity') boot.hidden = true;
+      },
+      { once: true },
+    );
+  });
+}, bootMs);

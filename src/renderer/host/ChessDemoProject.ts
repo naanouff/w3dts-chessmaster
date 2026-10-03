@@ -124,7 +124,7 @@ import {
   remapChessSceneMaterialsToPhoto,
 } from './chessSceneRuntime';
 import { createWoodMaterial, loadWoodShaderGraph } from './woodLook';
-import { CHESS_AMBIENCE_VOLUME, CHESS_SFX_VOLUME, installChessTableClips } from './chessTableAudio';
+import { chessAmbienceGain, chessSfxGain, installChessTableClips } from './chessTableAudio';
 
 /** Kontrast studio first; neon, then monochrome, if that file is missing. */
 const CHESS_HDR_CANDIDATES: { url: string; name: string; gain: number }[] = [
@@ -1356,6 +1356,9 @@ export class ChessDemoProject extends LitAbstractProject {
     this.playMode = query.mode;
     this.localColor = query.localColor;
     this.learnQuiz = query.quiz;
+    if (query.mode === 'cpu') {
+      this.cpu = new HeuristicChessEngine({ depth: query.cpuDepth ?? 2, thinkMs: 280 });
+    }
     if (query.eco) this.learnEco = query.eco;
     this.trainer = query.mode === 'learn' ? new OpeningTrainer(this.learnEco) : null;
     if (this.trainer) this.learnEco = this.trainer.opening().eco;
@@ -2049,7 +2052,7 @@ export class ChessDemoProject extends LitAbstractProject {
       if (!this.ambience && this.audio.getClip('ambience')) {
         this.ambience = this.audio.playOneShot('ambience', {
           loop: true,
-          volume: CHESS_AMBIENCE_VOLUME,
+          volume: chessAmbienceGain(),
         });
       }
     } catch {
@@ -2081,7 +2084,7 @@ export class ChessDemoProject extends LitAbstractProject {
     for (const id of ids) {
       try {
         if (!audio.getClip(id)) continue;
-        audio.playOneShot(id, { volume: CHESS_SFX_VOLUME[id] });
+        audio.playOneShot(id, { volume: chessSfxGain(id) });
       } catch {
         /* clip missing */
       }

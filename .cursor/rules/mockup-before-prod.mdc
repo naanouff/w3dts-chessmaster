@@ -1,0 +1,15 @@
+---
+description: Valider un écran dans la maquette avant de le mettre dans le client
+alwaysApply: true
+---
+
+# Maquette avant la prod
+
+Un écran nouveau ou modifié se construit d’abord dans `docs/mockup` (`index.html`, `mockup.css`, `mockup.js`). Le client (`src/renderer/shell`, `src/renderer/main.tsx`) ne le reçoit qu’après validation explicite de cette maquette.
+
+```text
+❌ écran de chargement ajouté directement dans ChessShell
+✅ le même écran dans docs/mockup, puis le client seulement après « applique en prod »
+```
+
+Un correctif d’un écran déjà validé et déjà dans le client reste dans le client. Il ne repasse pas par la maquette.

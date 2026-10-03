@@ -14,8 +14,16 @@
 
     <p class="mock-tag">Maquette CHESS-B8</p>
 
+    <section class="boot is-on" data-screen="chargement" role="status" aria-label="Préparation du studio">
+      <div class="boot-crest">
+        <img class="is-gray" src="./crest.webp" alt="" />
+        <img class="is-color" src="./crest.webp" alt="" />
+      </div>
+      <p class="boot-credit">ChessMaster &amp; W3DTS copyright Cyril TARRIET</p>
+    </section>
+
     <main id="app">
-      <section class="panel is-on" data-screen="accueil" aria-labelledby="accueil-title">
+      <section class="panel" data-screen="accueil" hidden aria-labelledby="accueil-title">
         <img class="crest" src="./crest.webp" alt="" />
         <h1 id="accueil-title">W3DTS ChessMaster</h1>
         <button type="button" class="primary" data-go="modes" data-primary>Jouer</button>
@@ -146,9 +154,15 @@
         <section class="sheet-section">
           <h2>Son</h2>
           <label class="field" for="vol-sfx">Volume des coups <span id="vol-sfx-val"></span></label>
-          <input id="vol-sfx" type="range" min="0" max="100" />
+          <div class="scale is-float">
+            <input id="vol-sfx" type="range" min="0" max="100" step="any" />
+            <span class="scale-thumb" style="--at:0.8" aria-hidden="true"></span>
+          </div>
           <label class="field" for="vol-amb">Volume d’ambiance <span id="vol-amb-val"></span></label>
-          <input id="vol-amb" type="range" min="0" max="100" />
+          <div class="scale is-float">
+            <input id="vol-amb" type="range" min="0" max="100" step="any" />
+            <span class="scale-thumb" style="--at:0.4" aria-hidden="true"></span>
+          </div>
         </section>
         <section class="sheet-section">
           <h2>Langue</h2>

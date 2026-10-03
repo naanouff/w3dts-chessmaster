@@ -46,7 +46,7 @@ body,
 .cm-error {
   position: absolute;
   inset: 0;
-  z-index: 40;
+  z-index: 800;
   display: flex;
   align-items: center;
   justify-content: center;
