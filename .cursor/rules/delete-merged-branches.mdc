@@ -1,0 +1,18 @@
+---
+description: Supprimer la branche une fois la pull request mergée
+alwaysApply: true
+---
+
+# Delete the branch after the PR
+
+When a pull request into `develop` or `main` is merged, delete its head branch. GitHub deletes the remote branch on merge.
+
+After the merge, update the base and delete the local branch:
+
+```bash
+git switch develop
+git pull --ff-only
+git branch -d feature/the-branch
+```
+
+Do not delete `main` or `develop`. Do not delete `release/*` while that release is still open. Do not delete a branch that still has commits absent from its base.
