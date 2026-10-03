@@ -1,0 +1,24 @@
+---
+description: Profils graphiques pour tourner sur toute configuration matérielle
+alwaysApply: true
+---
+
+# Hardware profiles
+
+The client must stay playable on modest GPUs and on 4K screens. Quality is a profile, not a fixed target.
+
+Scale cost through `ChessGraphicsSettings` in `src/renderer/graphics/chessGraphicsSettings.ts`. Presets already exist: Fluide, Équilibré, Qualité, Natif. The stored default is `FLUID_GRAPHICS` (1080p, textures 256, no ambient occlusion, no reflections, no bloom).
+
+A new GPU cost — pass, shadow, texture size, resolution — is off in Fluide and opt-in on the higher presets. Gate it in `gamePassNames` or `pieceTextureSize`. Do not run it unconditionally.
+
+```typescript
+// ❌ heavy pass always in the frame
+names.push('05_SSR_Floor', '05b_SSR_Composite');
+
+// ✅ same pass, only when the active profile asks for it
+if (value.reflections) names.push('05_SSR_Floor', '05b_SSR_Composite');
+```
+
+Internal resolution is capped (`gameSurfacePixels`). Do not size a framebuffer from `window.devicePixelRatio` alone. Chess rules, input, and audio do not depend on a graphics preset.
+
+Add a failing test in `tests/chessGraphics.test.ts` before changing a preset, a cap, or a pass list.

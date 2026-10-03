@@ -1,0 +1,48 @@
+---
+description: DRY, YAGNI et SOLID pour tout le développement
+alwaysApply: true
+---
+
+# DRY, YAGNI, SOLID
+
+Appliquer ces principes à chaque changement. Ne pas refactorer le code voisin seulement pour les illustrer.
+
+## DRY
+
+Une règle métier a une seule source : coup légal, case, pose, son, look.
+
+```typescript
+// ❌ same piece list copied in spawn and the cemetery
+const roles = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'];
+
+// ✅ import the type already owned by chessTypes.ts
+import type { ChessPieceRole } from '../rules/chessTypes';
+```
+
+Deux copies semblables ne justifient pas une abstraction. Extraire à la troisième, ou dès qu'une règle d'échecs doit rester identique.
+
+## YAGNI
+
+Pas de paramètre, couche, flag ou moteur sans appelant dans le changement en cours.
+
+```typescript
+// ❌ prepared for a Stockfish engine that has no caller yet
+function chooseMove(fen: string, engine: 'heuristic' | 'stockfish' | 'remote') {}
+
+// ✅ IChessEngine is enough; a second engine arrives with its adapter
+chooseMove(fen: string): Promise<ChessEngineMove | null>
+```
+
+Une interface n'existe que si elle a un implémenteur et un appelant.
+
+## SOLID
+
+- **S** — une raison de changer par module. Les règles ne dessinent pas ; le HUD ne valide pas un coup.
+- **O** — étendre par un nouvel adaptateur (moteur, look), pas par un nouveau cas dans un switch central.
+- **L** — un substitut de `IChessEngine` honore `chooseMove`, y compris `null`.
+- **I** — interfaces étroites. Pas d'interface unique pièce + physique + rendu.
+- **D** — dépendre de `IChessEngine`, pas de `HeuristicChessEngine`.
+
+## Arbitrage
+
+YAGNI l'emporte sur une abstraction SOLID sans second cas réel. DRY l'emporte quand la même règle d'échecs serait copiée.

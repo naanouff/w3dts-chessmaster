@@ -1,0 +1,11 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/chess/index.ts"],
+  "out": "docs/api",
+  "name": "W3DTS ChessMaster",
+  "includeVersion": true,
+  "readme": "none",
+  "excludeExternals": true,
+  "excludePrivate": true,
+  "excludeInternal": true
+}

@@ -20,6 +20,18 @@ body,
   height: 100%;
 }
 
+.cm-logo {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.7rem;
+  z-index: 30;
+  height: min(22vh, 9.25rem);
+  width: auto;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55));
+}
+
 .cm-version {
   position: absolute;
   right: 0.75rem;
@@ -34,13 +46,20 @@ body,
 .cm-error {
   position: absolute;
   inset: 0;
-  z-index: 20;
+  z-index: 40;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem;
   text-align: center;
   background: #0e1014;
+}
+
+.cm-error .cm-logo {
+  position: static;
+  height: 8rem;
+  margin-bottom: 1rem;
+  filter: none;
 }
 
 .cm-error h1 {

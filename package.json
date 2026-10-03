@@ -13,6 +13,8 @@
     "preview": "electron-vite preview",
     "dist": "electron-vite build && electron-builder --win nsis",
     "test": "vitest --run",
+    "docs": "typedoc",
+    "bake:piece-textures": "node scripts/bake-piece-textures.mjs",
     "check": "tsc --noEmit"
   },
   "dependencies": {
@@ -26,6 +28,7 @@
     "@naanouff/w3dts-multiplayer-p2p": "0.0.18",
     "@naanouff/w3dts-physics": "0.0.28",
     "chessops": "^0.14.2",
+    "draco3dgltf": "^1.5.7",
     "gl-matrix": "^3.4.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
@@ -39,12 +42,18 @@
     "electron": "^35.1.5",
     "electron-builder": "^26.0.12",
     "electron-vite": "^3.1.0",
+    "sharp": "^0.35.5",
+    "typedoc": "^0.28.20",
     "typescript": "^5.8.3",
     "vite": "^5.4.21",
     "vitest": "^3.2.7"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["electron", "electron-winstaller", "esbuild"]
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller",
+      "esbuild"
+    ]
   },
   "build": {
     "appId": "com.naanouff.w3dts.chessmaster",
@@ -56,14 +65,27 @@
       "out/**/*"
     ],
     "asar": true,
+    "extraResources": [
+      {
+        "from": "resources/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
     "win": {
-      "target": ["nsis"]
+      "icon": "resources/icon.ico",
+      "target": [
+        "nsis"
+      ]
     },
     "mac": {
-      "target": ["dmg"]
+      "target": [
+        "dmg"
+      ]
     },
     "linux": {
-      "target": ["AppImage"]
+      "target": [
+        "AppImage"
+      ]
     },
     "nsis": {
       "oneClick": false,

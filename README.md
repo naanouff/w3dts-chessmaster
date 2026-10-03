@@ -15,6 +15,11 @@ Client Electron de la table d’échecs W3DTS. Le moteur 3D vient des paquets pu
 - Learn : ligne ECO courte
 - P2P : une deuxième fenêtre du **même** processus (`BroadcastChannel`). Deux installations du système d’exploitation ne se voient pas.
 
+## Documentation
+
+- [Coach IA](docs/coach-ia.md) — commentaire de position via Ollama ou une API compatible OpenAI. Le coach ne joue pas.
+- [Sprint CHESS-B7](docs/sprints/CHESS-B7.md) — tickets d’implémentation du coach.
+
 ## Scripts
 
 ```bash

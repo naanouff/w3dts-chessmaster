@@ -8,6 +8,7 @@ import {
 import { Logger } from '@naanouff/w3dts-logger';
 import { chessBus } from './bus';
 import { ChessDemoProject } from './host/ChessDemoProject';
+import { applyChessGraphics, attachChessGraphics, getChessGraphicsSettings } from './graphics/chessGraphicsSettings';
 
 const emptyLoader: IModelLoaderService = {
   async load() {
@@ -18,8 +19,47 @@ const emptyLoader: IModelLoaderService = {
 /**
  * Boots the published engine on a hidden canvas and presents the chess table
  * on the visible Game surface.
+ *
+ * One engine per renderer: `GPUManager.initialize` publishes its singleton
+ * before `requestDevice` resolves. React StrictMode also swaps the canvas
+ * node before that boot finishes, so the surface must follow the latest node.
  */
-export async function startChessHost(gameCanvas: HTMLCanvasElement): Promise<Engine> {
+let chessHostBoot: Promise<Engine> | null = null;
+let latestGameCanvas: HTMLCanvasElement | null = null;
+let boundGameCanvas: HTMLCanvasElement | null = null;
+let gameSurfaceObserver: ResizeObserver | null = null;
+
+export function startChessHost(gameCanvas: HTMLCanvasElement): Promise<Engine> {
+  latestGameCanvas = gameCanvas;
+  if (!chessHostBoot) {
+    chessHostBoot = bootChessHost().catch((err: unknown) => {
+      chessHostBoot = null;
+      throw err;
+    });
+  }
+  return chessHostBoot.then((engine) => {
+    const canvas = latestGameCanvas;
+    if (canvas) bindGameSurface(engine, canvas);
+    return engine;
+  });
+}
+
+function bindGameSurface(engine: Engine, canvas: HTMLCanvasElement): void {
+  if (boundGameCanvas === canvas) return;
+  gameSurfaceObserver?.disconnect();
+  canvas.dataset.testid = 'game-view-canvas';
+  engine.setGameViewSurface(canvas);
+  engine.setInputTarget(canvas);
+  const syncGameSurface = (): void => {
+    applyChessGraphics(engine, canvas, getChessGraphicsSettings());
+  };
+  attachChessGraphics(engine, canvas);
+  gameSurfaceObserver = new ResizeObserver(syncGameSurface);
+  gameSurfaceObserver.observe(canvas);
+  boundGameCanvas = canvas;
+}
+
+async function bootChessHost(): Promise<Engine> {
   (
     globalThis as { __W3DTS_SCRIPT_PLAY_STATE__?: 'playing' | 'paused' | 'stopped' }
   ).__W3DTS_SCRIPT_PLAY_STATE__ = 'playing';
@@ -35,8 +75,6 @@ export async function startChessHost(gameCanvas: HTMLCanvasElement): Promise<Eng
   hidden.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;pointer-events:none;';
   document.body.appendChild(hidden);
 
-  gameCanvas.dataset.testid = 'game-view-canvas';
-
   const engine = await new EngineBuilder(hidden)
     .setUIBus(chessBus)
     .setLogger(logger)
@@ -45,15 +83,5 @@ export async function startChessHost(gameCanvas: HTMLCanvasElement): Promise<Eng
 
   engine.director.register(new ChessDemoProject());
   await engine.start('ChessDemoProject');
-  engine.setGameViewSurface(gameCanvas);
-
-  const syncGameSurface = (): void => {
-    const width = gameCanvas.clientWidth;
-    const height = gameCanvas.clientHeight;
-    if (width > 0 && height > 0) engine.setGameViewSurfaceSize(width, height);
-  };
-  syncGameSurface();
-  const observer = new ResizeObserver(syncGameSurface);
-  observer.observe(gameCanvas);
   return engine;
 }
