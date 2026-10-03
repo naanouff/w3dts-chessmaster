@@ -1,44 +1,36 @@
 # W3DTS ChessMaster
 
-Client Electron de la table d’échecs W3DTS. Le moteur 3D vient des paquets publiés `@naanouff/w3dts-*`. Les règles, les maillages Staunton, le grab et le HUD vivent dans ce dépôt.
+Une table d’échecs en 3D. On saisit les pièces et on les pose.
 
-## Prérequis
+![Accueil](docs/media/accueil.webp)
 
-- Node.js 22 ou plus récent
-- pnpm
-- Un GPU qui expose **WebGPU** (Direct3D 12 sous Windows). L’application n’active pas `--enable-unsafe-webgpu`.
+![Modes](docs/media/modes.webp)
 
-## Modes
+![Partie](docs/media/partie.webp)
 
-- CPU : heuristique locale
-- Hot-seat : deux joueurs, une souris
-- Learn : ligne ECO courte
-- P2P : une deuxième fenêtre du **même** processus (`BroadcastChannel`). Deux installations du système d’exploitation ne se voient pas.
+![Langues](docs/media/langues.webp)
 
-## Documentation
+## Jouer
 
-- [Coach IA](docs/coach-ia.md) — commentaire de position via Ollama ou une API compatible OpenAI. Le coach ne joue pas.
-- [Sprint CHESS-B7](docs/sprints/CHESS-B7.md) — tickets d’implémentation du coach.
-- [Maquette UI](docs/maquette-ui.md) — accueil, modes, salon en ligne, assistant, options, paramètres, classements.
-- [Sprint CHESS-B8](docs/sprints/CHESS-B8.md) — génération de la maquette dans `docs/mockup/`.
-- [Shell du client](docs/shell-client.md) — intégration de cette maquette au-dessus du canvas.
-- [Sprint CHESS-B10](docs/sprints/CHESS-B10.md) — tickets de cette intégration.
-- [Langues du shell](docs/i18n.md) — français source, puis anglais, allemand, italien, espagnol, russe, chinois simplifié et japonais.
-- [Sprint CHESS-B11](docs/sprints/CHESS-B11.md) — catalogues, branchement, et règle i18n.
-- [Assets 3D](docs/assets-3d.md) — maîtres Staunton dans `docs/raw_assets`, `.wmesh` et WebP au runtime.
-- [Sprint CHESS-B9](docs/sprints/CHESS-B9.md) — liens durs des maîtres, import, et plateau `chess_board_B`.
+- Contre l’ordinateur.
+- À deux, la même souris.
+- Une seconde fenêtre sur ce poste, avec un code de table.
+- Une courte ouverture à apprendre.
 
-## Scripts
+Les classements affichés sont des exemples.
 
-```bash
-pnpm install
-pnpm test
-pnpm dev
-pnpm dist
-```
+## Langues
 
-`pnpm dist` produit l’installateur NSIS Windows. Les cibles macOS et Linux sont déclarées, sans notarisation ni signature.
+Français, English, Deutsch, Italiano, Español, Русский, 中文, 日本語. Le français est la langue de départ.
 
-Le code source de ce client et les paquets moteur sont sous licence propriétaire. Voir [LICENSE](LICENSE).
+## Assistant
+
+Il commente la position. Il ne joue pas.
+
+L’image se règle, du plus fluide au plus détaillé.
+
+Compiler et lancer : [docs/build.md](docs/build.md).
+
+Le code source est sous licence propriétaire. Voir [LICENSE](LICENSE).
 
 Moteur : [naanouff/w3dts](https://github.com/naanouff/w3dts).
