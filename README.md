@@ -1,0 +1,31 @@
+# W3DTS ChessMaster
+
+Client Electron de la table d’échecs W3DTS. Le moteur 3D vient des paquets publiés `@naanouff/w3dts-*`. Les règles, les maillages Staunton, le grab et le HUD vivent dans ce dépôt.
+
+## Prérequis
+
+- Node.js 22 ou plus récent
+- pnpm
+- Un GPU qui expose **WebGPU** (Direct3D 12 sous Windows). L’application n’active pas `--enable-unsafe-webgpu`.
+
+## Modes
+
+- CPU : heuristique locale
+- Hot-seat : deux joueurs, une souris
+- Learn : ligne ECO courte
+- P2P : une deuxième fenêtre du **même** processus (`BroadcastChannel`). Deux installations du système d’exploitation ne se voient pas.
+
+## Scripts
+
+```bash
+pnpm install
+pnpm test
+pnpm dev
+pnpm dist
+```
+
+`pnpm dist` produit l’installateur NSIS Windows. Les cibles macOS et Linux sont déclarées, sans notarisation ni signature.
+
+Le code source de ce client et les paquets moteur sont sous licence propriétaire. Voir [LICENSE](LICENSE).
+
+Moteur : [naanouff/w3dts](https://github.com/naanouff/w3dts).

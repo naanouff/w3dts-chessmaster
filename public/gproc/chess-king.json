@@ -1,0 +1,596 @@
+{
+  "id": "chess_king",
+  "version": 1,
+  "metadata": {
+    "category": "prop",
+    "subcategory": "chess"
+  },
+  "parameters": {
+    "Scale": {
+      "type": "float",
+      "value": 1
+    }
+  },
+  "nodes": [
+    {
+      "id": "in",
+      "type": "GroupInput",
+      "position": {
+        "x": 40,
+        "y": 80
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "scale",
+          "name": "Scale",
+          "type": "float"
+        }
+      ],
+      "properties": {
+        "Scale": 1
+      }
+    },
+    {
+      "id": "poly",
+      "type": "PrimitivePolyline",
+      "position": {
+        "x": 280,
+        "y": 80
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "geometry",
+          "name": "geometry",
+          "type": "geometry"
+        }
+      ],
+      "properties": {
+        "points": [
+          [
+            0.021,
+            0,
+            0
+          ],
+          [
+            0.021,
+            0.000375,
+            0
+          ],
+          [
+            0.021,
+            0.0011250000000000001,
+            0
+          ],
+          [
+            0.021,
+            0.0022500000000000003,
+            0
+          ],
+          [
+            0.021,
+            0.0037500000000000003,
+            0
+          ],
+          [
+            0.0205,
+            0.005125,
+            0
+          ],
+          [
+            0.0195,
+            0.0063750000000000005,
+            0
+          ],
+          [
+            0.018,
+            0.007500000000000001,
+            0
+          ],
+          [
+            0.016,
+            0.0085,
+            0
+          ],
+          [
+            0.014312499999999999,
+            0.010875000000000001,
+            0
+          ],
+          [
+            0.012937500000000001,
+            0.014625,
+            0
+          ],
+          [
+            0.011875,
+            0.01975,
+            0
+          ],
+          [
+            0.011125,
+            0.02625,
+            0
+          ],
+          [
+            0.0109375,
+            0.031625,
+            0
+          ],
+          [
+            0.0113125,
+            0.035875,
+            0
+          ],
+          [
+            0.01225,
+            0.039,
+            0
+          ],
+          [
+            0.01375,
+            0.040999999999999995,
+            0
+          ],
+          [
+            0.014750000000000001,
+            0.043625,
+            0
+          ],
+          [
+            0.01525,
+            0.046875,
+            0
+          ],
+          [
+            0.01525,
+            0.05075,
+            0
+          ],
+          [
+            0.014750000000000001,
+            0.055249999999999994,
+            0
+          ],
+          [
+            0.014125,
+            0.059125,
+            0
+          ],
+          [
+            0.013375000000000001,
+            0.062375,
+            0
+          ],
+          [
+            0.0125,
+            0.065,
+            0
+          ],
+          [
+            0.0115,
+            0.067,
+            0
+          ],
+          [
+            0.010374999999999999,
+            0.06875,
+            0
+          ],
+          [
+            0.009125000000000001,
+            0.07025,
+            0
+          ],
+          [
+            0.00775,
+            0.07150000000000001,
+            0
+          ],
+          [
+            0.00625,
+            0.0725,
+            0
+          ],
+          [
+            0.005124999999999999,
+            0.07325,
+            0
+          ],
+          [
+            0.004375,
+            0.07375,
+            0
+          ],
+          [
+            0.004,
+            0.074,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "id": "lathe",
+      "type": "Lathe",
+      "position": {
+        "x": 520,
+        "y": 80
+      },
+      "inputs": [
+        {
+          "id": "curve",
+          "name": "curve",
+          "type": "geometry"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "geometry",
+          "name": "geometry",
+          "type": "geometry"
+        }
+      ],
+      "properties": {
+        "segments": 96,
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "origin": [
+          0,
+          0,
+          0
+        ],
+        "startAngle": 0,
+        "endAngle": 6.283185307179586,
+        "fillCaps": true
+      }
+    },
+    {
+      "id": "cube0",
+      "type": "PrimitiveCube",
+      "position": {
+        "x": 520,
+        "y": 200
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "geometry",
+          "name": "geometry",
+          "type": "geometry"
+        }
+      ],
+      "properties": {
+        "size": [
+          0.004,
+          0.02,
+          0.004
+        ],
+        "center": [
+          0,
+          0.082,
+          0
+        ]
+      }
+    },
+    {
+      "id": "cube1",
+      "type": "PrimitiveCube",
+      "position": {
+        "x": 520,
+        "y": 280
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "geometry",
+          "name": "geometry",
+          "type": "geometry"
+        }
+      ],
+      "properties": {
+        "size": [
+          0.016,
+          0.004,
+          0.004
+        ],
+        "center": [
+          0,
+          0.086,
+          0
+        ]
+      }
+    },
+    {
+      "id": "join",
+      "type": "JoinGeometry",
+      "position": {
+        "x": 760,
+        "y": 80
+      },
+      "inputs": [
+        {
+          "id": "g0",
+          "name": "g0",
+          "type": "geometry"
+        },
+        {
+          "id": "g1",
+          "name": "g1",
+          "type": "geometry"
+        },
+        {
+          "id": "g2",
+          "name": "g2",
+          "type": "geometry"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "geometry",
+          "name": "geometry",
+          "type": "geometry"
+        }
+      ],
+      "properties": {}
+    },
+    {
+      "id": "shade",
+      "type": "SetShadeSmooth",
+      "position": {
+        "x": 1000,
+        "y": 80
+      },
+      "inputs": [
+        {
+          "id": "geo",
+          "name": "geometry",
+          "type": "geometry"
+        },
+        {
+          "id": "angle",
+          "name": "angle",
+          "type": "float"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "geometry",
+          "name": "geometry",
+          "type": "geometry"
+        }
+      ],
+      "properties": {
+        "angle": 60
+      }
+    },
+    {
+      "id": "bake",
+      "type": "BakeMeshMaps",
+      "position": {
+        "x": 1120,
+        "y": 80
+      },
+      "inputs": [
+        {
+          "id": "geometry",
+          "name": "geometry",
+          "type": "geometry"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "geometry",
+          "name": "geometry",
+          "type": "geometry"
+        }
+      ],
+      "properties": {
+        "bakeCurvature": true,
+        "bakeAO": true,
+        "bakeHeight": true,
+        "curvatureContrast": 3.2,
+        "aoRadius": 0.012,
+        "aoSamples": 8,
+        "heightScale": 1
+      }
+    },
+    {
+      "id": "scale3",
+      "type": "CombineVector",
+      "position": {
+        "x": 280,
+        "y": 240
+      },
+      "inputs": [
+        {
+          "id": "x",
+          "name": "x",
+          "type": "float"
+        },
+        {
+          "id": "y",
+          "name": "y",
+          "type": "float"
+        },
+        {
+          "id": "z",
+          "name": "z",
+          "type": "float"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "vector",
+          "name": "vector",
+          "type": "vec3"
+        }
+      ],
+      "properties": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      }
+    },
+    {
+      "id": "xform",
+      "type": "TransformGeometry",
+      "position": {
+        "x": 1360,
+        "y": 80
+      },
+      "inputs": [
+        {
+          "id": "geo",
+          "name": "geometry",
+          "type": "geometry"
+        },
+        {
+          "id": "t",
+          "name": "translation",
+          "type": "vec3"
+        },
+        {
+          "id": "r",
+          "name": "rotation",
+          "type": "vec3"
+        },
+        {
+          "id": "s",
+          "name": "scale",
+          "type": "vec3"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "geometry",
+          "name": "geometry",
+          "type": "geometry"
+        }
+      ],
+      "properties": {
+        "translation": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "id": "out",
+      "type": "GroupOutput",
+      "position": {
+        "x": 1600,
+        "y": 80
+      },
+      "inputs": [
+        {
+          "id": "geo_in",
+          "name": "geometry",
+          "type": "geometry"
+        }
+      ],
+      "outputs": []
+    }
+  ],
+  "links": [
+    {
+      "id": "l_poly",
+      "fromNodeId": "poly",
+      "fromSocketId": "geometry",
+      "toNodeId": "lathe",
+      "toSocketId": "curve"
+    },
+    {
+      "id": "l_join0",
+      "fromNodeId": "lathe",
+      "fromSocketId": "geometry",
+      "toNodeId": "join",
+      "toSocketId": "g0"
+    },
+    {
+      "id": "l_join1",
+      "fromNodeId": "cube0",
+      "fromSocketId": "geometry",
+      "toNodeId": "join",
+      "toSocketId": "g1"
+    },
+    {
+      "id": "l_join2",
+      "fromNodeId": "cube1",
+      "fromSocketId": "geometry",
+      "toNodeId": "join",
+      "toSocketId": "g2"
+    },
+    {
+      "id": "l_shade",
+      "fromNodeId": "join",
+      "fromSocketId": "geometry",
+      "toNodeId": "shade",
+      "toSocketId": "geo"
+    },
+    {
+      "id": "l_bake",
+      "fromNodeId": "shade",
+      "fromSocketId": "geometry",
+      "toNodeId": "bake",
+      "toSocketId": "geometry"
+    },
+    {
+      "id": "l_sx",
+      "fromNodeId": "in",
+      "fromSocketId": "scale",
+      "toNodeId": "scale3",
+      "toSocketId": "x"
+    },
+    {
+      "id": "l_sy",
+      "fromNodeId": "in",
+      "fromSocketId": "scale",
+      "toNodeId": "scale3",
+      "toSocketId": "y"
+    },
+    {
+      "id": "l_sz",
+      "fromNodeId": "in",
+      "fromSocketId": "scale",
+      "toNodeId": "scale3",
+      "toSocketId": "z"
+    },
+    {
+      "id": "l_xf_geo",
+      "fromNodeId": "bake",
+      "fromSocketId": "geometry",
+      "toNodeId": "xform",
+      "toSocketId": "geo"
+    },
+    {
+      "id": "l_xf_s",
+      "fromNodeId": "scale3",
+      "fromSocketId": "vector",
+      "toNodeId": "xform",
+      "toSocketId": "s"
+    },
+    {
+      "id": "l_out",
+      "fromNodeId": "xform",
+      "fromSocketId": "geometry",
+      "toNodeId": "out",
+      "toSocketId": "geo_in"
+    }
+  ]
+}

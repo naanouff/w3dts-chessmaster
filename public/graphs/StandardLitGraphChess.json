@@ -1,0 +1,299 @@
+{
+  "name": "Chess Lit Pipeline (HBAO + varnish SSR)",
+  "resources": [
+    {
+      "name": "shadowMap",
+      "format": "depth32float",
+      "sizeType": "absolute",
+      "width": 2048,
+      "height": 2048,
+      "usage": 23
+    },
+    {
+      "name": "sceneDepth",
+      "format": "depth24plus",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
+      "name": "sceneColor",
+      "format": "rgba16float",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 23
+    },
+    {
+      "name": "normalBuffer",
+      "format": "rgba8unorm",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
+      "name": "sceneColorRefract",
+      "format": "rgba16float",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 6
+    },
+    {
+      "name": "hbaoRaw",
+      "format": "r8unorm",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
+      "name": "hbaoBlurred",
+      "format": "r8unorm",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
+      "name": "aoSceneColor",
+      "format": "rgba16float",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
+      "name": "ssrBuffer",
+      "format": "rgba16float",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
+      "name": "sceneColorSsr",
+      "format": "rgba16float",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
+      "name": "bloomTexture",
+      "format": "rgba16float",
+      "sizeType": "relative",
+      "width": 0.5,
+      "height": 0.5,
+      "usage": 22
+    },
+    {
+      "name": "bloomPing",
+      "format": "rgba16float",
+      "sizeType": "relative",
+      "width": 0.5,
+      "height": 0.5,
+      "usage": 22
+    },
+    {
+      "name": "bloomScene",
+      "format": "rgba16float",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
+      "name": "ldrBuffer",
+      "format": "rgba8unorm",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    }
+  ],
+  "passes": [
+    {
+      "name": "01_Shadows",
+      "type": "raster",
+      "inputs": [],
+      "outputs": ["shadowMap"],
+      "viewType": "shadow",
+      "depthLoadOp": "clear",
+      "queueTags": ["shadow_caster"]
+    },
+    {
+      "name": "02_Opaques",
+      "type": "raster",
+      "inputs": ["shadowMap"],
+      "outputs": ["sceneColor", "sceneDepth", "normalBuffer"],
+      "viewType": "main",
+      "queueTags": ["opaque"],
+      "colorLoadOp": "clear",
+      "depthLoadOp": "clear",
+      "clearColor": { "r": 0.02, "g": 0.02, "b": 0.02, "a": 1.0 }
+    },
+    {
+      "name": "02b_Decals",
+      "type": "decal",
+      "inputs": ["sceneDepth"],
+      "outputs": ["sceneColor"],
+      "shaderPath": "/shaders/core/decal.wgsl"
+    },
+    {
+      "name": "03_Skybox",
+      "type": "raster",
+      "inputs": [],
+      "outputs": ["sceneColor", "sceneDepth"],
+      "viewType": "main",
+      "builtInPipeline": "skybox",
+      "colorLoadOp": "load",
+      "depthLoadOp": "load",
+      "vertexCount": 36,
+      "skyboxParams": {
+        "sunSize": 0.05,
+        "sunBloom": 1.0,
+        "starsThreshold": 0.995,
+        "timeOfDay": 12.0,
+        "clouds": { "density": 0.5, "scale": 2.5, "speed": 0.05, "brightness": 1.0 },
+        "gradientStops": [
+          { "offset": 0.0, "color": [0.62, 0.62, 0.64] },
+          { "offset": 0.5, "color": [0.82, 0.82, 0.84] },
+          { "offset": 1.0, "color": [0.9, 0.9, 0.92] }
+        ]
+      }
+    },
+    {
+      "name": "03b_CopySceneForRefraction",
+      "type": "copy-texture",
+      "inputs": ["sceneColor"],
+      "outputs": ["sceneColorRefract"]
+    },
+    {
+      "name": "04_Transparents",
+      "type": "raster",
+      "inputs": ["shadowMap", "sceneColorRefract"],
+      "outputs": ["sceneColor", "sceneDepth", "normalBuffer"],
+      "viewType": "main",
+      "queueTags": ["transparent"],
+      "colorLoadOp": "load",
+      "depthLoadOp": "load"
+    },
+    {
+      "name": "04b_HBAO",
+      "type": "fullscreen",
+      "inputs": ["sceneDepth", "normalBuffer"],
+      "outputs": ["hbaoRaw"],
+      "outputFormat": "r8unorm",
+      "shaderPath": "/shaders/post-processing/hbao.frag.wgsl",
+      "useFrameUniforms": true,
+      "uniforms": {
+        "hbaoParams": { "type": "struct", "value": [0.085, 1.7, 0.05, 8.0] }
+      }
+    },
+    {
+      "name": "04c_HBAO_Blur",
+      "type": "fullscreen",
+      "inputs": ["sceneDepth", "hbaoRaw"],
+      "outputs": ["hbaoBlurred"],
+      "outputFormat": "r8unorm",
+      "shaderPath": "/shaders/post-processing/hbao_blur.frag.wgsl",
+      "useFrameUniforms": true,
+      "uniforms": {
+        "blurParams": { "type": "struct", "value": [12.0, 0.0, 0.0, 0.0] }
+      }
+    },
+    {
+      "name": "04d_HBAO_Apply",
+      "type": "fullscreen",
+      "inputs": ["sceneColor", "hbaoBlurred"],
+      "outputs": ["aoSceneColor"],
+      "outputFormat": "rgba16float",
+      "shaderPath": "/shaders/post-processing/hbao_apply.frag.wgsl"
+    },
+    {
+      "name": "05_SSR_Floor",
+      "type": "fullscreen",
+      "useFrameUniforms": true,
+      "inputs": ["aoSceneColor", "sceneDepth", "normalBuffer"],
+      "outputs": ["ssrBuffer"],
+      "shaderPath": "/shaders/post-processing/ssr_floor.frag.wgsl",
+      "uniforms": {
+        "params": { "type": "struct", "value": [1.0, 256.0, 0.018, 0.72] }
+      }
+    },
+    {
+      "name": "05b_SSR_Composite",
+      "type": "fullscreen",
+      "inputs": ["aoSceneColor", "ssrBuffer"],
+      "outputs": ["sceneColorSsr"],
+      "shaderPath": "/shaders/post-processing/ssr_composite.frag.wgsl"
+    },
+    {
+      "name": "06_Bright",
+      "type": "fullscreen",
+      "inputs": ["sceneColorSsr"],
+      "outputs": ["bloomTexture"],
+      "shaderPath": "/shaders/post-processing/bright.frag.wgsl",
+      "uniforms": { "threshold": { "type": "f32", "value": 8.0 } }
+    },
+    {
+      "name": "06b_BlurH",
+      "type": "fullscreen",
+      "inputs": ["bloomTexture"],
+      "outputs": ["bloomPing"],
+      "shaderPath": "/shaders/post-processing/blur_h.frag.wgsl",
+      "uniforms": {
+        "radius": { "type": "f32", "value": 1.15 },
+        "resolution": { "type": "vec2f", "value": [960, 540] }
+      }
+    },
+    {
+      "name": "06c_BlurV",
+      "type": "fullscreen",
+      "inputs": ["bloomPing"],
+      "outputs": ["bloomTexture"],
+      "shaderPath": "/shaders/post-processing/blur_v.frag.wgsl",
+      "uniforms": {
+        "radius": { "type": "f32", "value": 1.15 },
+        "resolution": { "type": "vec2f", "value": [960, 540] }
+      }
+    },
+    {
+      "name": "06d_BloomAdd",
+      "type": "fullscreen",
+      "inputs": ["sceneColorSsr", "bloomTexture"],
+      "outputs": ["bloomScene"],
+      "shaderPath": "/shaders/post-processing/bloom_add.frag.wgsl",
+      "uniforms": { "intensity": { "type": "f32", "value": 0.55 } }
+    },
+    {
+      "name": "Tone Mapping & Output",
+      "type": "fullscreen",
+      "inputs": ["bloomScene"],
+      "outputs": ["ldrBuffer"],
+      "outputFormat": "rgba8unorm",
+      "shaderPath": "/shaders/post-processing/tonemapping.frag.wgsl",
+      "uniforms": { "exposure": { "type": "f32", "value": 1.0 } }
+    },
+    {
+      "name": "Debug Lines Pass",
+      "type": "raster",
+      "inputs": ["sceneDepth"],
+      "outputs": ["ldrBuffer"],
+      "viewType": "main",
+      "colorLoadOp": "load",
+      "depthLoadOp": "load",
+      "builtInPipeline": "debug"
+    },
+    {
+      "name": "07_FXAA",
+      "type": "fullscreen",
+      "inputs": ["ldrBuffer"],
+      "outputs": ["FINAL_OUTPUT"],
+      "shaderPath": "/shaders/post-processing/fxaa.frag.wgsl"
+    }
+  ]
+}

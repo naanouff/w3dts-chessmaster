@@ -1,0 +1,1268 @@
+{
+  "id": "MarbleProceduralPBR",
+  "properties": {
+    "seed": {
+      "name": "Seed",
+      "type": "f32",
+      "defaultValue": 11
+    },
+    "triplanarScale": {
+      "name": "Triplanar Scale",
+      "type": "f32",
+      "defaultValue": 2.4
+    },
+    "aoStrength": {
+      "name": "AO Strength",
+      "type": "f32",
+      "defaultValue": 0.22
+    },
+    "heightInfluence": {
+      "name": "Height Roughness",
+      "type": "f32",
+      "defaultValue": 0.02
+    },
+    "normalDetailScale": {
+      "name": "Normal Detail Scale",
+      "type": "f32",
+      "defaultValue": 0
+    },
+    "baseColor": {
+      "name": "Marble Color",
+      "type": "vec3f",
+      "defaultValue": [
+        0.84,
+        0.78,
+        0.68
+      ]
+    },
+    "accentColor": {
+      "name": "Rust Vein",
+      "type": "vec3f",
+      "defaultValue": [
+        0.45,
+        0.28,
+        0.2
+      ]
+    },
+    "wearColor": {
+      "name": "Grey Vein",
+      "type": "vec3f",
+      "defaultValue": [
+        0.4,
+        0.38,
+        0.36
+      ]
+    },
+    "edgeWear": {
+      "name": "Edge Wear",
+      "type": "f32",
+      "defaultValue": 0.04
+    },
+    "roughness": {
+      "name": "Roughness",
+      "type": "f32",
+      "defaultValue": 0.22
+    },
+    "metallic": {
+      "name": "Metallic",
+      "type": "f32",
+      "defaultValue": 0
+    },
+    "opacity": {
+      "name": "Opacity",
+      "type": "f32",
+      "defaultValue": 1
+    }
+  },
+  "nodes": [
+    {
+      "id": "pbr_master",
+      "type": "PBRMasterNode",
+      "stage": "fragment",
+      "position": {
+        "x": 1680,
+        "y": 200
+      },
+      "inputs": [
+        {
+          "id": "albedo",
+          "name": "Albedo",
+          "dataType": "vec4f"
+        },
+        {
+          "id": "opacity",
+          "name": "Opacity",
+          "dataType": "f32"
+        },
+        {
+          "id": "normal",
+          "name": "Normal",
+          "dataType": "vec3f"
+        },
+        {
+          "id": "roughness_factor",
+          "name": "Roughness F",
+          "dataType": "f32"
+        },
+        {
+          "id": "metallic_factor",
+          "name": "Metallic F",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "id": "obj_pos",
+      "type": "GetObjectPosition",
+      "stage": "fragment",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "pos",
+          "name": "Position",
+          "dataType": "vec3f"
+        }
+      ]
+    },
+    {
+      "id": "prop_scale",
+      "type": "Property",
+      "stage": "fragment",
+      "position": {
+        "x": 180,
+        "y": 80
+      },
+      "data": {
+        "propertyName": "triplanarScale"
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "prop_seed",
+      "type": "Property",
+      "stage": "fragment",
+      "position": {
+        "x": 180,
+        "y": 160
+      },
+      "data": {
+        "propertyName": "seed"
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "marble_fn",
+      "type": "CustomFunction",
+      "stage": "fragment",
+      "position": {
+        "x": 380,
+        "y": 40
+      },
+      "data": {
+        "functionName": "marble_look"
+      },
+      "inputs": [
+        {
+          "id": "pos",
+          "name": "Position",
+          "dataType": "vec3f"
+        },
+        {
+          "id": "seed",
+          "name": "Seed",
+          "dataType": "f32"
+        },
+        {
+          "id": "scale",
+          "name": "Scale",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Look",
+          "dataType": "vec4f"
+        }
+      ]
+    },
+    {
+      "id": "split_mar",
+      "type": "SplitVec4",
+      "stage": "fragment",
+      "position": {
+        "x": 560,
+        "y": 40
+      },
+      "inputs": [
+        {
+          "id": "in",
+          "name": "In",
+          "dataType": "vec4f"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "x",
+          "name": "Rust",
+          "dataType": "f32"
+        },
+        {
+          "id": "y",
+          "name": "Grey",
+          "dataType": "f32"
+        },
+        {
+          "id": "z",
+          "name": "Cloud",
+          "dataType": "f32"
+        },
+        {
+          "id": "w",
+          "name": "Rough",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "vertex_color",
+      "type": "VertexColor",
+      "stage": "fragment",
+      "position": {
+        "x": 0,
+        "y": 280
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "color",
+          "name": "Color",
+          "dataType": "vec4f"
+        }
+      ]
+    },
+    {
+      "id": "mesh_maps",
+      "type": "MeshMaps",
+      "stage": "fragment",
+      "position": {
+        "x": 220,
+        "y": 280
+      },
+      "inputs": [
+        {
+          "id": "color",
+          "name": "Vertex Color",
+          "dataType": "vec4f"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "concavity",
+          "name": "Concavity",
+          "dataType": "f32"
+        },
+        {
+          "id": "convexity",
+          "name": "Convexity",
+          "dataType": "f32"
+        },
+        {
+          "id": "ao",
+          "name": "AO",
+          "dataType": "f32"
+        },
+        {
+          "id": "height",
+          "name": "Height",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "world_n",
+      "type": "GetWorldNormal",
+      "stage": "fragment",
+      "position": {
+        "x": 0,
+        "y": 520
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "norm",
+          "name": "Normal",
+          "dataType": "vec3f"
+        }
+      ]
+    },
+    {
+      "id": "prop_base",
+      "type": "Property",
+      "stage": "fragment",
+      "position": {
+        "x": 760,
+        "y": 160
+      },
+      "data": {
+        "propertyName": "baseColor"
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "vec3f"
+        }
+      ]
+    },
+    {
+      "id": "prop_accent",
+      "type": "Property",
+      "stage": "fragment",
+      "position": {
+        "x": 760,
+        "y": 240
+      },
+      "data": {
+        "propertyName": "accentColor"
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "vec3f"
+        }
+      ]
+    },
+    {
+      "id": "prop_wear",
+      "type": "Property",
+      "stage": "fragment",
+      "position": {
+        "x": 760,
+        "y": 320
+      },
+      "data": {
+        "propertyName": "wearColor"
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "vec3f"
+        }
+      ]
+    },
+    {
+      "id": "cloud_k",
+      "type": "ConstantFloat",
+      "stage": "fragment",
+      "position": {
+        "x": 760,
+        "y": 400
+      },
+      "data": {
+        "value": 0.22
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "cloud_amt",
+      "type": "Multiply",
+      "stage": "fragment",
+      "position": {
+        "x": 980,
+        "y": 120
+      },
+      "inputs": [
+        {
+          "id": "a",
+          "name": "A",
+          "dataType": "f32"
+        },
+        {
+          "id": "b",
+          "name": "B",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "lerp_cloud",
+      "type": "Lerp",
+      "stage": "fragment",
+      "position": {
+        "x": 1140,
+        "y": 80
+      },
+      "inputs": [
+        {
+          "id": "a",
+          "name": "A",
+          "dataType": "vec3f"
+        },
+        {
+          "id": "b",
+          "name": "B",
+          "dataType": "vec3f"
+        },
+        {
+          "id": "t",
+          "name": "T",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "vec3f"
+        }
+      ]
+    },
+    {
+      "id": "lerp_grey",
+      "type": "Lerp",
+      "stage": "fragment",
+      "position": {
+        "x": 1140,
+        "y": 200
+      },
+      "inputs": [
+        {
+          "id": "a",
+          "name": "A",
+          "dataType": "vec3f"
+        },
+        {
+          "id": "b",
+          "name": "B",
+          "dataType": "vec3f"
+        },
+        {
+          "id": "t",
+          "name": "T",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "vec3f"
+        }
+      ]
+    },
+    {
+      "id": "lerp_rust",
+      "type": "Lerp",
+      "stage": "fragment",
+      "position": {
+        "x": 1140,
+        "y": 320
+      },
+      "inputs": [
+        {
+          "id": "a",
+          "name": "A",
+          "dataType": "vec3f"
+        },
+        {
+          "id": "b",
+          "name": "B",
+          "dataType": "vec3f"
+        },
+        {
+          "id": "t",
+          "name": "T",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "vec3f"
+        }
+      ]
+    },
+    {
+      "id": "prop_ao_str",
+      "type": "Property",
+      "stage": "fragment",
+      "position": {
+        "x": 1140,
+        "y": 440
+      },
+      "data": {
+        "propertyName": "aoStrength"
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "one",
+      "type": "ConstantFloat",
+      "stage": "fragment",
+      "position": {
+        "x": 1140,
+        "y": 520
+      },
+      "data": {
+        "value": 1
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "ao_mix",
+      "type": "Lerp",
+      "stage": "fragment",
+      "position": {
+        "x": 1320,
+        "y": 400
+      },
+      "inputs": [
+        {
+          "id": "a",
+          "name": "A",
+          "dataType": "f32"
+        },
+        {
+          "id": "b",
+          "name": "B",
+          "dataType": "f32"
+        },
+        {
+          "id": "t",
+          "name": "T",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "mul_ao_color",
+      "type": "Multiply",
+      "stage": "fragment",
+      "position": {
+        "x": 1480,
+        "y": 200
+      },
+      "inputs": [
+        {
+          "id": "a",
+          "name": "A",
+          "dataType": "vec3f"
+        },
+        {
+          "id": "b",
+          "name": "B",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "vec3f"
+        }
+      ]
+    },
+    {
+      "id": "prop_edge",
+      "type": "Property",
+      "stage": "fragment",
+      "position": {
+        "x": 1140,
+        "y": 600
+      },
+      "data": {
+        "propertyName": "edgeWear"
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "wear_amt",
+      "type": "Multiply",
+      "stage": "fragment",
+      "position": {
+        "x": 1320,
+        "y": 560
+      },
+      "inputs": [
+        {
+          "id": "a",
+          "name": "A",
+          "dataType": "f32"
+        },
+        {
+          "id": "b",
+          "name": "B",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "lerp_wear",
+      "type": "Lerp",
+      "stage": "fragment",
+      "position": {
+        "x": 1480,
+        "y": 320
+      },
+      "inputs": [
+        {
+          "id": "a",
+          "name": "A",
+          "dataType": "vec3f"
+        },
+        {
+          "id": "b",
+          "name": "B",
+          "dataType": "vec3f"
+        },
+        {
+          "id": "t",
+          "name": "T",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "vec3f"
+        }
+      ]
+    },
+    {
+      "id": "split_alb",
+      "type": "SplitVec3",
+      "stage": "fragment",
+      "position": {
+        "x": 1480,
+        "y": 80
+      },
+      "inputs": [
+        {
+          "id": "in",
+          "name": "In",
+          "dataType": "vec3f"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "x",
+          "name": "X",
+          "dataType": "f32"
+        },
+        {
+          "id": "y",
+          "name": "Y",
+          "dataType": "f32"
+        },
+        {
+          "id": "z",
+          "name": "Z",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "prop_opacity",
+      "type": "Property",
+      "stage": "fragment",
+      "position": {
+        "x": 1480,
+        "y": 640
+      },
+      "data": {
+        "propertyName": "opacity"
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "alb_rgba",
+      "type": "Combine",
+      "stage": "fragment",
+      "position": {
+        "x": 1600,
+        "y": 80
+      },
+      "inputs": [
+        {
+          "id": "r",
+          "name": "R",
+          "dataType": "f32"
+        },
+        {
+          "id": "g",
+          "name": "G",
+          "dataType": "f32"
+        },
+        {
+          "id": "b",
+          "name": "B",
+          "dataType": "f32"
+        },
+        {
+          "id": "a",
+          "name": "A",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "vec4f"
+        }
+      ]
+    },
+    {
+      "id": "prop_rough",
+      "type": "Property",
+      "stage": "fragment",
+      "position": {
+        "x": 1140,
+        "y": 720
+      },
+      "data": {
+        "propertyName": "roughness"
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "add_rough",
+      "type": "Add",
+      "stage": "fragment",
+      "position": {
+        "x": 1320,
+        "y": 720
+      },
+      "inputs": [
+        {
+          "id": "a",
+          "name": "A",
+          "dataType": "f32"
+        },
+        {
+          "id": "b",
+          "name": "B",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "cavity_k",
+      "type": "ConstantFloat",
+      "stage": "fragment",
+      "position": {
+        "x": 1140,
+        "y": 840
+      },
+      "data": {
+        "value": 0.08
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "cavity_rough",
+      "type": "Multiply",
+      "stage": "fragment",
+      "position": {
+        "x": 1320,
+        "y": 800
+      },
+      "inputs": [
+        {
+          "id": "a",
+          "name": "A",
+          "dataType": "f32"
+        },
+        {
+          "id": "b",
+          "name": "B",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "add_cavity_r",
+      "type": "Add",
+      "stage": "fragment",
+      "position": {
+        "x": 1480,
+        "y": 720
+      },
+      "inputs": [
+        {
+          "id": "a",
+          "name": "A",
+          "dataType": "f32"
+        },
+        {
+          "id": "b",
+          "name": "B",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "clamp_rough",
+      "type": "Clamp",
+      "stage": "fragment",
+      "position": {
+        "x": 1600,
+        "y": 720
+      },
+      "inputs": [
+        {
+          "id": "in",
+          "name": "In",
+          "dataType": "f32"
+        },
+        {
+          "id": "min",
+          "name": "Min",
+          "dataType": "f32"
+        },
+        {
+          "id": "max",
+          "name": "Max",
+          "dataType": "f32"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "zero",
+      "type": "ConstantFloat",
+      "stage": "fragment",
+      "position": {
+        "x": 1480,
+        "y": 880
+      },
+      "data": {
+        "value": 0
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    },
+    {
+      "id": "prop_metal",
+      "type": "Property",
+      "stage": "fragment",
+      "position": {
+        "x": 1480,
+        "y": 960
+      },
+      "data": {
+        "propertyName": "metallic"
+      },
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "out",
+          "name": "Out",
+          "dataType": "f32"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "fromNodeId": "obj_pos",
+      "fromSocketId": "pos",
+      "toNodeId": "marble_fn",
+      "toSocketId": "pos"
+    },
+    {
+      "fromNodeId": "prop_seed",
+      "fromSocketId": "out",
+      "toNodeId": "marble_fn",
+      "toSocketId": "seed"
+    },
+    {
+      "fromNodeId": "prop_scale",
+      "fromSocketId": "out",
+      "toNodeId": "marble_fn",
+      "toSocketId": "scale"
+    },
+    {
+      "fromNodeId": "marble_fn",
+      "fromSocketId": "out",
+      "toNodeId": "split_mar",
+      "toSocketId": "in"
+    },
+    {
+      "fromNodeId": "vertex_color",
+      "fromSocketId": "color",
+      "toNodeId": "mesh_maps",
+      "toSocketId": "color"
+    },
+    {
+      "fromNodeId": "split_mar",
+      "fromSocketId": "z",
+      "toNodeId": "cloud_amt",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "cloud_k",
+      "fromSocketId": "out",
+      "toNodeId": "cloud_amt",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "prop_base",
+      "fromSocketId": "out",
+      "toNodeId": "lerp_cloud",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "prop_wear",
+      "fromSocketId": "out",
+      "toNodeId": "lerp_cloud",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "cloud_amt",
+      "fromSocketId": "out",
+      "toNodeId": "lerp_cloud",
+      "toSocketId": "t"
+    },
+    {
+      "fromNodeId": "lerp_cloud",
+      "fromSocketId": "out",
+      "toNodeId": "lerp_grey",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "prop_wear",
+      "fromSocketId": "out",
+      "toNodeId": "lerp_grey",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "split_mar",
+      "fromSocketId": "y",
+      "toNodeId": "lerp_grey",
+      "toSocketId": "t"
+    },
+    {
+      "fromNodeId": "lerp_grey",
+      "fromSocketId": "out",
+      "toNodeId": "lerp_rust",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "prop_accent",
+      "fromSocketId": "out",
+      "toNodeId": "lerp_rust",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "split_mar",
+      "fromSocketId": "x",
+      "toNodeId": "lerp_rust",
+      "toSocketId": "t"
+    },
+    {
+      "fromNodeId": "one",
+      "fromSocketId": "out",
+      "toNodeId": "ao_mix",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "mesh_maps",
+      "fromSocketId": "ao",
+      "toNodeId": "ao_mix",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "prop_ao_str",
+      "fromSocketId": "out",
+      "toNodeId": "ao_mix",
+      "toSocketId": "t"
+    },
+    {
+      "fromNodeId": "lerp_rust",
+      "fromSocketId": "out",
+      "toNodeId": "mul_ao_color",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "ao_mix",
+      "fromSocketId": "out",
+      "toNodeId": "mul_ao_color",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "mesh_maps",
+      "fromSocketId": "convexity",
+      "toNodeId": "wear_amt",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "prop_edge",
+      "fromSocketId": "out",
+      "toNodeId": "wear_amt",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "mul_ao_color",
+      "fromSocketId": "out",
+      "toNodeId": "lerp_wear",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "prop_base",
+      "fromSocketId": "out",
+      "toNodeId": "lerp_wear",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "wear_amt",
+      "fromSocketId": "out",
+      "toNodeId": "lerp_wear",
+      "toSocketId": "t"
+    },
+    {
+      "fromNodeId": "lerp_wear",
+      "fromSocketId": "out",
+      "toNodeId": "split_alb",
+      "toSocketId": "in"
+    },
+    {
+      "fromNodeId": "split_alb",
+      "fromSocketId": "x",
+      "toNodeId": "alb_rgba",
+      "toSocketId": "r"
+    },
+    {
+      "fromNodeId": "split_alb",
+      "fromSocketId": "y",
+      "toNodeId": "alb_rgba",
+      "toSocketId": "g"
+    },
+    {
+      "fromNodeId": "split_alb",
+      "fromSocketId": "z",
+      "toNodeId": "alb_rgba",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "prop_opacity",
+      "fromSocketId": "out",
+      "toNodeId": "alb_rgba",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "prop_rough",
+      "fromSocketId": "out",
+      "toNodeId": "add_rough",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "split_mar",
+      "fromSocketId": "w",
+      "toNodeId": "add_rough",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "mesh_maps",
+      "fromSocketId": "concavity",
+      "toNodeId": "cavity_rough",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "cavity_k",
+      "fromSocketId": "out",
+      "toNodeId": "cavity_rough",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "add_rough",
+      "fromSocketId": "out",
+      "toNodeId": "add_cavity_r",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "cavity_rough",
+      "fromSocketId": "out",
+      "toNodeId": "add_cavity_r",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "add_cavity_r",
+      "fromSocketId": "out",
+      "toNodeId": "clamp_rough",
+      "toSocketId": "in"
+    },
+    {
+      "fromNodeId": "zero",
+      "fromSocketId": "out",
+      "toNodeId": "clamp_rough",
+      "toSocketId": "min"
+    },
+    {
+      "fromNodeId": "one",
+      "fromSocketId": "out",
+      "toNodeId": "clamp_rough",
+      "toSocketId": "max"
+    },
+    {
+      "fromNodeId": "alb_rgba",
+      "fromSocketId": "out",
+      "toNodeId": "pbr_master",
+      "toSocketId": "albedo"
+    },
+    {
+      "fromNodeId": "prop_opacity",
+      "fromSocketId": "out",
+      "toNodeId": "pbr_master",
+      "toSocketId": "opacity"
+    },
+    {
+      "fromNodeId": "world_n",
+      "fromSocketId": "norm",
+      "toNodeId": "pbr_master",
+      "toSocketId": "normal"
+    },
+    {
+      "fromNodeId": "clamp_rough",
+      "fromSocketId": "out",
+      "toNodeId": "pbr_master",
+      "toSocketId": "roughness_factor"
+    },
+    {
+      "fromNodeId": "prop_metal",
+      "fromSocketId": "out",
+      "toNodeId": "pbr_master",
+      "toSocketId": "metallic_factor"
+    }
+  ]
+}

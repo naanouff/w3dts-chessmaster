@@ -1,0 +1,73 @@
+{
+  "name": "w3dts-chessmaster",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "Cyril TARRIET",
+  "description": "W3DTS ChessMaster — desktop chess client",
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "dist": "electron-vite build && electron-builder --win nsis",
+    "test": "vitest --run",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@naanouff/w3dts-animation": "0.0.14",
+    "@naanouff/w3dts-audio": "0.0.19",
+    "@naanouff/w3dts-core": "0.0.36",
+    "@naanouff/w3dts-gproc": "0.2.8",
+    "@naanouff/w3dts-input": "0.0.21",
+    "@naanouff/w3dts-loader-hdr": "0.0.18",
+    "@naanouff/w3dts-logger": "0.0.22",
+    "@naanouff/w3dts-multiplayer-p2p": "0.0.18",
+    "@naanouff/w3dts-physics": "0.0.28",
+    "chessops": "^0.14.2",
+    "gl-matrix": "^3.4.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.4.1",
+    "@webgpu/types": "^0.1.60",
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^3.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^5.4.21",
+    "vitest": "^3.2.7"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["electron", "electron-winstaller", "esbuild"]
+  },
+  "build": {
+    "appId": "com.naanouff.w3dts.chessmaster",
+    "productName": "W3DTS ChessMaster",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "asar": true,
+    "win": {
+      "target": ["nsis"]
+    },
+    "mac": {
+      "target": ["dmg"]
+    },
+    "linux": {
+      "target": ["AppImage"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
