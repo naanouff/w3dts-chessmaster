@@ -6,3 +6,6 @@ docs/api
 *.log
 .DS_Store
 public/models/chess/
+docs/raw_assets/**/*.blend
+docs/raw_assets/**/*.blend1
+docs/raw_assets/**/*.glb
