@@ -11,7 +11,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "dist": "electron-vite build && electron-builder --win nsis",
+    "dist": "electron-vite build && electron-builder --win nsis --publish never",
     "test": "vitest --run",
     "docs": "typedoc",
     "bake:piece-textures": "node scripts/bake-piece-textures.mjs",
