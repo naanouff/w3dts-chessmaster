@@ -21,8 +21,6 @@ struct LightData {
     
     // x=innerCos or area width, y=outerCos or area height, z=shadowIndex, w=padding
     params: vec4<f32>,
-    // xyz = area width axis (unit), w = shape (0 rectangle, 1 disk). Zero for punctual lights.
-    tangentAndShape: vec4<f32>,
 };
 
 struct LightBuffer {
@@ -50,13 +48,14 @@ struct FrameUniforms {
 };
 
 struct ShadowUniforms {
-    matrices: array<mat4x4<f32>, 16>,
+    // Engine 0.0.36 packs 8 shadow matrices (512 bytes). A 16-wide array
+    // makes the uniform 1024 bytes and the opaque pass is rejected.
+    matrices: array<mat4x4<f32>, 8>,
 };
 
 // --- BINDINGS GLOBAUX ---
 @group(0) @binding(0) var<uniform> frame: FrameUniforms;
-@group(0) @binding(1) var<storage, read> sceneLights: LightBuffer;
-@group(0) @binding(2) var<storage, read> lightClusters: array<u32>; 
+@group(0) @binding(1) var<storage, read> sceneLights: LightBuffer; 
 
 @group(1) @binding(0) var textureSampler: sampler;
 

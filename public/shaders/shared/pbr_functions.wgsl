@@ -249,7 +249,7 @@ fn fetchShadow(
     }
     // ---------------------------------------------------------------
 
-    if (finalShadowIndex < 0 || finalShadowIndex >= 16) { return 1.0; }
+    if (finalShadowIndex < 0 || finalShadowIndex >= 8) { return 1.0; }
 
     // Récupération de la matrice correspondante (soit celle du Spot, soit celle de la Cascade active)
     let lightMatrix = shadowData.matrices[finalShadowIndex];

@@ -2,5 +2,7 @@ node_modules
 out
 release
 dist
+docs/api
 *.log
 .DS_Store
+public/models/chess/

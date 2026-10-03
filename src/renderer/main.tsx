@@ -50,11 +50,13 @@ function App(): ReactElement {
   return (
     <>
       <canvas ref={canvasRef} className="cm-canvas" />
+      <img className="cm-logo" src="/brand/w3dts-chessmaster-logo.png" alt="W3DTS ChessMaster" />
       <ChessGameplayHud />
       {version ? <p className="cm-version">{version}</p> : null}
       {error ? (
         <div className="cm-error" role="alert">
           <div>
+            <img className="cm-logo" src="/brand/w3dts-chessmaster-logo.png" alt="" />
             <h1>W3DTS ChessMaster</h1>
             <p>{error}</p>
             <p>This app needs a GPU that exposes WebGPU.</p>

@@ -23,6 +23,7 @@ import {
 } from '../../chess';
 import { chessBus as uiBus } from '../bus';
 import ChessModePicker from './ChessModePicker';
+import ChessGraphicsMenu from './ChessGraphicsMenu';
 
 const GLASS: CSSProperties = {
   background: 'rgba(20, 22, 28, 0.82)',
@@ -214,7 +215,10 @@ export default function ChessGameplayHud(): ReactElement | null {
           <Keycap keys="RMB / wheel" caption="orbit" />
           <Keycap keys="X" caption={resetCaption} />
         </div>
-        <ChessModePicker session={state.session} modeLabel={MODE_LABEL[modeKey]} />
+        <div className="scv-chess-hud-actions">
+          <ChessGraphicsMenu />
+          <ChessModePicker session={state.session} modeLabel={MODE_LABEL[modeKey]} />
+        </div>
       </div>
     </div>
   );

@@ -40,7 +40,7 @@ struct FrameUniforms {
 };
 
 struct ShadowUniforms {
-    matrices: array<mat4x4<f32>, 16>,
+    matrices: array<mat4x4<f32>, 8>,
 };
 
 struct TerrainMorphUniforms {

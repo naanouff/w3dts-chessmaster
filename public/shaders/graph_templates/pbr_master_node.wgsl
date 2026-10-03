@@ -185,18 +185,8 @@ let sheenRoughness = clamp(material.sheenRoughnessFactor * sheenRoughTex, 0.0, 1
 // [[PBR_STRIP:e:khr_sheen]]
 // Note: NdotV est déjà déclaré section 3, on ne le redéclare pas.
 
-let clTilesX = max(lightClusters[0u], 1u);
-let clTilesY = max(lightClusters[1u], 1u);
-let clTileSize = max(lightClusters[2u], 1u);
-let clMaxPer = lightClusters[3u];
-let clPx = vec2<u32>(input.clip_position.xy);
-let clTx = min(clPx.x / clTileSize, clTilesX - 1u);
-let clTy = min(clPx.y / clTileSize, clTilesY - 1u);
-let clTile = clTy * clTilesX + clTx;
-let clBase = 4u + clTile * (1u + clMaxPer);
-let clCount = lightClusters[clBase];
-for (var clSlot: u32 = 0u; clSlot < clCount; clSlot = clSlot + 1u) {
-    let i = lightClusters[clBase + 1u + clSlot];
+let lightCount = sceneLights.lightCount;
+for (var i: u32 = 0u; i < lightCount; i = i + 1u) {
     let rawLight = sceneLights.lights[i];
 
     // --- DÉPAQUETAGE DES DONNÉES (Unpack) ---
@@ -216,46 +206,8 @@ for (var clSlot: u32 = 0u; clSlot < clCount; clSlot = clSlot + 1u) {
     let outerConeCos = rawLight.params.y;
 
     if (lightType == 3u) {
-        let tangent = rawLight.tangentAndShape.xyz;
-        let halfW = tangent * (innerConeCos * 0.5);
-        let halfH = cross(tangent, direction) * (outerConeCos * 0.5);
-        var poly: array<vec3<f32>, 8>;
-        for (var z: i32 = 0; z < 8; z = z + 1) {
-            poly[z] = vec3<f32>(0.0);
-        }
-        var polyCount: i32 = 4;
-        if (rawLight.tangentAndShape.w > 0.5) {
-            polyCount = 8;
-            for (var k: i32 = 0; k < 8; k = k + 1) {
-                let ang = -0.78539816339 - f32(k) * 0.78539816339;
-                poly[k] = position + halfW * cos(ang) + halfH * sin(ang);
-            }
-        } else {
-            poly[0] = position + halfW - halfH;
-            poly[1] = position - halfW - halfH;
-            poly[2] = position - halfW + halfH;
-            poly[3] = position + halfW + halfH;
-        }
-        let uvLtc = ltcUv(N, V, roughness);
-        let t1 = ltcSample(ltcMat, uvLtc);
-        let t2 = ltcSample(ltcAmp, uvLtc);
-        let mInv = mat3x3<f32>(
-            vec3<f32>(t1.x, 0.0, t1.y),
-            vec3<f32>(0.0, 1.0, 0.0),
-            vec3<f32>(t1.z, 0.0, t1.w)
-        );
-        let identityLtc = mat3x3<f32>(
-            vec3<f32>(1.0, 0.0, 0.0),
-            vec3<f32>(0.0, 1.0, 0.0),
-            vec3<f32>(0.0, 0.0, 1.0)
-        );
-        let diffuseFf = ltcEvaluate(N, V, input.world_position, identityLtc, poly, polyCount);
-        let specFf = ltcEvaluate(N, V, input.world_position, mInv, poly, polyCount);
-        let specColor = mix(vec3<f32>(0.04), albedo, metallic);
-        let fresnelLtc = specColor * t2.x + (vec3<f32>(1.0) - specColor) * t2.y;
-        let areaRadiance = color * intensity;
-        totalDirectDiffuse += albedo * (1.0 - metallic) * areaRadiance * diffuseFf;
-        totalDirectSpecular += areaRadiance * fresnelLtc * specFf;
+        // Area lights need the LTC LUTs ltcMat / ltcAmp. Those textures are not
+        // bound in this client, and referencing them fails shader compilation.
         continue;
     }
 
@@ -509,28 +461,6 @@ if (anisotropy != 0.0) {
 
 const MAX_REFLECTION_LOD: f32 = 4.0;
 var prefilteredColor = textureSampleLevel(prefilterMap, iblSampler, R_vec, roughnessIbl * MAX_REFLECTION_LOD).rgb;
-// [[PBR_PROBE_BLEND]]
-var probeIrradianceSum = vec3<f32>(0.0);
-var probeSpecularSum = vec3<f32>(0.0);
-var probeWeightSum = 0.0;
-for (var pi: u32 = 0u; pi < min(reflectionProbes.count, 4u); pi = pi + 1u) {
-    let pr = reflectionProbes.probes[pi];
-    let pw = reflectionProbeWeight(input.world_position, pr.centerRadius.xyz, pr.centerRadius.w, pr.boxHalf.xyz);
-    let useBox = pr.boxHalf.x > 1e-3;
-    let dirN = select(N, boxParallaxDir(N, input.world_position, pr.centerRadius.xyz, pr.boxHalf.xyz), useBox);
-    let dirR = select(R_vec, boxParallaxDir(R_vec, input.world_position, pr.centerRadius.xyz, pr.boxHalf.xyz), useBox);
-    // textureSample is illegal in non-uniform control flow; level 0 is the irradiance map.
-    probeIrradianceSum += textureSampleLevel(probeIrradiance, iblSampler, dirN, i32(pi), 0.0).rgb * pw;
-    probeSpecularSum += textureSampleLevel(probePrefilter, iblSampler, dirR, i32(pi), roughnessIbl * MAX_REFLECTION_LOD).rgb * pw;
-    probeWeightSum += pw;
-}
-if (probeWeightSum > 1e-4) {
-    let blend = saturate(probeWeightSum);
-    irradiance = mix(irradiance, probeIrradianceSum / probeWeightSum, blend);
-    prefilteredColor = mix(prefilteredColor, probeSpecularSum / probeWeightSum, blend);
-    diffuseIBL = irradiance * albedo * (1.0 - dtAmt);
-}
-// [[/PBR_PROBE_BLEND]]
 let specularIBL = prefilteredColor * FssEss;
 // Clearcoat IBL follows clearcoat normal Nc (MultiTest Clearcoat Normal). Keep a stable
 // face-on intensity so clearcoatTexture checkmarks stay readable (pure F0=0.04 is too dim).
