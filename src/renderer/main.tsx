@@ -11,7 +11,6 @@ import ChessShell from './shell/ChessShell';
 function App(): ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [version, setVersion] = useState('');
   const [studioReady, setStudioReady] = useState(false);
 
   useEffect(() => {
@@ -38,10 +37,8 @@ function App(): ReactElement {
           throw new Error('WebGPU is not available in this window.');
         }
         await startChessHost(canvas);
-        const appVersion = await window.chessMaster?.version();
         if (cancelled) return;
         setStudioReady(true);
-        if (appVersion) setVersion(appVersion);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : String(err));
@@ -59,7 +56,6 @@ function App(): ReactElement {
       <canvas ref={canvasRef} className="cm-canvas" />
       <ChessGameplayHud />
       <ChessShell studioReady={studioReady} />
-      {version ? <p className="cm-version">{version}</p> : null}
       {error ? (
         <div className="cm-error" role="alert">
           <div>

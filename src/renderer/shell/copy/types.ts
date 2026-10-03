@@ -39,6 +39,13 @@ export interface ShellCopy {
   play: string;
   ranks: string;
   options: string;
+  about: string;
+  aboutVersion: string;
+  aboutNote: string;
+  aboutNoteMissing: string;
+  aboutCredits: string;
+  aboutCopyright: string;
+  aboutProprietary: string;
   settings: string;
   settingsHint: string;
   modes: string;

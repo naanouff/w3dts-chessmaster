@@ -148,10 +148,25 @@
   text-align: left;
 }
 
+.shell .sheet-head h1 {
+  white-space: nowrap;
+}
+
 .shell .sheet-head .ghost {
   width: auto;
   margin: 0;
   flex: none;
+}
+
+.shell .about-version {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.shell .about-note {
+  margin: 0;
+  white-space: pre-line;
 }
 
 .shell .sheet-section {
@@ -242,6 +257,9 @@
 }
 
 .shell .text-links button {
+  width: auto;
+  flex: none;
+  white-space: nowrap;
   background: transparent;
   border: 0;
   color: var(--ink);

@@ -17,7 +17,8 @@ export type ShellScreen =
   | 'pause'
   | 'options'
   | 'parametres'
-  | 'classements';
+  | 'classements'
+  | 'propos';
 
 export type ShellMode = 'cpu' | 'hotseat' | 'local' | 'online' | 'learn';
 
