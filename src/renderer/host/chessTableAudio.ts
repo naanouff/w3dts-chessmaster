@@ -102,6 +102,33 @@ export async function installChessTableClips(audio: WebAudioService): Promise<vo
   }
 }
 
+/**
+ * Scales a clip gain by a 0–100 preference.
+ * @param base - Authored gain.
+ * @param percent - Player setting.
+ */
+export function chessMixVolume(base: number, percent: number): number {
+  const scale = Math.min(100, Math.max(0, percent)) / 100;
+  return base * scale;
+}
+
+let sfxPercent = 80;
+let ambiencePercent = 40;
+
+/** Remembers the shell sliders. The next clip uses them. */
+export function setChessAudioLevels(sfx: number, ambience: number): void {
+  sfxPercent = Math.min(100, Math.max(0, sfx));
+  ambiencePercent = Math.min(100, Math.max(0, ambience));
+}
+
+export function chessSfxGain(id: ChessTableSfxId): number {
+  return chessMixVolume(CHESS_SFX_VOLUME[id], sfxPercent);
+}
+
+export function chessAmbienceGain(): number {
+  return chessMixVolume(CHESS_AMBIENCE_VOLUME, ambiencePercent);
+}
+
 export const CHESS_AMBIENCE_VOLUME = 0.045;
 export const CHESS_SFX_VOLUME: Record<ChessTableSfxId, number> = {
   drop: 0.55,

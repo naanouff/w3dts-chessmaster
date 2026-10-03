@@ -6,11 +6,13 @@ import './app.css';
 import './chess-hud.css';
 import { startChessHost } from './startChessHost';
 import ChessGameplayHud from './ui/ChessGameplayHud';
+import ChessShell from './shell/ChessShell';
 
 function App(): ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState('');
+  const [studioReady, setStudioReady] = useState(false);
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('chessPeer') === '1') return;
@@ -37,9 +39,14 @@ function App(): ReactElement {
         }
         await startChessHost(canvas);
         const appVersion = await window.chessMaster?.version();
-        if (!cancelled && appVersion) setVersion(appVersion);
+        if (cancelled) return;
+        setStudioReady(true);
+        if (appVersion) setVersion(appVersion);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+          setStudioReady(true);
+        }
       }
     })();
     return () => {
@@ -50,8 +57,8 @@ function App(): ReactElement {
   return (
     <>
       <canvas ref={canvasRef} className="cm-canvas" />
-      <img className="cm-logo" src="/brand/w3dts-chessmaster-logo.png" alt="W3DTS ChessMaster" />
       <ChessGameplayHud />
+      <ChessShell studioReady={studioReady} />
       {version ? <p className="cm-version">{version}</p> : null}
       {error ? (
         <div className="cm-error" role="alert">

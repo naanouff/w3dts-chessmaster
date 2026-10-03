@@ -15,6 +15,19 @@ export interface ChessDemoQuery {
   localColor: ChessColor;
   eco?: string;
   quiz: boolean;
+  /** Heuristic depth for a CPU session. Absent means the project default. */
+  cpuDepth?: number;
+}
+
+/**
+ * Search depth for the heuristic opponent.
+ * Levels above 3 stay at 3 so one move cannot freeze the frame.
+ * @param level - Slider step, usually 1 through 5.
+ * @returns Depth passed to `HeuristicChessEngine`.
+ */
+export function cpuSearchDepth(level: number): number {
+  if (!Number.isFinite(level)) return 2;
+  return Math.min(3, Math.max(1, Math.floor(level)));
 }
 
 export function parseChessDemoQuery(search: string): ChessDemoQuery {
@@ -61,11 +74,13 @@ export function parseChessDemoSession(raw: unknown): ChessDemoQuery | null {
   const colorRaw = typeof rec.localColor === 'string' ? rec.localColor.toLowerCase() : 'white';
   const localColor: ChessColor = colorRaw === 'black' ? 'black' : 'white';
   const ecoRaw = typeof rec.eco === 'string' ? rec.eco.trim() : '';
+  const cpuDepth = typeof rec.cpuDepth === 'number' ? cpuSearchDepth(rec.cpuDepth) : undefined;
   return {
     mode,
     localColor,
     ...(ecoRaw ? { eco: ecoRaw } : {}),
     quiz: rec.quiz === true,
+    ...(cpuDepth !== undefined ? { cpuDepth } : {}),
   };
 }
 

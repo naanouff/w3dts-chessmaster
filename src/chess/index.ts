@@ -19,6 +19,7 @@ export {
 export type { ChessWireMessage, ChessFenSyncDecision } from './net/chessWire';
 export {
   parseChessDemoQuery,
+  cpuSearchDepth,
   formatChessClock,
   parseChessDemoSession,
   mergeChessDemoQueryIntoSearch,

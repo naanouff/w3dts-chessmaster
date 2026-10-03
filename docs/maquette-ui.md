@@ -2,7 +2,9 @@
 
 Le plateau 3D reste le décor. Les menus sont des cartes en verre par-dessus, pas un site à part. L’assistant et le salon en ligne font partie du parcours, au même titre que les modes déjà jouables.
 
-La maquette cliquable vit dans [docs/mockup](mockup/index.html). Le sprint qui la produit est [CHESS-B8](sprints/CHESS-B8.md). Elle ne remplace pas le HUD du client.
+La maquette cliquable vit dans [docs/mockup](mockup/index.html). Le sprint qui la produit est [CHESS-B8](sprints/CHESS-B8.md). Le branchement dans le client est décrit dans [docs/shell-client.md](shell-client.md) et découpé dans [CHESS-B10](sprints/CHESS-B10.md).
+
+Un écran nouveau ou modifié se valide d’abord dans cette maquette. Le client ne le reçoit qu’après cette validation.
 
 Langue de l’interface : français. Le blason [`public/brand/w3dts-chessmaster-logo.png`](../public/brand/w3dts-chessmaster-logo.png) est la marque, en grand à l’accueil et en petit en partie.
 
@@ -12,6 +14,7 @@ Le thème est un verre liquide : le fond se voit à travers un voile très clair
 
 ```mermaid
 flowchart LR
+  chargement[Chargement]
   accueil[Accueil]
   modes[Modes]
   salon[SalonEnLigne]
@@ -21,6 +24,7 @@ flowchart LR
   options[Options]
   parametres[Parametres]
   classements[Classements]
+  chargement --> accueil
   accueil --> modes
   accueil --> classements
   accueil --> options
@@ -39,6 +43,8 @@ flowchart LR
 Échap ouvre la pause depuis la partie, et ferme le panneau courant ailleurs. La saisie d’une pièce est coupée tant qu’un menu plein est ouvert, comme le fait déjà le sélecteur de mode.
 
 ## Écrans
+
+**Chargement.** Au lancement, fond noir : le studio n’est pas visible. Seul le blason, grand et centré. Il est en niveaux de gris, puis la couleur remonte du bas vers le haut pendant le chargement. Quand il est coloré, le noir disparaît en fondu et l’accueil apparaît sur le studio. Pas de carte, pas de bouton. En bas à droite, une ligne discrète : « ChessMaster & W3DTS copyright Cyril TARRIET ». Échap ne fait rien pendant ce temps.
 
 **Accueil.** Blason centré, une ligne « W3DTS ChessMaster », bouton principal Jouer, puis trois liens : Classements, Options, Paramètres. Le studio reste visible autour de la carte. Les pièces sont au repos.
 

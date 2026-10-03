@@ -226,6 +226,65 @@ h2 {
   color: var(--muted);
 }
 
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  opacity: 1;
+  transition: opacity 0.7s ease;
+}
+
+.boot.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.boot-credit {
+  position: absolute;
+  right: 1rem;
+  bottom: 0.7rem;
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.boot-crest {
+  position: relative;
+  width: min(22rem, 64vw);
+}
+
+.boot-crest img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.boot-crest .is-gray {
+  filter: grayscale(1);
+}
+
+.boot-crest .is-color {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  object-fit: fill;
+  animation: boot-fill 2.4s linear forwards;
+}
+
+@keyframes boot-fill {
+  from {
+    clip-path: inset(100% 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
 .crest {
   display: block;
   width: min(11rem, 46vw);
@@ -482,6 +541,122 @@ input[type='range']::-moz-range-thumb {
   background: var(--accent);
 }
 
+.scale {
+  --thumb: 1.15rem;
+  position: relative;
+  margin: 0.1rem 0 0.35rem;
+}
+
+.scale input[type='range'] {
+  display: block;
+  width: 100%;
+  margin: 0;
+}
+
+.scale input[type='range']::-webkit-slider-thumb {
+  opacity: 0;
+  box-shadow: none;
+}
+
+.scale input[type='range']::-moz-range-thumb {
+  opacity: 0;
+  box-shadow: none;
+}
+
+.scale-thumb {
+  position: absolute;
+  z-index: 2;
+  top: 0.75rem;
+  left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--at));
+  width: var(--thumb);
+  height: var(--thumb);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 2px 6px rgba(60, 40, 20, 0.28);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: left 220ms cubic-bezier(0.34, 1.45, 0.64, 1);
+}
+
+.scale.is-float .scale-thumb {
+  transition: left 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.scale.is-float.is-dragging .scale-thumb {
+  transition: none;
+}
+
+.scale-marks {
+  position: relative;
+  height: 1.85rem;
+  margin: 0.15rem calc(var(--thumb) / 2) 0;
+}
+
+.scale-mark {
+  position: absolute;
+  top: 0;
+  left: calc(100% * var(--i) / var(--last));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12rem;
+  width: 1.6rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  animation: none;
+}
+
+.scale-mark::before {
+  content: "";
+  width: 1px;
+  height: 0.42rem;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.scale-mark.is-on {
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.scale-mark.is-on::before {
+  width: 2px;
+  background: var(--accent);
+  opacity: 1;
+}
+
+.scale-mark.is-catch {
+  animation: scale-catch 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes scale-catch {
+  0% {
+    transform: translateX(-50%) scale(1);
+  }
+  40% {
+    transform: translateX(-50%) scale(1.22);
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+.scale-mark:hover {
+  background: none;
+  color: var(--ink);
+}
+
 .toggle-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -702,7 +877,11 @@ kbd {
   .check input::before,
   .primary,
   .ghost,
-  .choice-thumb {
+  .choice-thumb,
+  .scale-thumb,
+  .scale-mark.is-catch,
+  .boot,
+  .boot-crest .is-color {
     transition: none;
     animation: none;
   }
