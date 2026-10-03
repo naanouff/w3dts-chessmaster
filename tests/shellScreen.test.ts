@@ -138,4 +138,12 @@ describe('shell screen', () => {
     expect(chessMixVolume(0.5, 50)).toBeCloseTo(0.25);
     expect(chessMixVolume(0.5, 0)).toBe(0);
   });
+
+  it('keeps the eight shell languages and drops an unknown one', () => {
+    for (const language of ['de', 'it', 'es', 'ru', 'zh', 'ja', 'en', 'fr'] as const) {
+      expect(parseShellPrefs(JSON.stringify({ language })).language).toBe(language);
+    }
+    expect(parseShellPrefs(JSON.stringify({ language: 'pt' })).language).toBe('fr');
+    expect(parseShellPrefs('{').language).toBe('fr');
+  });
 });

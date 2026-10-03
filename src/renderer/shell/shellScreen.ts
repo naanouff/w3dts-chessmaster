@@ -4,6 +4,10 @@
  */
 
 import { cpuSearchDepth, type ChessColor, type ChessDemoQuery, type ChessPlayMode } from '../../chess';
+import { isShellLanguage, type ShellLanguage } from './copy/types';
+
+/** localStorage key shared by the shell and the learn HUD. */
+export const SHELL_PREFS_KEY = 'w3dts-chess-shell';
 
 export type ShellScreen =
   | 'accueil'
@@ -45,7 +49,7 @@ export type ShellAction =
 export interface ShellPrefs {
   sfx: number;
   ambience: number;
-  language: 'fr' | 'en';
+  language: ShellLanguage;
 }
 
 /**
@@ -203,7 +207,7 @@ export function parseShellPrefs(raw: string | null): ShellPrefs {
     return {
       sfx: clampPercent(parsed.sfx, base.sfx),
       ambience: clampPercent(parsed.ambience, base.ambience),
-      language: parsed.language === 'en' ? 'en' : 'fr',
+      language: isShellLanguage(parsed.language) ? parsed.language : 'fr',
     };
   } catch {
     return base;

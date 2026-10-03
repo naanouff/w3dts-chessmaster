@@ -12,6 +12,8 @@ import {
   type ChessHudState,
 } from '../../chess';
 import { chessBus as uiBus } from '../bus';
+import { shellCopy, subscribeShellLanguage, type ShellLanguage } from '../shell/copy/shellCopy';
+import { parseShellPrefs, SHELL_PREFS_KEY } from '../shell/shellScreen';
 
 const GLASS: CSSProperties = {
   background: 'rgba(20, 22, 28, 0.82)',
@@ -52,12 +54,12 @@ function HudCard({ children }: { children: ReactNode }): ReactElement {
   );
 }
 
-function LearnProgress({ state }: { state: ChessHudLearnState }): ReactElement {
+function LearnProgress({ state, line }: { state: ChessHudLearnState; line: string }): ReactElement {
   const ratio = state.plyCount > 0 ? Math.min(1, state.plyIndex / state.plyCount) : 0;
   return (
     <HudCard>
       <div className="scv-chess-learn-head">
-        <p className="scv-chess-label">Ligne</p>
+        <p className="scv-chess-label">{line}</p>
         <span className="scv-chess-mono">
           {state.eco} {state.plyIndex}/{state.plyCount}
         </span>
@@ -90,12 +92,22 @@ function LearnProgress({ state }: { state: ChessHudLearnState }): ReactElement {
 
 export default function ChessGameplayHud(): ReactElement | null {
   const state = useChessHudStateFromBus();
+  const [language, setLanguage] = useState<ShellLanguage>(() => readShellLanguage());
+  useEffect(() => subscribeShellLanguage(setLanguage), []);
   if (!state || state.kind !== 'learn') return null;
   return (
     <div data-testid="w3dts-chess-hud" className="scv-chess-hud" aria-live="polite">
       <div className="scv-chess-hud-top">
-        <LearnProgress state={state} />
+        <LearnProgress state={state} line={shellCopy(language).line} />
       </div>
     </div>
   );
+}
+
+function readShellLanguage(): ShellLanguage {
+  try {
+    return parseShellPrefs(globalThis.localStorage?.getItem(SHELL_PREFS_KEY) ?? null).language;
+  } catch {
+    return 'fr';
+  }
 }
