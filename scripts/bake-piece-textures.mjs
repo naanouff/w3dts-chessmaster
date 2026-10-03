@@ -4,6 +4,9 @@
  * Color and ORM are lossy WebP. Normals are lossless WebP, resized in a
  * linear pipeline so the vectors are not gamma-corrected.
  * Output: public/models/chess/tex/{256|512|1024}/{piece}-{color|normal|orm}.webp
+ *
+ * The board uses the same encoder at 512, 1024 and 2048.
+ * Output: public/models/chess/tex/{512|1024|2048}/chess_board_B-{color|normal|orm}.webp
  */
 import { mkdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -11,9 +14,11 @@ import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const glbDir = join(root, 'public/models/chess');
-const outRoot = join(glbDir, 'tex');
+const glbDir = join(root, 'docs/raw_assets/pieces/glb');
+const boardGlb = join(root, 'docs/raw_assets/board/chess_board_B.glb');
+const outRoot = join(root, 'public/models/chess/tex');
 const SIZES = [256, 512, 1024];
+const BOARD_SIZES = [512, 1024, 2048];
 const PIECES = [
   'b_pion',
   'b_tour',
@@ -66,18 +71,19 @@ async function encode(bytes, kind, size, dest) {
   return statSync(dest).size;
 }
 
-for (const size of SIZES) mkdirSync(join(outRoot, String(size)), { recursive: true });
+for (const size of [...SIZES, ...BOARD_SIZES]) mkdirSync(join(outRoot, String(size)), { recursive: true });
 
 let total = 0;
-for (const file of PIECES) {
-  const { json, bin } = parseGlb(readFileSync(join(glbDir, `${file}.glb`)));
+
+async function bakeFile(filePath, file, sizes) {
+  const { json, bin } = parseGlb(readFileSync(filePath));
   const material = json.materials?.[0];
   const maps = {
     color: material?.pbrMetallicRoughness?.baseColorTexture?.index ?? 1,
     normal: material?.normalTexture?.index ?? 0,
     orm: material?.pbrMetallicRoughness?.metallicRoughnessTexture?.index ?? 2,
   };
-  for (const size of SIZES) {
+  for (const size of sizes) {
     for (const kind of ['color', 'normal', 'orm']) {
       const dest = join(outRoot, String(size), `${file}-${kind}.webp`);
       const bytes = await encode(imageBytes(json, bin, maps[kind]), kind, size, dest);
@@ -86,4 +92,9 @@ for (const file of PIECES) {
     }
   }
 }
+
+for (const file of PIECES) {
+  await bakeFile(join(glbDir, `${file}.glb`), file, SIZES);
+}
+await bakeFile(boardGlb, 'chess_board_B', BOARD_SIZES);
 console.log(`baked ${(total / (1024 * 1024)).toFixed(1)} Mo`);

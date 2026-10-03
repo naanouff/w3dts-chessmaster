@@ -19,6 +19,8 @@ Client Electron de la table d’échecs W3DTS. Le moteur 3D vient des paquets pu
 
 - [Coach IA](docs/coach-ia.md) — commentaire de position via Ollama ou une API compatible OpenAI. Le coach ne joue pas.
 - [Sprint CHESS-B7](docs/sprints/CHESS-B7.md) — tickets d’implémentation du coach.
+- [Assets 3D](docs/assets-3d.md) — maîtres Staunton dans `docs/raw_assets`, `.wmesh` et WebP au runtime.
+- [Sprint CHESS-B9](docs/sprints/CHESS-B9.md) — liens durs des maîtres, import, et plateau `chess_board_B`.
 
 ## Scripts
 
