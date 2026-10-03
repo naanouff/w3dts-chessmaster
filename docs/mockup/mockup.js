@@ -122,10 +122,12 @@ function paintModes() {
       `<button type="button" class="card${mode.id === state.mode ? ' is-selected' : ''}" data-mode="${mode.id}"><strong>${mode.title}</strong><span>${mode.blurb}</span></button>`
   ).join('');
   const extra = $('mode-extra');
+  rememberChoiceThumb($('mode-color'));
+  rememberChoiceThumb($('mode-openings'));
   if (state.mode === 'cpu') {
-    extra.innerHTML = `<h2>Couleur</h2><div class="choice">${colorButtons(state.color, 'data-color')}</div><label class="field" for="level">Niveau ${state.level}</label><input id="level" type="range" min="1" max="5" value="${state.level}" />`;
+    extra.innerHTML = `<h2>Couleur</h2><div class="choice" id="mode-color">${colorButtons(state.color, 'data-color')}</div><label class="field" for="level">Niveau ${state.level}</label><input id="level" type="range" min="1" max="5" value="${state.level}" />`;
   } else if (state.mode === 'learn') {
-    extra.innerHTML = `<h2>Ligne</h2><div class="choice">${OPENINGS.map(
+    extra.innerHTML = `<h2>Ligne</h2><div class="choice" id="mode-openings">${OPENINGS.map(
       (opening, index) =>
         `<button type="button" class="${index === state.opening ? 'is-selected' : ''}" data-opening="${index}">${opening.eco} ${opening.name}</button>`
     ).join('')}</div>`;
@@ -133,6 +135,75 @@ function paintModes() {
     extra.innerHTML = '';
   }
   $('start').textContent = state.mode === 'online' ? 'Ouvrir le salon' : 'Commencer';
+  placeChoiceThumb($('mode-color'));
+  placeChoiceThumb($('mode-openings'));
+}
+
+/** Last measured pill, keyed by the segmented control id, so a rebuild can slide from it. */
+const choiceThumbFrom = new Map();
+
+/**
+ * Stores the glass pill position before the segmented control is rebuilt.
+ * @param {HTMLElement | null} choice
+ */
+function rememberChoiceThumb(choice) {
+  if (!choice?.id) return;
+  const thumb = choice.querySelector(':scope > .choice-thumb');
+  if (!thumb) return;
+  choiceThumbFrom.set(choice.id, {
+    left: thumb.offsetLeft,
+    top: thumb.offsetTop,
+    width: thumb.offsetWidth,
+    height: thumb.offsetHeight,
+  });
+}
+
+/**
+ * Places the glass pill on the selected option and slides it from the previous one.
+ * @param {HTMLElement | null} choice
+ */
+function placeChoiceThumb(choice) {
+  if (!choice) return;
+  const selected = choice.querySelector(':scope > button.is-selected');
+  if (!selected || selected.offsetWidth === 0) return;
+  let thumb = choice.querySelector(':scope > .choice-thumb');
+  if (!thumb) {
+    thumb = document.createElement('span');
+    thumb.className = 'choice-thumb';
+    thumb.setAttribute('aria-hidden', 'true');
+    choice.prepend(thumb);
+  }
+  const next = {
+    left: selected.offsetLeft,
+    top: selected.offsetTop,
+    width: selected.offsetWidth,
+    height: selected.offsetHeight,
+  };
+  const previous = choice.id ? choiceThumbFrom.get(choice.id) : undefined;
+  const moved =
+    previous &&
+    (Math.abs(previous.left - next.left) > 0.5 ||
+      Math.abs(previous.top - next.top) > 0.5 ||
+      Math.abs(previous.width - next.width) > 0.5 ||
+      Math.abs(previous.height - next.height) > 0.5);
+  thumb.style.transition = 'none';
+  if (moved) {
+    thumb.style.left = `${previous.left}px`;
+    thumb.style.top = `${previous.top}px`;
+    thumb.style.width = `${previous.width}px`;
+    thumb.style.height = `${previous.height}px`;
+    thumb.getBoundingClientRect();
+    thumb.style.transition = '';
+  }
+  thumb.style.left = `${next.left}px`;
+  thumb.style.top = `${next.top}px`;
+  thumb.style.width = `${next.width}px`;
+  thumb.style.height = `${next.height}px`;
+  if (!moved) {
+    thumb.getBoundingClientRect();
+    thumb.style.transition = '';
+  }
+  if (choice.id) choiceThumbFrom.delete(choice.id);
 }
 
 function colorButtons(selected, attr) {
@@ -148,6 +219,7 @@ function colorButtons(selected, attr) {
 }
 
 function paintSalon() {
+  rememberChoiceThumb($('host-color'));
   $('table-code').textContent = state.code || '—';
   $('copy-code').hidden = !state.code;
   $('sim-opponent').hidden = state.link !== 'waiting' || !state.code;
@@ -164,6 +236,7 @@ function paintSalon() {
   $('salon-status').textContent = labels[state.link];
   $('salon-notice').hidden = !state.notice;
   $('salon-notice').textContent = state.notice;
+  placeChoiceThumb($('host-color'));
 }
 
 function modeTitle() {
@@ -188,6 +261,9 @@ function resolutionSize() {
 
 function paintOptions() {
   const graphics = state.graphics;
+  rememberChoiceThumb($('presets'));
+  rememberChoiceThumb($('resolutions'));
+  rememberChoiceThumb($('textures'));
   $('presets').innerHTML = Object.entries(PRESETS)
     .map(
       ([id, preset]) =>
@@ -207,9 +283,14 @@ function paintOptions() {
   $('opt-reflections').checked = graphics.reflections;
   $('opt-bloom').checked = graphics.bloom;
   $('render-line').textContent = `Rendu ${resolutionSize()} · 60 img/s`;
+  placeChoiceThumb($('presets'));
+  placeChoiceThumb($('resolutions'));
+  placeChoiceThumb($('textures'));
 }
 
 function paintSettings() {
+  rememberChoiceThumb($('languages'));
+  rememberChoiceThumb($('coach-provider'));
   $('vol-sfx').value = String(state.sfx);
   $('vol-amb').value = String(state.ambience);
   $('vol-sfx-val').textContent = `${state.sfx}`;
@@ -243,9 +324,12 @@ function paintSettings() {
   $('api-key').hidden = !remote;
   $('api-key').previousElementSibling.hidden = !remote;
   $('key-state').hidden = !state.hasKey;
+  placeChoiceThumb($('languages'));
+  placeChoiceThumb($('coach-provider'));
 }
 
 function paintRanks() {
+  rememberChoiceThumb($('rank-tabs'));
   $('rank-tabs').innerHTML = [
     ['local', 'Local'],
     ['online', 'En ligne'],
@@ -265,6 +349,7 @@ function paintRanks() {
     .map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`)
     .join('');
   $('rank-games').innerHTML = board.games.map((game) => `<li>${game} · exemple</li>`).join('');
+  placeChoiceThumb($('rank-tabs'));
 }
 
 function startMode() {
