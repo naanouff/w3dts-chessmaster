@@ -2,7 +2,7 @@
 
 Une seule version : le champ `version` de [`package.json`](../package.json). Elle vaut aujourd’hui `0.1.0`. Electron l’affiche avec `app.getVersion()`. L’installateur NSIS porte le même numéro dans son nom de fichier. Pas de second fichier, et pas d’outil qui publie depuis `main` : cela court-circuiterait les branches `release/*`.
 
-Ce document ne coupe pas la première livraison. `main` n’a pas encore le contenu de `develop`, et aucun tag `vX.Y.Z` n’existe.
+La première livraison est `0.1.0`, sur la branche `release/0.1.0`, avec la note [docs/releases/0.1.0.md](releases/0.1.0.md). Le tag `v0.1.0` se pose après le merge dans `main`. `develop` reste.
 
 ## Numéro
 
