@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file ChessShell.tsx
  * @description Welcome, modes, lobby, pause, options and settings over the chess table.
  */
@@ -32,6 +32,14 @@ import {
 } from '../graphics/chessGraphicsSettings';
 import { setChessAudioLevels } from '../host/chessTableAudio';
 import {
+  isShellLanguage,
+  publishShellLanguage,
+  SHELL_LANGUAGE_LABELS,
+  SHELL_LANGUAGES,
+  shellCopy,
+  type ShellCopy,
+} from './copy/shellCopy';
+import {
   acceptJoinCode,
   bootCrestFill,
   bootCrestInset,
@@ -40,6 +48,7 @@ import {
   parseShellPrefs,
   rangeThumbRatio,
   reduceShell,
+  SHELL_PREFS_KEY,
   shellBlocksPlay,
   shellSession,
   type ShellAction,
@@ -49,37 +58,11 @@ import {
 } from './shellScreen';
 import './shell.css';
 
-const PREFS_KEY = 'w3dts-chess-shell';
-
-const MODES: { id: ShellMode; title: string; blurb: string }[] = [
-  { id: 'cpu', title: 'Contre l’ordinateur', blurb: 'Une partie contre l’heuristique.' },
-  { id: 'hotseat', title: 'À deux, même écran', blurb: 'On se passe la souris.' },
-  { id: 'local', title: 'Sur cet ordinateur', blurb: 'Une seconde fenêtre de cette application.' },
-  { id: 'online', title: 'En ligne', blurb: 'Créer ou rejoindre une table.' },
-  { id: 'learn', title: 'Apprendre', blurb: 'Une courte ligne ECO.' },
-];
-
-const OPENING_FR: Record<string, string> = {
-  C50: 'Partie italienne',
-  C60: 'Espagnole',
-  C44: 'Écossaise',
-  B20: 'Sicilienne',
-  C00: 'Française',
-  B10: 'Caro-Kann',
-  D06: 'Gambit de la dame',
-  E60: 'Indienne du roi',
-};
-
-const P2P_FR: Record<string, string> = {
-  waiting: 'En attente',
-  connecting: 'Connexion',
-  connected: 'Connecté',
-  disconnected: 'Déconnecté',
-};
+const MODE_IDS = ['cpu', 'hotseat', 'local', 'online', 'learn'] as const satisfies readonly ShellMode[];
 
 function loadPrefs(): ShellPrefs {
   try {
-    return parseShellPrefs(globalThis.localStorage?.getItem(PREFS_KEY) ?? null);
+    return parseShellPrefs(globalThis.localStorage?.getItem(SHELL_PREFS_KEY) ?? null);
   } catch {
     return defaultShellPrefs();
   }
@@ -87,11 +70,12 @@ function loadPrefs(): ShellPrefs {
 
 function savePrefs(prefs: ShellPrefs): void {
   try {
-    globalThis.localStorage?.setItem(PREFS_KEY, JSON.stringify(prefs));
+    globalThis.localStorage?.setItem(SHELL_PREFS_KEY, JSON.stringify(prefs));
   } catch {
     /* private mode */
   }
   setChessAudioLevels(prefs.sfx, prefs.ambience);
+  publishShellLanguage(prefs.language);
 }
 
 function makeCode(): string {
@@ -114,6 +98,7 @@ function Choice({
 }): ReactElement {
   const root = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ left: 0, top: 0, width: 0, height: 0, ready: false });
+  const labels = options.map((option) => option.label).join('\u0000');
   useLayoutEffect(() => {
     const button = root.current?.querySelector<HTMLButtonElement>(`[data-choice="${selected}"]`);
     if (!button) return;
@@ -124,7 +109,7 @@ function Choice({
       height: button.offsetHeight,
       ready: true,
     });
-  }, [selected]);
+  }, [selected, labels]);
   return (
     <div className="choice" ref={root}>
       {box.ready ? (
@@ -316,7 +301,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
     });
   };
 
-  const copy = prefs.language === 'en' ? EN : FR;
+  const copy = shellCopy(prefs.language);
   const menu = shell.screen !== 'partie';
   const play = hud?.kind === 'play' ? hud : null;
   const turn =
@@ -326,10 +311,11 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
         play.sideToMove === 'black' ? play.clocks.blackSeconds : play.clocks.whiteSeconds
       )
     : '10:00';
+  const opening = openingName(copy, eco);
   const modeTitle =
     shell.mode === 'learn'
-      ? `${copy.learn} · ${OPENING_FR[eco] ?? eco}`
-      : (MODES.find((mode) => mode.id === shell.mode)?.title ?? '');
+      ? `${copy.learn} · ${opening}`
+      : copy.modeCards[shell.mode].title;
 
   return (
     <div ref={root} className={menu ? 'shell is-menu' : 'shell'} data-screen={shell.screen}>
@@ -359,15 +345,15 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
         <section className="panel wide">
           <h1>{copy.modes}</h1>
           <div className="cards">
-            {MODES.map((mode) => (
+            {MODE_IDS.map((id) => (
               <button
-                key={mode.id}
+                key={id}
                 type="button"
-                className={shell.mode === mode.id ? 'is-selected' : ''}
-                onClick={() => dispatch({ type: 'set-mode', mode: mode.id })}
+                className={shell.mode === id ? 'is-selected' : ''}
+                onClick={() => dispatch({ type: 'set-mode', mode: id })}
               >
-                <strong>{mode.title}</strong>
-                <span>{mode.blurb}</span>
+                <strong>{copy.modeCards[id].title}</strong>
+                <span>{copy.modeCards[id].blurb}</span>
               </button>
             ))}
           </div>
@@ -392,9 +378,9 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
             <>
               <h2>{copy.line}</h2>
               <Choice
-                options={ECO_OPENINGS.map((opening) => ({
-                  id: opening.eco,
-                  label: `${opening.eco} ${OPENING_FR[opening.eco] ?? opening.name}`,
+                options={ECO_OPENINGS.map((item) => ({
+                  id: item.eco,
+                  label: `${item.eco} ${openingName(copy, item.eco)}`,
                 }))}
                 selected={eco}
                 onSelect={setEco}
@@ -486,7 +472,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
             <p className="clock">{clock}</p>
             {play?.p2pStatus ? (
               <p className="hint">
-                {P2P_FR[play.p2pStatus] ?? play.p2pStatus}
+                {copy.p2p[play.p2pStatus]}
                 {code ? ` · ${code}` : ''}
               </p>
             ) : null}
@@ -625,12 +611,11 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
           <section className="sheet-section">
             <h2>{copy.language}</h2>
             <Choice
-              options={[
-                { id: 'fr', label: 'Français' },
-                { id: 'en', label: 'Anglais' },
-              ]}
+              options={SHELL_LANGUAGES.map((id) => ({ id, label: SHELL_LANGUAGE_LABELS[id] }))}
               selected={prefs.language}
-              onSelect={(id) => setPrefs({ ...prefs, language: id === 'en' ? 'en' : 'fr' })}
+              onSelect={(id) => {
+                if (isShellLanguage(id)) setPrefs({ ...prefs, language: id });
+              }}
             />
           </section>
           <section className="sheet-section">
@@ -646,7 +631,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
                 <kbd>X</kbd> {copy.resetLine}
               </li>
               <li>
-                <kbd>Échap</kbd> {copy.escapeLine}
+                <kbd>{copy.escapeKey}</kbd> {copy.escapeLine}
               </li>
             </ul>
           </section>
@@ -663,7 +648,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
           <p className="hint">{copy.exampleRanks}</p>
           <Choice
             options={[
-              { id: 'local', label: 'Local' },
+              { id: 'local', label: copy.localTab },
               { id: 'online', label: copy.onlineTab },
             ]}
             selected={rankTab}
@@ -778,7 +763,7 @@ function OptionsSheet({
   surface,
   onClose,
 }: {
-  copy: typeof FR;
+  copy: ShellCopy;
   graphics: ChessGraphicsSettings;
   fps: number;
   surface: { width: number; height: number };
@@ -802,7 +787,7 @@ function OptionsSheet({
       <section className="sheet-section">
       <h2>{copy.preset}</h2>
       <Choice
-        options={GRAPHICS_PRESETS.map((item) => ({ id: item.id, label: item.title }))}
+        options={GRAPHICS_PRESETS.map((item) => ({ id: item.id, label: presetTitle(copy, item.id) }))}
         selected={preset}
         onSelect={(id) => {
           const found = GRAPHICS_PRESETS.find((item) => item.id === id);
@@ -814,13 +799,19 @@ function OptionsSheet({
       <h2>{copy.image}</h2>
       <p className="field">{copy.resolution}</p>
       <Choice
-        options={RESOLUTION_OPTIONS.map((item) => ({ id: item.id, label: item.label }))}
+        options={RESOLUTION_OPTIONS.map((item) => ({
+          id: item.id,
+          label: item.id === 'native' ? copy.resolutionNative : item.label,
+        }))}
         selected={graphics.resolution}
         onSelect={(id) => patch({ resolution: id as ChessResolution })}
       />
       <p className="field">{copy.textures}</p>
       <Choice
-        options={TEXTURE_QUALITY_OPTIONS.map((item) => ({ id: item.id, label: item.label }))}
+        options={TEXTURE_QUALITY_OPTIONS.map((item) => ({
+          id: item.id,
+          label: copy.textureQuality[item.id],
+        }))}
         selected={graphics.textureQuality}
         onSelect={(id) => patch({ textureQuality: id as ChessTextureQuality })}
       />
@@ -869,175 +860,26 @@ function OptionsSheet({
   );
 }
 
-const FR = {
-  play: 'Jouer',
-  ranks: 'Classements',
-  options: 'Options',
-  settings: 'Paramètres',
-  settingsHint: 'Son, langue, contrôles et branchement de l’assistant.',
-  modes: 'Modes',
-  color: 'Couleur',
-  white: 'Blancs',
-  black: 'Noirs',
-  level: 'Niveau',
-  line: 'Ligne',
-  begin: 'Commencer',
-  openLobby: 'Ouvrir le salon',
-  back: 'Retour',
-  backModes: 'Retour aux modes',
-  lobby: 'Salon en ligne',
-  colorHint: 'La couleur se choisit ici. L’invité prend l’autre.',
-  create: 'Créer une table',
-  join: 'Rejoindre',
-  copy: 'Copier',
-  refused: 'Code refusé',
-  whiteTurn: 'Les blancs jouent',
-  blackTurn: 'Les noirs jouent',
-  thinking: 'L’ordinateur réfléchit…',
-  learn: 'Apprendre',
-  assistant: 'Assistant',
-  pause: 'Pause',
-  grab: 'saisir',
-  orbit: 'orbiter',
-  reset: 'recommencer',
-  coachBanner: 'Commentaire, pas un coup. L’assistant ne joue pas.',
-  noModel: 'Aucun modèle n’est branché.',
-  explain: 'Expliquer la position',
-  hint: 'Indice',
-  ask: 'Question libre',
-  send: 'Envoyer',
-  openSettings: 'Ouvrir les paramètres',
-  close: 'Fermer',
-  resume: 'Reprendre',
-  changeMode: 'Changer de mode',
-  leave: 'Quitter la table',
-  home: 'Retour à l’accueil',
-  sound: 'Son',
-  sfx: 'Volume des coups',
-  ambience: 'Volume d’ambiance',
-  language: 'Langue',
-  controls: 'Contrôles',
-  grabLine: 'Saisir une pièce et la poser.',
-  orbitLine: 'Tourner autour du plateau, molette comprise.',
-  resetLine: 'Recommencer la partie ou la ligne.',
-  escapeLine: 'Pause, ou fermer le panneau ouvert.',
-  example: 'exemple',
-  wins: 'Victoires',
-  losses: 'Défaites',
-  draws: 'Nuls',
-  streak: 'Série',
-  localGames: [
-    'Victoire · ordinateur',
-    'Défaite · même écran',
-    'Nulle · en ligne',
-    'Victoire · ouverture',
-    'Victoire · ordinateur',
-  ],
-  onlineGames: [
-    'Victoire · table K7QM',
-    'Défaite · table M2LP',
-    'Nulle · table Q9AD',
-    'Victoire · table H4CE',
-    'Défaite · table B8NR',
-  ],
-  exampleRanks: 'Exemple — aucun serveur de scores.',
-  onlineTab: 'En ligne',
-  optionsHint: 'Le rendu s’applique tout de suite. Le son et l’assistant sont dans Paramètres.',
-  preset: 'Préréglage',
-  image: 'Image',
-  resolution: 'Résolution',
-  textures: 'Textures des pièces',
-  effects: 'Effets',
-  shadows: 'Ombres',
-  ao: 'Occlusion ambiante',
-  reflections: 'Reflets du plateau',
-  bloom: 'Bloom',
-  render: 'Rendu',
-  fps: 'img/s',
-};
 
-const EN: typeof FR = {
-  ...FR,
-  play: 'Play',
-  ranks: 'Rankings',
-  options: 'Options',
-  settings: 'Settings',
-  settingsHint: 'Sound, language, controls and how the assistant connects.',
-  modes: 'Modes',
-  color: 'Color',
-  white: 'White',
-  black: 'Black',
-  level: 'Level',
-  line: 'Line',
-  begin: 'Start',
-  openLobby: 'Open the lobby',
-  back: 'Back',
-  backModes: 'Back to modes',
-  lobby: 'Online lobby',
-  colorHint: 'Color is chosen here. The guest takes the other one.',
-  create: 'Create a table',
-  join: 'Join',
-  copy: 'Copy',
-  refused: 'Code refused',
-  whiteTurn: 'White to move',
-  blackTurn: 'Black to move',
-  thinking: 'The computer is thinking…',
-  assistant: 'Assistant',
-  pause: 'Pause',
-  grab: 'grab',
-  orbit: 'orbit',
-  reset: 'restart',
-  coachBanner: 'A comment, not a move. The assistant does not play.',
-  noModel: 'No model is connected.',
-  explain: 'Explain the position',
-  hint: 'Hint',
-  ask: 'Free question',
-  send: 'Send',
-  openSettings: 'Open settings',
-  close: 'Close',
-  resume: 'Resume',
-  changeMode: 'Change mode',
-  leave: 'Leave the table',
-  home: 'Back home',
-  sound: 'Sound',
-  sfx: 'Move volume',
-  ambience: 'Ambience',
-  language: 'Language',
-  controls: 'Controls',
-  grabLine: 'Grab a piece and set it down.',
-  orbitLine: 'Orbit the board, including the wheel.',
-  resetLine: 'Restart the game or the line.',
-  escapeLine: 'Pause, or close the open panel.',
-  wins: 'Wins',
-  losses: 'Losses',
-  draws: 'Draws',
-  streak: 'Streak',
-  localGames: [
-    'Win · computer',
-    'Loss · same screen',
-    'Draw · online',
-    'Win · opening',
-    'Win · computer',
-  ],
-  onlineGames: [
-    'Win · table K7QM',
-    'Loss · table M2LP',
-    'Draw · table Q9AD',
-    'Win · table H4CE',
-    'Loss · table B8NR',
-  ],
-  exampleRanks: 'Example — no score server.',
-  onlineTab: 'Online',
-  optionsHint: 'The picture updates at once. Sound and the assistant are in Settings.',
-  preset: 'Preset',
-  image: 'Picture',
-  resolution: 'Resolution',
-  textures: 'Piece textures',
-  effects: 'Effects',
-  shadows: 'Shadows',
-  ao: 'Ambient occlusion',
-  reflections: 'Board reflections',
-  bloom: 'Bloom',
-  render: 'Render',
-  fps: 'fps',
-};
+function openingName(copy: ShellCopy, eco: string): string {
+  if (
+    eco === 'C50' ||
+    eco === 'C60' ||
+    eco === 'C44' ||
+    eco === 'B20' ||
+    eco === 'C00' ||
+    eco === 'B10' ||
+    eco === 'D06' ||
+    eco === 'E60'
+  ) {
+    return copy.openings[eco];
+  }
+  return eco;
+}
+
+function presetTitle(copy: ShellCopy, id: string): string {
+  if (id === 'fluide' || id === 'equilibre' || id === 'qualite' || id === 'natif') {
+    return copy.presets[id];
+  }
+  return id;
+}

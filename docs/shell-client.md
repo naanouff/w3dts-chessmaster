@@ -16,7 +16,7 @@ Un écran plein émet `mode-picker`, déjà lu par [`ChessDemoProject`](../src/r
 
 Jouer et Commencer émettent `apply-session`. Contre l’ordinateur devient `cpu`, à deux sur le même écran `hotseat`, sur cet ordinateur et le salon `p2p`, apprendre `learn`. Le niveau du CPU est une profondeur d’heuristique plafonnée à 3. Les crans 4 et 5 valent 3.
 
-Options appelle `setChessGraphicsSettings`. Paramètres mémorise les volumes comme multiplicateurs des constantes de [`chessTableAudio.ts`](../src/renderer/host/chessTableAudio.ts) et la langue, français par défaut.
+Options appelle `setChessGraphicsSettings`. Paramètres mémorise les volumes comme multiplicateurs des constantes de [`chessTableAudio.ts`](../src/renderer/host/chessTableAudio.ts) et la langue, français par défaut. Les huit langues du shell sont décrites dans [docs/i18n.md](i18n.md) et découpées dans [CHESS-B11](sprints/CHESS-B11.md).
 
 Le salon ouvre la seconde fenêtre sur le canal `BroadcastChannel` existant et affiche le vrai `p2pStatus`. Le code se copie. Il ne choisit pas un canal. Un code refusé reste sur le salon. Pas de relais entre deux machines.
 
