@@ -4,7 +4,9 @@ Le plateau 3D reste le décor. Les menus sont des cartes en verre par-dessus, pa
 
 La maquette cliquable vit dans [docs/mockup](mockup/index.html). Le sprint qui la produit est [CHESS-B8](sprints/CHESS-B8.md). Elle ne remplace pas le HUD du client.
 
-Langue de l’interface : français. L’ambre `#e8b86d` et le verre de [`src/renderer/chess-hud.css`](../src/renderer/chess-hud.css) restent les seuls accents. Le blason [`public/brand/w3dts-chessmaster-logo.png`](../public/brand/w3dts-chessmaster-logo.png) est la marque, en grand à l’accueil et en petit en partie.
+Langue de l’interface : français. Le blason [`public/brand/w3dts-chessmaster-logo.png`](../public/brand/w3dts-chessmaster-logo.png) est la marque, en grand à l’accueil et en petit en partie.
+
+Le thème est un verre liquide : le fond se voit à travers un voile très clair (`--glass`, `--blur` court), et un bourrelet épais suit l’arrondi (`--rim`), plus lumineux en haut à gauche, avec un sillon intérieur. Les contrôles (bouton, segment, champ, interrupteur, curseur) ne portent pas de couleur en dur. Ils lisent les jetons de [`docs/mockup/mockup.css`](mockup/mockup.css) : `--accent`, `--glass`, `--blur`, `--radius`, `--control-well`. Changer ces jetons recolore toute la maquette. Options et Paramètres sont des feuilles à sections (préréglage, image, effets ; son, langue, contrôles, assistant).
 
 ## Parcours
 

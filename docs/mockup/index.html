@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>W3DTS ChessMaster — maquette</title>
-    <link rel="icon" href="./crest.png" />
+    <link rel="icon" href="./crest.webp" />
     <link rel="stylesheet" href="./mockup.css" />
   </head>
   <body>
@@ -16,7 +16,7 @@
 
     <main id="app">
       <section class="panel is-on" data-screen="accueil" aria-labelledby="accueil-title">
-        <img class="crest" src="./crest.png" alt="" />
+        <img class="crest" src="./crest.webp" alt="" />
         <h1 id="accueil-title">W3DTS ChessMaster</h1>
         <button type="button" class="primary" data-go="modes" data-primary>Jouer</button>
         <nav class="text-links" aria-label="Autres écrans">
@@ -64,7 +64,7 @@
 
       <section class="table-screen" data-screen="partie" hidden>
         <header class="bar">
-          <img class="crest-sm" src="./crest.png" alt="" />
+          <img class="crest-sm" src="./crest.webp" alt="" />
           <div class="bar-copy">
             <p id="turn-label">Les blancs jouent</p>
             <p id="mode-label"></p>
@@ -104,56 +104,85 @@
         </div>
       </section>
 
-      <section class="panel wide" data-screen="options" hidden aria-labelledby="options-title">
-        <h1 id="options-title">Options</h1>
-        <p class="hint">Le rendu s’applique tout de suite. Le reste des réglages est dans Paramètres.</p>
-        <div class="choice" id="presets"></div>
-        <h2>Résolution</h2>
-        <div class="choice" id="resolutions"></div>
-        <h2>Textures des pièces</h2>
-        <div class="choice" id="textures"></div>
-        <label class="check"><input type="checkbox" id="opt-shadows" /> Ombres</label>
-        <label class="check"><input type="checkbox" id="opt-ao" /> Occlusion ambiante</label>
-        <label class="check"><input type="checkbox" id="opt-reflections" /> Reflets du plateau</label>
-        <label class="check"><input type="checkbox" id="opt-bloom" /> Bloom</label>
+      <section class="panel sheet" data-screen="options" hidden aria-labelledby="options-title">
+        <header class="sheet-head">
+          <div>
+            <h1 id="options-title">Options</h1>
+            <p class="hint">Le rendu s’applique tout de suite. Le son et l’assistant sont dans Paramètres.</p>
+          </div>
+          <button type="button" class="ghost" id="options-back" data-primary>Fermer</button>
+        </header>
+        <section class="sheet-section">
+          <h2>Préréglage</h2>
+          <div class="choice" id="presets"></div>
+        </section>
+        <section class="sheet-section">
+          <h2>Image</h2>
+          <p class="field">Résolution</p>
+          <div class="choice" id="resolutions"></div>
+          <p class="field">Textures des pièces</p>
+          <div class="choice" id="textures"></div>
+        </section>
+        <section class="sheet-section">
+          <h2>Effets</h2>
+          <div class="toggle-grid">
+            <label class="check"><span>Ombres</span><input type="checkbox" id="opt-shadows" /></label>
+            <label class="check"><span>Occlusion ambiante</span><input type="checkbox" id="opt-ao" /></label>
+            <label class="check"><span>Reflets du plateau</span><input type="checkbox" id="opt-reflections" /></label>
+            <label class="check"><span>Bloom</span><input type="checkbox" id="opt-bloom" /></label>
+          </div>
+        </section>
         <p class="status-line" id="render-line"></p>
-        <button type="button" class="primary" id="options-back" data-primary>Fermer</button>
       </section>
 
-      <section class="panel wide" data-screen="parametres" hidden aria-labelledby="param-title">
-        <h1 id="param-title">Paramètres</h1>
-        <label class="field" for="vol-sfx">Volume des coups <span id="vol-sfx-val"></span></label>
-        <input id="vol-sfx" type="range" min="0" max="100" />
-        <label class="field" for="vol-amb">Volume d’ambiance <span id="vol-amb-val"></span></label>
-        <input id="vol-amb" type="range" min="0" max="100" />
-        <h2>Langue</h2>
-        <div class="choice" id="languages"></div>
-        <h2>Contrôles</h2>
-        <ul class="controls">
-          <li>Clic gauche : saisir une pièce et la poser.</li>
-          <li>Clic droit ou molette : tourner autour du plateau.</li>
-          <li>X : recommencer la partie ou la ligne.</li>
-          <li>Échap : pause, ou fermer le panneau ouvert.</li>
-        </ul>
-        <h2>Assistant</h2>
-        <div class="choice" id="coach-provider"></div>
-        <p class="hint" id="local-url">Ollama local · http://127.0.0.1:11434/v1 · sans clé</p>
-        <label class="field" for="remote-url">URL</label>
-        <input id="remote-url" type="url" placeholder="https://…" />
-        <label class="field" for="model-select">Modèle local</label>
-        <select id="model-select">
-          <option value="">Choisir un modèle</option>
-          <option>llama3.2</option>
-          <option>mistral</option>
-          <option>qwen2.5</option>
-        </select>
-        <label class="field" for="remote-model">Modèle distant</label>
-        <input id="remote-model" type="text" autocomplete="off" />
-        <label class="field" for="api-key">Clé</label>
-        <input id="api-key" type="password" autocomplete="off" />
-        <p class="notice" id="key-state" hidden>Clé enregistrée</p>
-        <button type="button" class="primary" id="save-settings" data-primary>Enregistrer</button>
-        <button type="button" class="ghost" id="param-back">Fermer</button>
+      <section class="panel sheet" data-screen="parametres" hidden aria-labelledby="param-title">
+        <header class="sheet-head">
+          <div>
+            <h1 id="param-title">Paramètres</h1>
+            <p class="hint">Son, langue, contrôles et branchement de l’assistant.</p>
+          </div>
+          <button type="button" class="ghost" id="param-back">Fermer</button>
+        </header>
+        <section class="sheet-section">
+          <h2>Son</h2>
+          <label class="field" for="vol-sfx">Volume des coups <span id="vol-sfx-val"></span></label>
+          <input id="vol-sfx" type="range" min="0" max="100" />
+          <label class="field" for="vol-amb">Volume d’ambiance <span id="vol-amb-val"></span></label>
+          <input id="vol-amb" type="range" min="0" max="100" />
+        </section>
+        <section class="sheet-section">
+          <h2>Langue</h2>
+          <div class="choice" id="languages"></div>
+        </section>
+        <section class="sheet-section">
+          <h2>Contrôles</h2>
+          <ul class="controls">
+            <li><kbd>LMB</kbd> Saisir une pièce et la poser.</li>
+            <li><kbd>RMB</kbd> Tourner autour du plateau, molette comprise.</li>
+            <li><kbd>X</kbd> Recommencer la partie ou la ligne.</li>
+            <li><kbd>Échap</kbd> Pause, ou fermer le panneau ouvert.</li>
+          </ul>
+        </section>
+        <section class="sheet-section">
+          <h2>Assistant</h2>
+          <div class="choice" id="coach-provider"></div>
+          <p class="hint" id="local-url">Ollama local · http://127.0.0.1:11434/v1 · sans clé</p>
+          <label class="field" for="remote-url">URL</label>
+          <input id="remote-url" type="url" placeholder="https://…" />
+          <label class="field" for="model-select">Modèle local</label>
+          <select id="model-select">
+            <option value="">Choisir un modèle</option>
+            <option>llama3.2</option>
+            <option>mistral</option>
+            <option>qwen2.5</option>
+          </select>
+          <label class="field" for="remote-model">Modèle distant</label>
+          <input id="remote-model" type="text" autocomplete="off" />
+          <label class="field" for="api-key">Clé</label>
+          <input id="api-key" type="password" autocomplete="off" />
+          <p class="notice" id="key-state" hidden>Clé enregistrée</p>
+          <button type="button" class="primary" id="save-settings" data-primary>Enregistrer</button>
+        </section>
       </section>
 
       <section class="panel wide" data-screen="classements" hidden aria-labelledby="rank-title">
