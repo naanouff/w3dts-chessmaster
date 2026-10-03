@@ -15,7 +15,7 @@ pnpm dev
 pnpm dist
 ```
 
-`pnpm dist` produit l’installateur NSIS Windows. Les cibles macOS et Linux sont déclarées, sans notarisation ni signature. Le numéro et la note de release sont dans [Version](semver.md).
+`pnpm dist` produit l’installateur NSIS Windows. Il embarque l’application, ses ressources et ses dépendances. Les cibles macOS et Linux sont déclarées, sans notarisation ni signature. Le numéro, la note et la release GitHub sont dans [Version](semver.md).
 
 Le code source de ce client et les paquets moteur sont sous licence propriétaire. Voir [LICENSE](../LICENSE).
 
