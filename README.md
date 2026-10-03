@@ -21,6 +21,8 @@ Client Electron de la table d’échecs W3DTS. Le moteur 3D vient des paquets pu
 - [Sprint CHESS-B7](docs/sprints/CHESS-B7.md) — tickets d’implémentation du coach.
 - [Maquette UI](docs/maquette-ui.md) — accueil, modes, salon en ligne, assistant, options, paramètres, classements.
 - [Sprint CHESS-B8](docs/sprints/CHESS-B8.md) — génération de la maquette dans `docs/mockup/`.
+- [Assets 3D](docs/assets-3d.md) — maîtres Staunton dans `docs/raw_assets`, `.wmesh` et WebP au runtime.
+- [Sprint CHESS-B9](docs/sprints/CHESS-B9.md) — liens durs des maîtres, import, et plateau `chess_board_B`.
 
 ## Scripts
 

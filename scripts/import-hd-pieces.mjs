@@ -1,15 +1,15 @@
 /**
- * Decodes the Staunton GLBs in Print/Models/Echecs into engine meshes.
+ * Decodes the Staunton GLBs in docs/raw_assets/pieces/glb into engine meshes.
  *
  * Source files use KHR_draco_mesh_compression and are all 0.12 m tall, which
- * is wider than a 0.06 m square. This writes a scaled interleaved mesh next
- * to a hard link of the original GLB (textures stay in the GLB).
+ * is wider than a 0.06 m square. This writes a scaled interleaved mesh.
+ * Textures stay in the GLB and are baked separately.
  *
  * Black pieces are yawed 180° so identity rotation faces the opponent:
  * white toward +Z, black toward −Z.
  */
 import { createRequire } from 'node:module';
-import { linkSync, mkdirSync, readFileSync, unlinkSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,7 +17,7 @@ const require = createRequire(import.meta.url);
 const draco = require('draco3dgltf');
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const sourceDir = 'c:/Local/Travail/Print/Models/Echecs';
+const sourceDir = join(root, 'docs/raw_assets/pieces/glb');
 const outDir = join(root, 'public/models/chess');
 
 /** Authored height of every GLB, metres. */
@@ -197,10 +197,6 @@ function writeMesh(name, turnAround, decoded) {
 }
 
 for (const [name, turnAround] of PIECES) {
-  const src = join(sourceDir, `${name}.glb`);
-  const dest = join(outDir, `${name}.glb`);
-  if (existsSync(dest)) unlinkSync(dest);
-  linkSync(src, dest);
   const stats = writeMesh(name, turnAround, decodePiece(name));
   console.log(`${name}  tris=${stats.triangles}  height=${stats.height.toFixed(4)}`);
 }
