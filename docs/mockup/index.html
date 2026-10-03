@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>W3DTS ChessMaster — maquette</title>
+    <link rel="icon" href="./crest.png" />
+    <link rel="stylesheet" href="./mockup.css" />
+  </head>
+  <body>
+    <div class="studio" aria-hidden="true">
+      <div class="studio-board"></div>
+    </div>
+
+    <p class="mock-tag">Maquette CHESS-B8</p>
+
+    <main id="app">
+      <section class="panel is-on" data-screen="accueil" aria-labelledby="accueil-title">
+        <img class="crest" src="./crest.png" alt="" />
+        <h1 id="accueil-title">W3DTS ChessMaster</h1>
+        <button type="button" class="primary" data-go="modes" data-primary>Jouer</button>
+        <nav class="text-links" aria-label="Autres écrans">
+          <button type="button" data-go="classements">Classements</button>
+          <button type="button" data-go="options">Options</button>
+          <button type="button" data-go="parametres">Paramètres</button>
+        </nav>
+      </section>
+
+      <section class="panel wide" data-screen="modes" hidden aria-labelledby="modes-title">
+        <h1 id="modes-title">Modes</h1>
+        <div class="mode-grid" id="mode-grid"></div>
+        <div id="mode-extra"></div>
+        <div class="row-actions">
+          <button type="button" class="ghost" data-go="accueil">Retour</button>
+          <button type="button" class="primary" id="start" data-primary>Commencer</button>
+        </div>
+      </section>
+
+      <section class="panel wide" data-screen="salon" hidden aria-labelledby="salon-title">
+        <h1 id="salon-title">Salon en ligne</h1>
+        <p id="salon-notice" class="notice" hidden></p>
+        <div class="split">
+          <div>
+            <h2>Créer une table</h2>
+            <p class="hint">La couleur se choisit ici. L’invité prend l’autre.</p>
+            <div class="choice" id="host-color"></div>
+            <p class="code" id="table-code">—</p>
+            <div class="row-actions">
+              <button type="button" class="primary" id="create-table" data-primary>Créer une table</button>
+              <button type="button" class="ghost" id="copy-code" hidden>Copier</button>
+              <button type="button" class="ghost" id="sim-opponent" hidden>Simuler un adversaire</button>
+            </div>
+          </div>
+          <div>
+            <h2>Rejoindre</h2>
+            <label class="field" for="join-code">Code</label>
+            <input id="join-code" maxlength="4" autocomplete="off" spellcheck="false" />
+            <button type="button" class="primary" id="join-table">Rejoindre</button>
+          </div>
+        </div>
+        <p class="status-line" id="salon-status">En attente</p>
+        <button type="button" class="ghost" data-go="modes">Retour aux modes</button>
+      </section>
+
+      <section class="table-screen" data-screen="partie" hidden>
+        <header class="bar">
+          <img class="crest-sm" src="./crest.png" alt="" />
+          <div class="bar-copy">
+            <p id="turn-label">Les blancs jouent</p>
+            <p id="mode-label"></p>
+          </div>
+          <p class="clock" id="clock">10:00</p>
+          <p class="link-chip" id="link-chip" hidden></p>
+          <button type="button" class="ghost" id="open-assistant">Assistant</button>
+          <button type="button" class="primary" id="open-pause" data-primary>Pause</button>
+        </header>
+        <p class="keys">
+          <span><kbd>LMB</kbd> saisir</span>
+          <span><kbd>RMB</kbd> / molette orbiter</span>
+          <span><kbd>X</kbd> recommencer</span>
+        </p>
+        <aside class="drawer" id="assistant" hidden aria-labelledby="assistant-title">
+          <h2 id="assistant-title">Assistant</h2>
+          <p class="banner">Commentaire, pas un coup. L’assistant ne joue pas et ne remplace pas le moteur.</p>
+          <div class="row-actions">
+            <button type="button" id="coach-explain" data-primary>Expliquer</button>
+            <button type="button" id="coach-hint">Indice</button>
+          </div>
+          <label class="field" for="coach-question">Question libre</label>
+          <textarea id="coach-question" rows="3"></textarea>
+          <button type="button" id="coach-ask">Envoyer</button>
+          <p id="coach-body" class="coach-body"></p>
+          <button type="button" class="ghost" id="close-assistant">Fermer</button>
+        </aside>
+        <div class="overlay" id="pause" data-screen="pause" hidden>
+          <section class="panel" aria-labelledby="pause-title">
+            <h1 id="pause-title">Pause</h1>
+            <button type="button" class="primary" id="resume" data-primary>Reprendre</button>
+            <button type="button" class="ghost" id="change-mode">Changer de mode</button>
+            <button type="button" class="ghost" data-go="options">Options</button>
+            <button type="button" class="danger" id="leave-table" hidden>Quitter la table</button>
+            <button type="button" class="ghost" id="home">Retour à l’accueil</button>
+          </section>
+        </div>
+      </section>
+
+      <section class="panel wide" data-screen="options" hidden aria-labelledby="options-title">
+        <h1 id="options-title">Options</h1>
+        <p class="hint">Le rendu s’applique tout de suite. Le reste des réglages est dans Paramètres.</p>
+        <div class="choice" id="presets"></div>
+        <h2>Résolution</h2>
+        <div class="choice" id="resolutions"></div>
+        <h2>Textures des pièces</h2>
+        <div class="choice" id="textures"></div>
+        <label class="check"><input type="checkbox" id="opt-shadows" /> Ombres</label>
+        <label class="check"><input type="checkbox" id="opt-ao" /> Occlusion ambiante</label>
+        <label class="check"><input type="checkbox" id="opt-reflections" /> Reflets du plateau</label>
+        <label class="check"><input type="checkbox" id="opt-bloom" /> Bloom</label>
+        <p class="status-line" id="render-line"></p>
+        <button type="button" class="primary" id="options-back" data-primary>Fermer</button>
+      </section>
+
+      <section class="panel wide" data-screen="parametres" hidden aria-labelledby="param-title">
+        <h1 id="param-title">Paramètres</h1>
+        <label class="field" for="vol-sfx">Volume des coups <span id="vol-sfx-val"></span></label>
+        <input id="vol-sfx" type="range" min="0" max="100" />
+        <label class="field" for="vol-amb">Volume d’ambiance <span id="vol-amb-val"></span></label>
+        <input id="vol-amb" type="range" min="0" max="100" />
+        <h2>Langue</h2>
+        <div class="choice" id="languages"></div>
+        <h2>Contrôles</h2>
+        <ul class="controls">
+          <li>Clic gauche : saisir une pièce et la poser.</li>
+          <li>Clic droit ou molette : tourner autour du plateau.</li>
+          <li>X : recommencer la partie ou la ligne.</li>
+          <li>Échap : pause, ou fermer le panneau ouvert.</li>
+        </ul>
+        <h2>Assistant</h2>
+        <div class="choice" id="coach-provider"></div>
+        <p class="hint" id="local-url">Ollama local · http://127.0.0.1:11434/v1 · sans clé</p>
+        <label class="field" for="remote-url">URL</label>
+        <input id="remote-url" type="url" placeholder="https://…" />
+        <label class="field" for="model-select">Modèle local</label>
+        <select id="model-select">
+          <option value="">Choisir un modèle</option>
+          <option>llama3.2</option>
+          <option>mistral</option>
+          <option>qwen2.5</option>
+        </select>
+        <label class="field" for="remote-model">Modèle distant</label>
+        <input id="remote-model" type="text" autocomplete="off" />
+        <label class="field" for="api-key">Clé</label>
+        <input id="api-key" type="password" autocomplete="off" />
+        <p class="notice" id="key-state" hidden>Clé enregistrée</p>
+        <button type="button" class="primary" id="save-settings" data-primary>Enregistrer</button>
+        <button type="button" class="ghost" id="param-back">Fermer</button>
+      </section>
+
+      <section class="panel wide" data-screen="classements" hidden aria-labelledby="rank-title">
+        <h1 id="rank-title">Classements</h1>
+        <p class="hint">Exemple — aucun serveur de scores.</p>
+        <div class="choice" id="rank-tabs"></div>
+        <dl class="stats" id="rank-stats"></dl>
+        <ol class="games" id="rank-games"></ol>
+        <button type="button" class="primary" id="rank-back" data-primary>Fermer</button>
+      </section>
+    </main>
+
+    <script src="./mockup.js"></script>
+  </body>
+</html>
