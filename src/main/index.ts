@@ -1,7 +1,8 @@
-import { app, BrowserWindow, Menu, ipcMain, net, protocol } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, net, protocol, screen } from 'electron';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { loadWindowBounds, saveWindowBounds, type WindowBounds } from './windowBounds';
 
 const APP_SCHEME = 'app';
 
@@ -57,10 +58,31 @@ function windowIcon(): string {
   return path.join(__dirname, '../../resources/icon.ico');
 }
 
+function boundsFile(): string {
+  return path.join(app.getPath('userData'), 'window-bounds.json');
+}
+
+function rememberWindow(win: BrowserWindow): void {
+  if (win.isDestroyed()) return;
+  const maximized = win.isMaximized();
+  const box = maximized ? win.getNormalBounds() : win.getBounds();
+  const bounds: WindowBounds = {
+    x: box.x,
+    y: box.y,
+    width: box.width,
+    height: box.height,
+    maximized,
+  };
+  saveWindowBounds(boundsFile(), bounds);
+}
+
 function createWindow(search = ''): BrowserWindow {
+  const persist = search.length === 0;
+  const stored = persist ? loadWindowBounds(boundsFile(), screen.getPrimaryDisplay().workArea) : null;
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    ...(stored
+      ? { x: stored.x, y: stored.y, width: stored.width, height: stored.height }
+      : { width: 1280, height: 800 }),
     title: 'W3DTS ChessMaster',
     icon: windowIcon(),
     backgroundColor: '#0e1014',
@@ -72,7 +94,21 @@ function createWindow(search = ''): BrowserWindow {
       backgroundThrottling: false,
     },
   });
+  if (stored?.maximized) win.maximize();
   win.setMenu(null);
+  if (persist) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = (): void => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => rememberWindow(win), 300);
+    };
+    win.on('resize', schedule);
+    win.on('move', schedule);
+    win.on('close', () => {
+      if (timer) clearTimeout(timer);
+      rememberWindow(win);
+    });
+  }
   void loadApp(win, search);
   return win;
 }

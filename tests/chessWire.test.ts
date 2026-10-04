@@ -25,6 +25,19 @@ describe('chess wire + demo query', () => {
     expect(decodeChessWire(encodeChessWire(msg))).toEqual(msg);
   });
 
+  it('accepts a restore with both clocks and still accepts a sync without clocks', () => {
+    const restore = {
+      v: 1 as const,
+      t: 'restore' as const,
+      fen: 'saved',
+      whiteSeconds: 180,
+      blackSeconds: 240,
+    };
+    expect(decodeChessWire(encodeChessWire(restore))).toEqual(restore);
+    const sync = new TextEncoder().encode(JSON.stringify({ v: 1, t: 'sync', fen: 'saved' }));
+    expect(decodeChessWire(sync)).toEqual({ v: 1, t: 'sync', fen: 'saved' });
+  });
+
   it('rejects garbage', () => {
     expect(decodeChessWire(new TextEncoder().encode('{"t":"nope"}'))).toBeNull();
     expect(decodeChessWire(new Uint8Array([1, 2, 3]))).toBeNull();

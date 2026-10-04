@@ -70,7 +70,19 @@ import {
   chessPlayP2pHint,
   chessTableSfxForPly,
   clientPointToNdc,
+  CHESS_CLOCK_START_S,
+  CHESS_SAVES_EVENT,
+  SAVED_GAMES_KEY,
+  acceptSavedGame,
+  clocksFromWire,
+  cpuSearchDepth,
   decodeChessWire,
+  dropInterrupt,
+  dropVoluntary,
+  emptySaveCabinet,
+  noteInterrupt,
+  parseSaveCabinet,
+  putVoluntary,
   decideChessFenSync,
   encodeChessWire,
   fillBoardAlbedo,
@@ -84,6 +96,7 @@ import {
   sampleBookMoveSpline,
   samplePieceTravelWorld,
   seatChessPieceUpright,
+  stepChessClock,
   squareToWorld,
   stauntonPieceColliderShapes,
   stripChessSanSuffix,
@@ -93,6 +106,9 @@ import {
   type ChessDemoQuery,
   type ChessHudP2pStatus,
   type ChessPlayMode,
+  type SaveCabinet,
+  type SavedGame,
+  type SavedShellMode,
   type ChessPieceRole,
   type ChessSquareName,
   type ChessTableSfxId,
@@ -183,7 +199,6 @@ const GAME_CAM_FOV = (38 * Math.PI) / 180;
 /** Initial clip only; orbit `updateClipPlanes` owns near/far after RMB zoom. */
 const GAME_CAM_NEAR = 0.002;
 const GAME_CAM_FAR = 20;
-const CHESS_CLOCK_START_S = 600;
 const CHESS_P2P_CHANNEL = 'w3dts-chess-demo';
 
 const CHESS_PIECE_NAME = /^Chess-(white|black)-(pawn|knight|bishop|rook|queen|king)-([a-h][1-8])$/;
@@ -242,6 +257,12 @@ export class ChessDemoProject extends LitAbstractProject {
   private legalDropSquares = new Set<ChessSquareName>();
   private playMode: ChessPlayMode = 'cpu';
   private localColor: ChessColor = 'white';
+  private tableKind: SavedShellMode = 'cpu';
+  /** Online restore waits in the lobby, then sends `restore` when the guest connects. */
+  private holdForLobby = false;
+  private pendingRestore = false;
+  /** The invited window reads the cabinet and does not overwrite the interruption. */
+  private peerWindow = false;
   private cpu = new HeuristicChessEngine({ depth: 2, thinkMs: 280 });
   private cpuBusy = false;
   private cpuGen = 0;
@@ -296,11 +317,16 @@ export class ChessDemoProject extends LitAbstractProject {
     return this.decalOutput;
   }
 
+  private readonly onPageHide = (): void => {
+    this.rememberInterrupt(true);
+  };
+
   private readonly onHudCommand = (raw: unknown): void => {
     const cmd = parseChessHudCommand(raw);
     if (!cmd) return;
     if (cmd.type === 'mode-picker') {
       this.modePickerOpen = cmd.open;
+      if (cmd.open) this.rememberInterrupt(true);
       if (cmd.open && this.world && this.grab.grabbed) this.grab.end(this.world);
       return;
     }
@@ -308,8 +334,25 @@ export class ChessDemoProject extends LitAbstractProject {
       this.emitHud();
       return;
     }
+    if (cmd.type === 'save-voluntary') {
+      this.saveVoluntary();
+      return;
+    }
+    if (cmd.type === 'discard-interrupt') {
+      this.storeCabinet(dropInterrupt(this.readCabinet()));
+      return;
+    }
+    if (cmd.type === 'delete-voluntary') {
+      this.storeCabinet(dropVoluntary(this.readCabinet(), cmd.id));
+      return;
+    }
+    if (cmd.type === 'resume-saved') {
+      this.modePickerOpen = false;
+      this.restoreGame(cmd.game, undefined, cmd.cpuDepth);
+      return;
+    }
     this.modePickerOpen = false;
-    this.applySession(cmd.session);
+    this.applySession(cmd.session, cmd.table);
   };
 
   constructor() {
@@ -578,6 +621,14 @@ export class ChessDemoProject extends LitAbstractProject {
     this.clockBlack = CHESS_CLOCK_START_S;
     this.clockFlag = null;
     this.boardReady = false;
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      this.peerWindow = params.get('chessPeer') === '1';
+      const shell = params.get('chessShell');
+      if (shell === 'local' || shell === 'online') this.tableKind = shell;
+      window.removeEventListener('beforeunload', this.onPageHide);
+      window.addEventListener('beforeunload', this.onPageHide);
+    }
     uiBus.off(CHESS_HUD_COMMAND_EVENT, this.onHudCommand);
     uiBus.on(CHESS_HUD_COMMAND_EVENT, this.onHudCommand);
 
@@ -813,8 +864,10 @@ export class ChessDemoProject extends LitAbstractProject {
     this.aimGameCamera(world, engine);
     this.emitHud();
     this.boardReady = true;
-    this.bindP2p();
-    this.flushPendingP2p();
+    if (!this.tryResumeFromLocation(query)) {
+      this.bindP2p();
+      this.flushPendingP2p();
+    }
 
     logger.info(
       LogChannel.Gameplay,
@@ -1341,6 +1394,135 @@ export class ChessDemoProject extends LitAbstractProject {
     }
   }
 
+  private readCabinet(): SaveCabinet {
+    try {
+      return parseSaveCabinet(globalThis.localStorage?.getItem(SAVED_GAMES_KEY) ?? null);
+    } catch {
+      return emptySaveCabinet();
+    }
+  }
+
+  private storeCabinet(cabinet: SaveCabinet): void {
+    try {
+      globalThis.localStorage?.setItem(SAVED_GAMES_KEY, JSON.stringify(cabinet));
+    } catch {
+      /* private mode */
+    }
+    uiBus.emit(CHESS_SAVES_EVENT, cabinet);
+  }
+
+  private liveDraft(kind: 'interrupt' | 'voluntary'): Record<string, unknown> {
+    return {
+      id: kind === 'interrupt' ? 'interrupt' : `v-${Date.now().toString(36)}`,
+      kind,
+      savedAt: Date.now(),
+      shellMode: this.tableKind,
+      fen: this.match.fen(),
+      whiteSeconds: this.clockWhite,
+      blackSeconds: this.clockBlack,
+      localColor: this.localColor,
+      eco: this.learnEco,
+      plyIndex: this.trainer?.plyIndex(),
+      flag: this.clockFlag,
+    };
+  }
+
+  /**
+   * Stores the live table as the interruption.
+   * The invited window does not write, so the two windows do not overwrite each other.
+   * @param force - True on close or when a full screen covers the table.
+   */
+  private rememberInterrupt(force: boolean): void {
+    if (this.peerWindow) return;
+    if (!force && this.modePickerOpen) return;
+    this.storeCabinet(noteInterrupt(this.readCabinet(), this.liveDraft('interrupt'), this.gameOver()));
+  }
+
+  private saveVoluntary(): void {
+    const game = acceptSavedGame(this.liveDraft('voluntary'));
+    if (!game) return;
+    this.storeCabinet(putVoluntary(this.readCabinet(), game));
+  }
+
+  private tryResumeFromLocation(query: ChessDemoQuery): boolean {
+    if (typeof window === 'undefined') return false;
+    const id = new URLSearchParams(window.location.search).get('chessResume');
+    if (!id) return false;
+    const cabinet = this.readCabinet();
+    const game =
+      cabinet.interrupt?.id === id
+        ? cabinet.interrupt
+        : (cabinet.voluntary.find((item) => item.id === id) ?? null);
+    if (!game) return false;
+    this.restoreGame(game, query.localColor);
+    return true;
+  }
+
+  /**
+   * Loads a fiche onto the table. An online game waits in the lobby.
+   * A lesson is replayed so the book cursor matches the position.
+   * @param game - Fiche already accepted.
+   * @param colorOverride - Guest color from the peer window.
+   * @param cpuDepth - Search depth when the fiche is against the computer.
+   */
+  private restoreGame(game: SavedGame, colorOverride?: ChessColor, cpuDepth?: number): void {
+    const world = this.world;
+    if (!world) return;
+    const mode: ChessPlayMode =
+      game.shellMode === 'local' || game.shellMode === 'online' ? 'p2p' : game.shellMode;
+    this.tableKind = game.shellMode;
+    this.playMode = mode;
+    this.localColor = colorOverride ?? game.localColor;
+    this.learnQuiz = game.shellMode === 'learn';
+    if (game.eco) this.learnEco = game.eco;
+    this.trainer = mode === 'learn' ? new OpeningTrainer(this.learnEco) : null;
+    if (this.trainer) this.learnEco = this.trainer.opening().eco;
+    if (mode === 'cpu') {
+      this.cpu = new HeuristicChessEngine({ depth: cpuSearchDepth(cpuDepth ?? 2), thinkMs: 280 });
+    }
+    this.holdForLobby = game.shellMode === 'online';
+    this.pendingRestore = game.shellMode === 'local' || game.shellMode === 'online';
+    this.pendingP2pBytes = null;
+    this.clearBoardVisuals(world);
+    this.cpuGen += 1;
+    this.cpuBusy = false;
+    this.learnMiss = false;
+    this.learnLastSan = null;
+    this.flagSfxPlayed = false;
+    if (mode === 'learn' && this.trainer) {
+      this.match.reset();
+      const target = game.plyIndex ?? 0;
+      for (let i = 0; i < target; i += 1) {
+        const ply = this.trainer.expected();
+        if (!ply) break;
+        const result = this.match.tryMove(ply.from, ply.to);
+        if (!result.ok) break;
+        this.trainer.accept(ply.from, ply.to);
+      }
+    } else if (!this.match.loadFen(game.fen)) {
+      this.match.reset();
+    }
+    this.applyClockState(
+      clocksFromWire('restore', { whiteSeconds: game.whiteSeconds, blackSeconds: game.blackSeconds })
+    );
+    this.spawnMatchPieces(world);
+    this.syncFileRankLabels(world);
+    this.boardReady = true;
+    if (game.shellMode === 'online') {
+      this.modePickerOpen = true;
+      this.p2p?.closeAll();
+      this.p2p = null;
+      this.p2pStatus = 'waiting';
+      this.emitHud();
+      replaceChessDemoQueryInLocation(this.currentSession());
+      return;
+    }
+    this.bindP2p();
+    this.flushPendingP2p();
+    this.emitHud();
+    replaceChessDemoQueryInLocation(this.currentSession());
+  }
+
   private currentSession(): ChessDemoQuery {
     return {
       mode: this.playMode,
@@ -1350,9 +1532,27 @@ export class ChessDemoProject extends LitAbstractProject {
     };
   }
 
-  private applySession(query: ChessDemoQuery): void {
+  private applySession(query: ChessDemoQuery, table?: SavedShellMode): void {
     const world = this.world;
     if (!world) return;
+    if (table) this.tableKind = table;
+    else if (query.mode === 'cpu' || query.mode === 'hotseat' || query.mode === 'learn') {
+      this.tableKind = query.mode;
+    }
+    if (this.holdForLobby && query.mode === 'p2p') {
+      this.holdForLobby = false;
+      this.pendingRestore = true;
+      this.playMode = 'p2p';
+      this.localColor = query.localColor;
+      this.boardReady = true;
+      this.bindP2p();
+      this.emitHud();
+      replaceChessDemoQueryInLocation(this.currentSession());
+      return;
+    }
+    this.holdForLobby = false;
+    this.pendingRestore = false;
+    if (!this.peerWindow) this.storeCabinet(dropInterrupt(this.readCabinet()));
     this.playMode = query.mode;
     this.localColor = query.localColor;
     this.learnQuiz = query.quiz;
@@ -1385,11 +1585,15 @@ export class ChessDemoProject extends LitAbstractProject {
   }
 
   private resetClocks(): void {
-    this.clockWhite = CHESS_CLOCK_START_S;
-    this.clockBlack = CHESS_CLOCK_START_S;
-    this.hudClockWhite = CHESS_CLOCK_START_S;
-    this.hudClockBlack = CHESS_CLOCK_START_S;
-    this.clockFlag = null;
+    this.applyClockState(clocksFromWire('reset'));
+  }
+
+  private applyClockState(clocks: { whiteSeconds: number; blackSeconds: number; flag: ChessColor | null }): void {
+    this.clockWhite = clocks.whiteSeconds;
+    this.clockBlack = clocks.blackSeconds;
+    this.hudClockWhite = Math.ceil(clocks.whiteSeconds);
+    this.hudClockBlack = Math.ceil(clocks.blackSeconds);
+    this.clockFlag = clocks.flag;
   }
 
   private resetMatch(world: World, broadcast: boolean): void {
@@ -1650,6 +1854,7 @@ export class ChessDemoProject extends LitAbstractProject {
     else this.playSfx(clips);
     this.startCameraJuice(from, to);
     this.emitHud();
+    this.rememberInterrupt(false);
   }
 
   private snapEntityToSquare(world: World, entity: Entity, square: ChessSquareName): void {
@@ -1699,21 +1904,26 @@ export class ChessDemoProject extends LitAbstractProject {
   }
 
   private tickClocks(dt: number): void {
-    if (this.playMode === 'learn' || this.gameOver() || dt <= 0) return;
     const before = this.clockFlag;
-    if (this.match.sideToMove() === 'white') {
-      this.clockWhite = Math.max(0, this.clockWhite - dt);
-      if (this.clockWhite <= 0) this.clockFlag = 'white';
-    } else {
-      this.clockBlack = Math.max(0, this.clockBlack - dt);
-      if (this.clockBlack <= 0) this.clockFlag = 'black';
-    }
+    const next = stepChessClock(
+      { whiteSeconds: this.clockWhite, blackSeconds: this.clockBlack, flag: this.clockFlag },
+      this.match.sideToMove(),
+      dt,
+      {
+        covered: this.modePickerOpen || this.playMode === 'learn' || this.gameOver(),
+        awaitingPeer: this.playMode === 'p2p' && this.p2pStatus !== 'connected',
+      }
+    );
+    this.clockWhite = next.whiteSeconds;
+    this.clockBlack = next.blackSeconds;
+    this.clockFlag = next.flag;
     const w = Math.ceil(this.clockWhite);
     const b = Math.ceil(this.clockBlack);
     if (w !== this.hudClockWhite || b !== this.hudClockBlack || this.clockFlag) {
       this.hudClockWhite = w;
       this.hudClockBlack = b;
       this.emitHud();
+      this.rememberInterrupt(false);
     }
     if (this.clockFlag && !before && !this.flagSfxPlayed) {
       this.flagSfxPlayed = true;
@@ -1812,7 +2022,17 @@ export class ChessDemoProject extends LitAbstractProject {
     transport.setStateHandler((_peer, state) => {
       this.p2pStatus = normalizeChessHudP2pStatus(state);
       if (state === 'connected' && this.boardReady) {
-        this.broadcastWire({ v: 1, t: 'sync', fen: this.match.fen() });
+        if (this.pendingRestore) {
+          this.broadcastWire({
+            v: 1,
+            t: 'restore',
+            fen: this.match.fen(),
+            whiteSeconds: this.clockWhite,
+            blackSeconds: this.clockBlack,
+          });
+        } else {
+          this.broadcastWire({ v: 1, t: 'sync', fen: this.match.fen() });
+        }
       }
       this.emitHud();
     });
@@ -1847,6 +2067,14 @@ export class ChessDemoProject extends LitAbstractProject {
     if (!msg) return;
     if (msg.t === 'reset') {
       this.resetClocks();
+      this.rebuildFromFen(world, msg.fen);
+      return;
+    }
+    if (msg.t === 'restore') {
+      this.applyClockState(
+        clocksFromWire('restore', { whiteSeconds: msg.whiteSeconds, blackSeconds: msg.blackSeconds })
+      );
+      this.flagSfxPlayed = false;
       this.rebuildFromFen(world, msg.fen);
       return;
     }
@@ -2076,6 +2304,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.p2pStatus = 'waiting';
     this.camJuice = null;
     uiBus.off(CHESS_HUD_COMMAND_EVENT, this.onHudCommand);
+    if (typeof window !== 'undefined') window.removeEventListener('beforeunload', this.onPageHide);
   }
 
   private playSfx(ids: readonly ChessTableSfxId[]): void {

@@ -12,7 +12,8 @@ import type { ChessSquareName } from '../rules/chessTypes';
 export type ChessWireMessage =
   | { v: 1; t: 'move'; from: ChessSquareName; to: ChessSquareName; fen: string }
   | { v: 1; t: 'reset'; fen: string }
-  | { v: 1; t: 'sync'; fen: string };
+  | { v: 1; t: 'sync'; fen: string }
+  | { v: 1; t: 'restore'; fen: string; whiteSeconds: number; blackSeconds: number };
 
 export type ChessFenSyncDecision = 'apply' | 'ignore' | 'reply';
 
@@ -35,6 +36,21 @@ export function decodeChessWire(bytes: Uint8Array): ChessWireMessage | null {
   const rec = raw as Record<string, unknown>;
   if (rec.v !== 1 || typeof rec.fen !== 'string') return null;
   if (rec.t === 'reset' || rec.t === 'sync') return { v: 1, t: rec.t, fen: rec.fen };
+  if (
+    rec.t === 'restore' &&
+    typeof rec.whiteSeconds === 'number' &&
+    typeof rec.blackSeconds === 'number' &&
+    Number.isFinite(rec.whiteSeconds) &&
+    Number.isFinite(rec.blackSeconds)
+  ) {
+    return {
+      v: 1,
+      t: 'restore',
+      fen: rec.fen,
+      whiteSeconds: rec.whiteSeconds,
+      blackSeconds: rec.blackSeconds,
+    };
+  }
   if (rec.t === 'move' && isSquareName(rec.from) && isSquareName(rec.to)) {
     return { v: 1, t: 'move', from: rec.from, to: rec.to, fen: rec.fen };
   }

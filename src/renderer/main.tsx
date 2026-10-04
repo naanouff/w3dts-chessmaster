@@ -19,7 +19,10 @@ function App(): ReactElement {
       const cmd = parseChessHudCommand(raw);
       if (!cmd || cmd.type !== 'apply-session' || cmd.session.mode !== 'p2p') return;
       const opposite = cmd.session.localColor === 'black' ? 'white' : 'black';
-      void window.chessMaster?.openPeerWindow(`chess=p2p&chessColor=${opposite}&chessPeer=1`);
+      const table = cmd.table === 'online' ? 'online' : 'local';
+      void window.chessMaster?.openPeerWindow(
+        `chess=p2p&chessColor=${opposite}&chessPeer=1&chessShell=${table}`
+      );
     };
     chessBus.on(CHESS_HUD_COMMAND_EVENT, onCommand);
     return () => {

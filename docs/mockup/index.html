@@ -27,7 +27,9 @@
         <img class="crest" src="./crest.webp" alt="" />
         <h1 id="accueil-title">W3DTS ChessMaster</h1>
         <button type="button" class="primary" data-go="modes" data-primary>Jouer</button>
+        <button type="button" class="ghost home-resume" id="home-restore">Reprendre la partie</button>
         <nav class="text-links" aria-label="Autres écrans">
+          <button type="button" data-go="sauvegardes">Sauvegardes</button>
           <button type="button" data-go="classements">Classements</button>
           <button type="button" data-go="options">Options</button>
           <button type="button" data-go="parametres">Paramètres</button>
@@ -105,6 +107,9 @@
           <section class="panel" aria-labelledby="pause-title">
             <h1 id="pause-title">Pause</h1>
             <button type="button" class="primary" id="resume" data-primary>Reprendre</button>
+            <button type="button" class="ghost" id="save-game">Sauvegarder</button>
+            <p class="notice" id="save-confirm" hidden>Partie sauvegardée</p>
+            <button type="button" class="ghost" data-go="sauvegardes">Sauvegardes</button>
             <button type="button" class="ghost" id="change-mode">Changer de mode</button>
             <button type="button" class="ghost" data-go="options">Options</button>
             <button type="button" class="danger" id="leave-table" hidden>Quitter la table</button>
@@ -223,6 +228,38 @@
           <p class="notice" id="key-state" hidden>Clé enregistrée</p>
           <button type="button" class="primary" id="save-settings" data-primary>Enregistrer</button>
         </section>
+      </section>
+
+      <section class="panel sheet" data-screen="sauvegardes" hidden aria-labelledby="saves-title">
+        <header class="sheet-head">
+          <div>
+            <h1 id="saves-title">Sauvegardes</h1>
+            <p class="hint">L’interruption est la partie fermée. Les autres sont celles demandées en pause.</p>
+          </div>
+          <button type="button" class="ghost" id="saves-back" data-primary>Fermer</button>
+        </header>
+        <section class="sheet-section" id="save-interrupt">
+          <h2>Partie interrompue</h2>
+          <div class="save-row">
+            <p>Contre l’ordinateur · Blancs · 7:12</p>
+            <button type="button" class="primary" id="restore-interrupt">Restaurer</button>
+            <button type="button" class="ghost" id="discard-interrupt">Écarter</button>
+          </div>
+        </section>
+        <section class="sheet-section" id="save-voluntary">
+          <h2>Demandées</h2>
+          <div class="save-row" id="save-local">
+            <p>Sur cet ordinateur · Noirs · 4 oct.</p>
+            <button type="button" class="primary" data-restore="local">Restaurer</button>
+            <button type="button" class="ghost" data-drop="local">Supprimer</button>
+          </div>
+          <div class="save-row" id="save-online">
+            <p>En ligne · Blancs · 2 oct.</p>
+            <button type="button" class="primary" data-restore="online">Restaurer</button>
+            <button type="button" class="ghost" data-drop="online">Supprimer</button>
+          </div>
+        </section>
+        <p class="hint" id="saves-empty" hidden>Aucune partie gardée.</p>
       </section>
 
       <section class="panel wide" data-screen="classements" hidden aria-labelledby="rank-title">

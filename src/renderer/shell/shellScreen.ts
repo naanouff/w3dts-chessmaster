@@ -3,7 +3,7 @@
  * @description Screen transitions for the ChessMaster shell. No DOM and no GPU.
  */
 
-import { cpuSearchDepth, type ChessColor, type ChessDemoQuery, type ChessPlayMode } from '../../chess';
+import { cpuSearchDepth, ECO_OPENINGS, type ChessColor, type ChessDemoQuery, type ChessPlayMode } from '../../chess';
 import { isShellLanguage, type ShellLanguage } from './copy/types';
 
 /** localStorage key shared by the shell and the learn HUD. */
@@ -18,7 +18,8 @@ export type ShellScreen =
   | 'options'
   | 'parametres'
   | 'classements'
-  | 'propos';
+  | 'propos'
+  | 'sauvegardes';
 
 export type ShellMode = 'cpu' | 'hotseat' | 'local' | 'online' | 'learn';
 
@@ -51,6 +52,11 @@ export interface ShellPrefs {
   sfx: number;
   ambience: number;
   language: ShellLanguage;
+  mode: ShellMode;
+  color: ChessColor;
+  /** Slider step from 1 to 5. */
+  level: number;
+  eco: string;
 }
 
 /**
@@ -152,6 +158,17 @@ export function shellSession(
 }
 
 /**
+ * Query for the second window when a local game is restored.
+ * The guest takes the other color and loads the same fiche.
+ * @param hostColor - Color stored on the fiche.
+ * @param id - Interrupt or voluntary id.
+ */
+export function peerResumeSearch(hostColor: ChessColor, id: string): string {
+  const guest = hostColor === 'black' ? 'white' : 'black';
+  return `chess=p2p&chessColor=${guest}&chessPeer=1&chessShell=local&chessResume=${encodeURIComponent(id)}`;
+}
+
+/**
  * A table code is four characters and not the reserved refusal code.
  * @param code - Text from the join field.
  */
@@ -191,9 +208,9 @@ export function bootCrestInset(fill: number): string {
   return `${(1 - clamped) * 100}%`;
 }
 
-/** Stored sound and language before the player changes them. */
+/** Stored sound, language and last table choices before the player changes them. */
 export function defaultShellPrefs(): ShellPrefs {
-  return { sfx: 80, ambience: 40, language: 'fr' };
+  return { sfx: 80, ambience: 40, language: 'fr', mode: 'cpu', color: 'white', level: 2, eco: firstEco() };
 }
 
 /**
@@ -209,10 +226,36 @@ export function parseShellPrefs(raw: string | null): ShellPrefs {
       sfx: clampPercent(parsed.sfx, base.sfx),
       ambience: clampPercent(parsed.ambience, base.ambience),
       language: isShellLanguage(parsed.language) ? parsed.language : 'fr',
+      mode: parseStoredMode(parsed.mode),
+      color: parsed.color === 'black' ? 'black' : 'white',
+      level: parseStoredLevel(parsed.level),
+      eco: parseStoredEco(parsed.eco),
     };
   } catch {
     return base;
   }
+}
+
+function firstEco(): string {
+  return ECO_OPENINGS[0]?.eco ?? 'C50';
+}
+
+function parseStoredMode(value: unknown): ShellMode {
+  if (value === 'cpu' || value === 'hotseat' || value === 'local' || value === 'online' || value === 'learn') {
+    return value;
+  }
+  return 'cpu';
+}
+
+function parseStoredLevel(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 5) return 2;
+  return value;
+}
+
+function parseStoredEco(value: unknown): string {
+  const first = firstEco();
+  if (typeof value !== 'string') return first;
+  return ECO_OPENINGS.some((opening) => opening.eco === value) ? value : first;
 }
 
 function clampPercent(value: unknown, fallback: number): number {

@@ -54,6 +54,18 @@ export class OpeningTrainer {
     return this.ply;
   }
 
+  /**
+   * Places the cursor on a book ply. Values outside the line clamp to the ends.
+   * @param ply - Zero-based index in the current opening.
+   */
+  public seek(ply: number): void {
+    if (!Number.isFinite(ply)) {
+      this.ply = 0;
+      return;
+    }
+    this.ply = Math.min(this.plies.length, Math.max(0, Math.floor(ply)));
+  }
+
   public plyCount(): number {
     return this.plies.length;
   }

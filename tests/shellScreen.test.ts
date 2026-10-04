@@ -15,6 +15,7 @@ import {
   parseShellPrefs,
   rangeThumbRatio,
   reduceShell,
+  peerResumeSearch,
   shellBlocksPlay,
   shellSession,
   type ShellState,
@@ -65,6 +66,21 @@ describe('shell screen', () => {
     expect(about.screen).toBe('propos');
     expect(shellBlocksPlay(about)).toBe(true);
     expect(reduceShell(about, { type: 'escape' }).screen).toBe('accueil');
+  });
+
+  it('returns to the screen that opened saves', () => {
+    const fromHome = reduceShell(initialShell(false), { type: 'go', screen: 'sauvegardes' });
+    expect(shellBlocksPlay(fromHome)).toBe(true);
+    expect(reduceShell(fromHome, { type: 'escape' }).screen).toBe('accueil');
+    const pause = reduceShell(game(), { type: 'escape' });
+    const fromPause = reduceShell(pause, { type: 'go', screen: 'sauvegardes' });
+    expect(reduceShell(fromPause, { type: 'escape' }).screen).toBe('pause');
+  });
+
+  it('opens the guest window on the other color with the same fiche', () => {
+    expect(peerResumeSearch('white', 'interrupt')).toBe(
+      'chess=p2p&chessColor=black&chessPeer=1&chessShell=local&chessResume=interrupt'
+    );
   });
 
   it('returns to pause when options were opened from pause', () => {
@@ -144,6 +160,37 @@ describe('shell screen', () => {
     expect(parseShellPrefs(null).sfx).toBe(80);
     expect(chessMixVolume(0.5, 50)).toBeCloseTo(0.25);
     expect(chessMixVolume(0.5, 0)).toBe(0);
+  });
+
+  it('reads the last mode, color, level and opening, and drops unknown values', () => {
+    const stored = JSON.stringify({
+      mode: 'learn',
+      color: 'black',
+      level: 5,
+      eco: 'C60',
+      sfx: 10,
+      ambience: 20,
+      language: 'en',
+    });
+    expect(parseShellPrefs(stored)).toMatchObject({
+      mode: 'learn',
+      color: 'black',
+      level: 5,
+      eco: 'C60',
+      sfx: 10,
+      ambience: 20,
+      language: 'en',
+    });
+    expect(parseShellPrefs(JSON.stringify({ mode: 'p2p', color: 'red', level: 9, eco: 'ZZZ' }))).toMatchObject({
+      mode: 'cpu',
+      color: 'white',
+      level: 2,
+      eco: 'C50',
+      sfx: 80,
+      ambience: 40,
+      language: 'fr',
+    });
+    expect(defaultShellPrefs()).toMatchObject({ mode: 'cpu', color: 'white', level: 2, eco: 'C50' });
   });
 
   it('keeps the eight shell languages and drops an unknown one', () => {

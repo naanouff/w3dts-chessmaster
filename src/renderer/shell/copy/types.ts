@@ -146,6 +146,17 @@ export interface ShellCopy {
   bloom: string;
   render: string;
   fps: string;
+  saves: string;
+  resumeGame: string;
+  save: string;
+  saved: string;
+  savesHint: string;
+  interrupted: string;
+  requested: string;
+  restore: string;
+  discard: string;
+  remove: string;
+  noSaves: string;
   p2p: {
     waiting: string;
     connecting: string;

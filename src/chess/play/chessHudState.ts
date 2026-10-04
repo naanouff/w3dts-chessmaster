@@ -7,6 +7,7 @@
  */
 
 import type { ChessColor } from '../rules/chessTypes';
+import { acceptSavedGame, type SavedGame, type SavedShellMode } from './savedGames';
 import {
   parseChessDemoSession,
   type ChessDemoQuery,
@@ -21,8 +22,12 @@ export const CHESS_HUD_COMMAND_EVENT = 'w3dts-chess-hud-command';
 
 export type ChessHudCommand =
   | { type: 'mode-picker'; open: boolean }
-  | { type: 'apply-session'; session: ChessDemoQuery }
-  | { type: 'request-state' };
+  | { type: 'apply-session'; session: ChessDemoQuery; table?: SavedShellMode }
+  | { type: 'request-state' }
+  | { type: 'resume-saved'; game: SavedGame; cpuDepth?: number }
+  | { type: 'save-voluntary' }
+  | { type: 'discard-interrupt' }
+  | { type: 'delete-voluntary'; id: string };
 
 export type ChessHudP2pStatus = 'waiting' | 'connecting' | 'connected' | 'disconnected';
 
@@ -223,10 +228,29 @@ export function parseChessHudCommand(raw: unknown): ChessHudCommand | null {
   if (raw.type === 'apply-session') {
     const session = parseChessDemoSession(raw.session);
     if (!session) return null;
-    return { type: 'apply-session', session };
+    const table = parseTable(raw.table);
+    return table ? { type: 'apply-session', session, table } : { type: 'apply-session', session };
   }
   if (raw.type === 'request-state') {
     return { type: 'request-state' };
   }
+  if (raw.type === 'resume-saved') {
+    const game = acceptSavedGame(raw.game);
+    if (!game) return null;
+    const cpuDepth = typeof raw.cpuDepth === 'number' && Number.isFinite(raw.cpuDepth) ? raw.cpuDepth : undefined;
+    return cpuDepth !== undefined ? { type: 'resume-saved', game, cpuDepth } : { type: 'resume-saved', game };
+  }
+  if (raw.type === 'save-voluntary') return { type: 'save-voluntary' };
+  if (raw.type === 'discard-interrupt') return { type: 'discard-interrupt' };
+  if (raw.type === 'delete-voluntary' && typeof raw.id === 'string' && raw.id.length > 0) {
+    return { type: 'delete-voluntary', id: raw.id };
+  }
   return null;
+}
+
+function parseTable(value: unknown): SavedShellMode | undefined {
+  if (value === 'cpu' || value === 'hotseat' || value === 'local' || value === 'online' || value === 'learn') {
+    return value;
+  }
+  return undefined;
 }

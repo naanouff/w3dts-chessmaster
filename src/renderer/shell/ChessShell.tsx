@@ -1,17 +1,24 @@
 ﻿/**
  * @file ChessShell.tsx
- * @description Welcome, modes, lobby, pause, options and settings over the chess table.
+ * @description Welcome, modes, lobby, pause, saves, options and settings over the chess table.
  */
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react';
 import {
   CHESS_HUD_COMMAND_EVENT,
   CHESS_HUD_STATE_EVENT,
+  CHESS_SAVES_EVENT,
   ECO_OPENINGS,
+  SAVED_GAMES_KEY,
+  cpuSearchDepth,
+  emptySaveCabinet,
   formatChessClock,
   parseChessHudState,
+  parseSaveCabinet,
   type ChessColor,
   type ChessHudState,
+  type SaveCabinet,
+  type SavedGame,
 } from '../../chess';
 import { chessBus } from '../bus';
 import {
@@ -39,6 +46,7 @@ import {
   SHELL_LANGUAGES,
   shellCopy,
   type ShellCopy,
+  type ShellLanguage,
 } from './copy/shellCopy';
 import {
   acceptJoinCode,
@@ -47,6 +55,7 @@ import {
   defaultShellPrefs,
   initialShell,
   parseShellPrefs,
+  peerResumeSearch,
   rangeThumbRatio,
   reduceShell,
   SHELL_PREFS_KEY,
@@ -77,6 +86,27 @@ function savePrefs(prefs: ShellPrefs): void {
   }
   setChessAudioLevels(prefs.sfx, prefs.ambience);
   publishShellLanguage(prefs.language);
+}
+
+function loadCabinet(): SaveCabinet {
+  try {
+    return parseSaveCabinet(globalThis.localStorage?.getItem(SAVED_GAMES_KEY) ?? null);
+  } catch {
+    return emptySaveCabinet();
+  }
+}
+
+function saveLine(copy: ShellCopy, game: SavedGame, language: ShellLanguage): string {
+  const mode = copy.modeCards[game.shellMode].title;
+  const side = game.localColor === 'black' ? copy.black : copy.white;
+  const tail =
+    game.kind === 'voluntary' && game.savedAt > 0
+      ? new Date(game.savedAt).toLocaleDateString(language === 'zh' ? 'zh-CN' : language, {
+          day: 'numeric',
+          month: 'short',
+        })
+      : formatChessClock(game.whiteSeconds);
+  return `${mode} · ${side} · ${tail}`;
 }
 
 function makeCode(): string {
@@ -211,13 +241,17 @@ function BootCover({
 export default function ChessShell({ studioReady }: { studioReady: boolean }): ReactElement {
   const peer = new URLSearchParams(window.location.search).get('chessPeer') === '1';
   const [bootGone, setBootGone] = useState(false);
-  const [shell, setShell] = useState<ShellState>(() => initialShell(peer));
   const [prefs, setPrefs] = useState<ShellPrefs>(loadPrefs);
+  const [shell, setShell] = useState<ShellState>(() => {
+    const base = initialShell(peer);
+    if (peer) return base;
+    return { ...base, mode: loadPrefs().mode };
+  });
   const [hud, setHud] = useState<ChessHudState | null>(null);
-  const [color, setColor] = useState<ChessColor>('white');
-  const [hostColor, setHostColor] = useState<ChessColor>('white');
-  const [level, setLevel] = useState(2);
-  const [eco, setEco] = useState(ECO_OPENINGS[0]?.eco ?? 'C50');
+  const [color, setColor] = useState<ChessColor>(() => (peer ? 'white' : loadPrefs().color));
+  const [hostColor, setHostColor] = useState<ChessColor>(() => (peer ? 'white' : loadPrefs().color));
+  const [level, setLevel] = useState(() => (peer ? 2 : loadPrefs().level));
+  const [eco, setEco] = useState(() => (peer ? (ECO_OPENINGS[0]?.eco ?? 'C50') : loadPrefs().eco));
   const [code, setCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [graphics, setGraphics] = useState<ChessGraphicsSettings>(getChessGraphicsSettings);
@@ -226,6 +260,8 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
   const [question, setQuestion] = useState('');
   const [coachNote, setCoachNote] = useState('');
   const [rankTab, setRankTab] = useState<'local' | 'online'>('local');
+  const [cabinet, setCabinet] = useState<SaveCabinet>(loadCabinet);
+  const [savedFlash, setSavedFlash] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const root = useRef<HTMLDivElement>(null);
 
@@ -251,11 +287,20 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
       if (parsed) setHud(parsed);
     };
     chessBus.on(CHESS_HUD_STATE_EVENT, onHud);
+    const onSaves = (raw: unknown): void => {
+      setCabinet(parseSaveCabinet(JSON.stringify(raw ?? null)));
+    };
+    chessBus.on(CHESS_SAVES_EVENT, onSaves);
     chessBus.emit(CHESS_HUD_COMMAND_EVENT, { type: 'request-state' });
     return () => {
       chessBus.off(CHESS_HUD_STATE_EVENT, onHud);
+      chessBus.off(CHESS_SAVES_EVENT, onSaves);
     };
   }, []);
+
+  useEffect(() => {
+    if (shell.screen !== 'pause') setSavedFlash(false);
+  }, [shell.screen]);
 
   useEffect(() => {
     chessBus.emit(CHESS_HUD_COMMAND_EVENT, {
@@ -289,9 +334,16 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
     return () => window.clearInterval(id);
   }, [shell.screen, graphics]);
 
+  const rememberColor = (next: ChessColor): void => {
+    setColor(next);
+    setHostColor(next);
+    setPrefs((prev) => ({ ...prev, color: next }));
+  };
+
   const dispatch = (action: ShellAction): void => {
     const next = reduceShell(shell, action);
     setShell(next);
+    if (action.type === 'set-mode') setPrefs((prev) => ({ ...prev, mode: action.mode }));
     const starts =
       (action.type === 'start' && next.screen === 'partie') ||
       action.type === 'create-table' ||
@@ -310,7 +362,43 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
     chessBus.emit(CHESS_HUD_COMMAND_EVENT, {
       type: 'apply-session',
       session: shellSession(next.mode, side, eco, level),
+      table: next.mode,
     });
+  };
+
+  const openSaved = (game: SavedGame): void => {
+    chessBus.emit(CHESS_HUD_COMMAND_EVENT, {
+      type: 'resume-saved',
+      game,
+      ...(game.shellMode === 'cpu' ? { cpuDepth: cpuSearchDepth(level) } : {}),
+    });
+    setColor(game.localColor);
+    if (game.shellMode === 'online') setHostColor(game.localColor);
+    if (game.eco) setEco(game.eco);
+    setPrefs((prev) => ({
+      ...prev,
+      mode: game.shellMode,
+      color: game.localColor,
+      ...(game.eco ? { eco: game.eco } : {}),
+    }));
+    setShell((prev) => {
+      const withMode = reduceShell(prev, { type: 'set-mode', mode: game.shellMode });
+      if (game.shellMode === 'online') {
+        return { ...withMode, screen: 'salon', back: 'modes', assistant: false, notice: '' };
+      }
+      return reduceShell(withMode, { type: 'start' });
+    });
+    if (game.shellMode === 'local') {
+      void window.chessMaster?.openPeerWindow(peerResumeSearch(game.localColor, game.id));
+    }
+  };
+
+  const saveGame = (): void => {
+    const before = loadCabinet().voluntary.at(-1)?.id;
+    chessBus.emit(CHESS_HUD_COMMAND_EVENT, { type: 'save-voluntary' });
+    const after = loadCabinet();
+    setCabinet(after);
+    if (after.voluntary.at(-1)?.id !== before) setSavedFlash(true);
   };
 
   const copy = shellCopy(prefs.language);
@@ -339,7 +427,15 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
           <button type="button" className="primary" data-primary onClick={() => dispatch({ type: 'play' })}>
             {copy.play}
           </button>
+          {cabinet.interrupt ? (
+            <button type="button" className="ghost home-resume" onClick={() => openSaved(cabinet.interrupt!)}>
+              {copy.resumeGame}
+            </button>
+          ) : null}
           <nav className="text-links">
+            <button type="button" onClick={() => dispatch({ type: 'go', screen: 'sauvegardes' })}>
+              {copy.saves}
+            </button>
             <button type="button" onClick={() => dispatch({ type: 'go', screen: 'classements' })}>
               {copy.ranks}
             </button>
@@ -381,12 +477,20 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
                   { id: 'black', label: copy.black },
                 ]}
                 selected={color}
-                onSelect={(id) => setColor(id === 'black' ? 'black' : 'white')}
+                onSelect={(id) => rememberColor(id === 'black' ? 'black' : 'white')}
               />
               <p className="field">
                 {copy.level} {level}
               </p>
-              <ScaleRange min={1} max={5} value={level} onChange={setLevel} />
+              <ScaleRange
+                min={1}
+                max={5}
+                value={level}
+                onChange={(value) => {
+                  setLevel(value);
+                  setPrefs((prev) => ({ ...prev, level: value }));
+                }}
+              />
             </>
           ) : null}
           {shell.mode === 'learn' ? (
@@ -398,7 +502,10 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
                   label: `${item.eco} ${openingName(copy, item.eco)}`,
                 }))}
                 selected={eco}
-                onSelect={setEco}
+                onSelect={(id) => {
+                  setEco(id);
+                  setPrefs((prev) => ({ ...prev, eco: id }));
+                }}
               />
             </>
           ) : null}
@@ -425,7 +532,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
                   { id: 'black', label: copy.black },
                 ]}
                 selected={hostColor}
-                onSelect={(id) => setHostColor(id === 'black' ? 'black' : 'white')}
+                onSelect={(id) => rememberColor(id === 'black' ? 'black' : 'white')}
               />
               <p className="hint">{copy.colorHint}</p>
               <p className="code">{code || '—'}</p>
@@ -559,6 +666,13 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
           <button type="button" className="primary" data-primary onClick={() => dispatch({ type: 'resume' })}>
             {copy.resume}
           </button>
+          <button type="button" className="ghost" onClick={saveGame}>
+            {copy.save}
+          </button>
+          {savedFlash ? <p className="notice">{copy.saved}</p> : null}
+          <button type="button" className="ghost" onClick={() => dispatch({ type: 'go', screen: 'sauvegardes' })}>
+            {copy.saves}
+          </button>
           <button type="button" className="ghost" onClick={() => dispatch({ type: 'go', screen: 'modes' })}>
             {copy.changeMode}
           </button>
@@ -575,6 +689,61 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
           </button>
         </section>
         </div>
+      ) : null}
+
+      {shell.screen === 'sauvegardes' ? (
+        <section className="panel sheet">
+          <header className="sheet-head">
+            <div>
+              <h1>{copy.saves}</h1>
+              <p className="hint">{copy.savesHint}</p>
+            </div>
+            <button type="button" className="ghost" data-primary onClick={() => dispatch({ type: 'escape' })}>
+              {copy.close}
+            </button>
+          </header>
+          {cabinet.interrupt ? (
+            <section className="sheet-section">
+              <h2>{copy.interrupted}</h2>
+              <div className="save-row">
+                <p>{saveLine(copy, cabinet.interrupt, prefs.language)}</p>
+                <button type="button" className="primary" onClick={() => openSaved(cabinet.interrupt!)}>
+                  {copy.restore}
+                </button>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => chessBus.emit(CHESS_HUD_COMMAND_EVENT, { type: 'discard-interrupt' })}
+                >
+                  {copy.discard}
+                </button>
+              </div>
+            </section>
+          ) : null}
+          {cabinet.voluntary.length > 0 ? (
+            <section className="sheet-section">
+              <h2>{copy.requested}</h2>
+              {cabinet.voluntary.map((game) => (
+                <div className="save-row" key={game.id}>
+                  <p>{saveLine(copy, game, prefs.language)}</p>
+                  <button type="button" className="primary" onClick={() => openSaved(game)}>
+                    {copy.restore}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() =>
+                      chessBus.emit(CHESS_HUD_COMMAND_EVENT, { type: 'delete-voluntary', id: game.id })
+                    }
+                  >
+                    {copy.remove}
+                  </button>
+                </div>
+              ))}
+            </section>
+          ) : null}
+          {!cabinet.interrupt && cabinet.voluntary.length === 0 ? <p className="hint">{copy.noSaves}</p> : null}
+        </section>
       ) : null}
 
       {shell.screen === 'propos' ? (
