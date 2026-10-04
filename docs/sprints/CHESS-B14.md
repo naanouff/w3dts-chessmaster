@@ -1,6 +1,6 @@
 # Sprint CHESS-B14 — Persistance
 
-Découpage de [docs/persistance.md](../persistance.md). Ce sprint ne branche pas l’écran Sauvegardes dans le client.
+Découpage de [docs/persistance.md](../persistance.md). La maquette validée, l’écran Sauvegardes est aussi dans le client.
 
 Ordre : B14a, puis B14b, puis B14c, puis B14d, puis B14e. Chaque ticket de code commence par un test qui échoue. Il se termine par `pnpm test` et `pnpm check`. B14a n’a pas de `pnpm test` : aucun module de `src/` n’est touché.
 
@@ -15,7 +15,7 @@ Fait quand :
 - Pause a « Sauvegarder », avec une confirmation en une ligne, et « Sauvegardes ». Reprendre ramène à la table.
 - Échap ferme l’écran et revient à l’écran précédent.
 - `docs/maquette-ui.md` décrit l’écran, le lien d’accueil et les boutons de pause.
-- `docs/shell-client.md` dit que le client attend cette maquette.
+- `docs/shell-client.md` décrit l’écran dans le client.
 
 ## CHESS-B14b — Habitudes
 
@@ -60,7 +60,17 @@ Fait quand :
 - Une fenêtre entièrement visible et assez grande est reprise telle quelle, y compris agrandie.
 - Le processus principal lit et écrit `userData/window-bounds.json`.
 
+## CHESS-B14f — Écran dans le client
+
+Fichiers : `src/renderer/shell/ChessShell.tsx`, `src/renderer/shell/shell.css`, `src/renderer/shell/copy`, `src/renderer/host/ChessDemoProject.ts`, `src/renderer/main.tsx`.
+
+Fait quand :
+
+- L’accueil a le lien « Sauvegardes », le bouton « Reprendre la partie » sous Jouer, et un panneau assez large pour les cinq liens.
+- L’écran liste l’interruption et les volontaires. Restaurer, Écarter et Supprimer agissent sur le casier. L’état vide ne montre pas de fausse partie.
+- Pause a « Sauvegarder », avec une confirmation en une ligne, et « Sauvegardes ».
+- Une partie en cours s’écrit dans l’interruption. Une nouvelle partie l’efface. Restaurer une partie locale ouvre la seconde fenêtre. Restaurer une partie en ligne ouvre le salon et envoie `restore` à la connexion.
+
 ## Hors de ce sprint
 
-- L’écran React dans `src/renderer/shell`, le lien d’accueil et les boutons de pause du client. Ils attendent un « applique en prod » sur la maquette de B14a.
 - Un relais entre deux machines. La restauration en ligne reste le salon et le message `restore` sur le canal déjà là.

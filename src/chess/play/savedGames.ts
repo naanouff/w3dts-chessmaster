@@ -128,6 +128,46 @@ export function putVoluntary(cabinet: SaveCabinet, game: SavedGame): SaveCabinet
   };
 }
 
+/** localStorage key for the interruption and the voluntary saves. */
+export const SAVED_GAMES_KEY = 'w3dts-chess-saves';
+
+/** Bus event carrying the cabinet after it is written. */
+export const CHESS_SAVES_EVENT = 'w3dts-chess-saves';
+
+/**
+ * Clears the interruption and leaves the voluntary list as it is.
+ * @param cabinet - Current cabinet.
+ */
+export function dropInterrupt(cabinet: SaveCabinet): SaveCabinet {
+  return { interrupt: null, voluntary: cabinet.voluntary };
+}
+
+/**
+ * Removes one voluntary save. The interruption stays.
+ * @param cabinet - Current cabinet.
+ * @param id - Fiche to remove.
+ */
+export function dropVoluntary(cabinet: SaveCabinet, id: string): SaveCabinet {
+  return {
+    interrupt: cabinet.interrupt,
+    voluntary: cabinet.voluntary.filter((game) => game.id !== id),
+  };
+}
+
+/**
+ * Writes a live table into the interruption slot.
+ * A finished game clears that slot. An intact start leaves the cabinet unchanged.
+ * @param cabinet - Current cabinet.
+ * @param raw - Candidate interruption.
+ * @param finished - True when the table is mate, a flag, or a finished lesson.
+ */
+export function noteInterrupt(cabinet: SaveCabinet, raw: unknown, finished: boolean): SaveCabinet {
+  const game = acceptSavedGame(raw);
+  if (game) return putInterrupt(cabinet, game);
+  if (finished) return dropInterrupt(cabinet);
+  return cabinet;
+}
+
 function parseMode(value: unknown): SavedShellMode | null {
   if (value === 'cpu' || value === 'hotseat' || value === 'local' || value === 'online' || value === 'learn') {
     return value;

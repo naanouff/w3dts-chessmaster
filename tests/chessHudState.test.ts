@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  ChessMatch,
   buildChessHudLearnPlies,
   chessPlayP2pHint,
   mergeChessDemoQueryIntoSearch,
@@ -159,6 +160,49 @@ describe('parseChessHudCommand', () => {
     });
     expect(parseChessHudCommand({ type: 'apply-session', session: { mode: 'nope' } })).toBeNull();
     expect(parseChessHudCommand({ type: 'request-state' })).toEqual({ type: 'request-state' });
+    expect(
+      parseChessHudCommand({
+        type: 'apply-session',
+        session: { mode: 'p2p', localColor: 'white' },
+        table: 'online',
+      })
+    ).toEqual({
+      type: 'apply-session',
+      session: { mode: 'p2p', localColor: 'white', quiz: false },
+      table: 'online',
+    });
+  });
+
+  it('accepts a resume of a game in progress and the cabinet commands', () => {
+    const match = ChessMatch.starting();
+    expect(match.tryMove('e2', 'e4').ok).toBe(true);
+    const game = {
+      id: 'interrupt',
+      kind: 'interrupt',
+      shellMode: 'cpu',
+      fen: match.fen(),
+      whiteSeconds: 500,
+      blackSeconds: 600,
+      localColor: 'white',
+      savedAt: 1,
+    };
+    expect(parseChessHudCommand({ type: 'resume-saved', game })).toMatchObject({
+      type: 'resume-saved',
+      game: { id: 'interrupt', fen: match.fen() },
+    });
+    expect(
+      parseChessHudCommand({
+        type: 'resume-saved',
+        game: { ...game, fen: ChessMatch.starting().fen(), whiteSeconds: 600, blackSeconds: 600 },
+      })
+    ).toBeNull();
+    expect(parseChessHudCommand({ type: 'save-voluntary' })).toEqual({ type: 'save-voluntary' });
+    expect(parseChessHudCommand({ type: 'discard-interrupt' })).toEqual({ type: 'discard-interrupt' });
+    expect(parseChessHudCommand({ type: 'delete-voluntary', id: 'v1' })).toEqual({
+      type: 'delete-voluntary',
+      id: 'v1',
+    });
+    expect(parseChessHudCommand({ type: 'delete-voluntary' })).toBeNull();
   });
 });
 

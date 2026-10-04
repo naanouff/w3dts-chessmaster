@@ -124,6 +124,10 @@
   padding: 1.4rem 1.45rem 1.5rem;
 }
 
+.shell[data-screen='accueil'] > .panel {
+  width: min(44rem, calc(100% - 2rem));
+}
+
 .shell .panel.sheet,
 .shell .panel.wide {
   width: min(46rem, calc(100% - 2rem));
@@ -325,10 +329,35 @@
   margin-top: 0.85rem;
 }
 
-.shell[data-screen='accueil'] > .panel > button.primary {
+.shell[data-screen='accueil'] > .panel > button.primary,
+.shell[data-screen='accueil'] > .panel > button.home-resume {
   width: fit-content;
   margin-inline: auto;
   padding-inline: 2.4rem;
+}
+
+.shell[data-screen='accueil'] > .panel > button.home-resume {
+  margin-top: 0.65rem;
+  padding-inline: 1.6rem;
+}
+
+.shell .save-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.shell .save-row p {
+  flex: 1 1 12rem;
+  margin: 0;
+}
+
+.shell .save-row .ghost,
+.shell .save-row .primary {
+  width: auto;
+  margin-top: 0;
 }
 
 .shell button.ghost,

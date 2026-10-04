@@ -4,7 +4,7 @@ Le joueur retrouve ses réglages, sa fenêtre, et ses parties, y compris à deux
 
 Déjà enregistrés, et inchangés : le graphisme (`w3dts-chess-graphics`, [`chessGraphicsSettings.ts`](../src/renderer/graphics/chessGraphicsSettings.ts)), le volume des coups, l’ambiance et la langue (`w3dts-chess-shell`, `parseShellPrefs` dans [`shellScreen.ts`](../src/renderer/shell/shellScreen.ts)).
 
-L’écran de gestion est nouveau. Il se valide dans [la maquette](mockup/index.html). Le client ne le reçoit qu’après cette validation.
+L’écran de gestion est dans le client. Il a été validé dans [la maquette](mockup/index.html).
 
 Sprint : [CHESS-B14](sprints/CHESS-B14.md).
 

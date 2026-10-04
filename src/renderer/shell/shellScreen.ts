@@ -18,7 +18,8 @@ export type ShellScreen =
   | 'options'
   | 'parametres'
   | 'classements'
-  | 'propos';
+  | 'propos'
+  | 'sauvegardes';
 
 export type ShellMode = 'cpu' | 'hotseat' | 'local' | 'online' | 'learn';
 
@@ -154,6 +155,17 @@ export function shellSession(
     ...(mode === 'learn' ? { eco } : {}),
     ...(mode === 'cpu' ? { cpuDepth: cpuSearchDepth(level) } : {}),
   };
+}
+
+/**
+ * Query for the second window when a local game is restored.
+ * The guest takes the other color and loads the same fiche.
+ * @param hostColor - Color stored on the fiche.
+ * @param id - Interrupt or voluntary id.
+ */
+export function peerResumeSearch(hostColor: ChessColor, id: string): string {
+  const guest = hostColor === 'black' ? 'white' : 'black';
+  return `chess=p2p&chessColor=${guest}&chessPeer=1&chessShell=local&chessResume=${encodeURIComponent(id)}`;
 }
 
 /**

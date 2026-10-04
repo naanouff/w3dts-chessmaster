@@ -15,6 +15,7 @@ import {
   parseShellPrefs,
   rangeThumbRatio,
   reduceShell,
+  peerResumeSearch,
   shellBlocksPlay,
   shellSession,
   type ShellState,
@@ -65,6 +66,21 @@ describe('shell screen', () => {
     expect(about.screen).toBe('propos');
     expect(shellBlocksPlay(about)).toBe(true);
     expect(reduceShell(about, { type: 'escape' }).screen).toBe('accueil');
+  });
+
+  it('returns to the screen that opened saves', () => {
+    const fromHome = reduceShell(initialShell(false), { type: 'go', screen: 'sauvegardes' });
+    expect(shellBlocksPlay(fromHome)).toBe(true);
+    expect(reduceShell(fromHome, { type: 'escape' }).screen).toBe('accueil');
+    const pause = reduceShell(game(), { type: 'escape' });
+    const fromPause = reduceShell(pause, { type: 'go', screen: 'sauvegardes' });
+    expect(reduceShell(fromPause, { type: 'escape' }).screen).toBe('pause');
+  });
+
+  it('opens the guest window on the other color with the same fiche', () => {
+    expect(peerResumeSearch('white', 'interrupt')).toBe(
+      'chess=p2p&chessColor=black&chessPeer=1&chessShell=local&chessResume=interrupt'
+    );
   });
 
   it('returns to pause when options were opened from pause', () => {

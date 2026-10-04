@@ -29,9 +29,14 @@ export {
 export { CHESS_CLOCK_START_S, clocksFromWire, stepChessClock } from './play/chessClock';
 export type { ChessClocks, ClockGate } from './play/chessClock';
 export {
+  CHESS_SAVES_EVENT,
+  SAVED_GAMES_KEY,
   VOLUNTARY_SAVE_LIMIT,
   acceptSavedGame,
+  dropInterrupt,
+  dropVoluntary,
   emptySaveCabinet,
+  noteInterrupt,
   parseSaveCabinet,
   putInterrupt,
   putVoluntary,
