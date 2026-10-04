@@ -15,6 +15,7 @@ const MODES = [
   { id: 'local', title: 'Sur cet ordinateur', blurb: 'Une seconde fenêtre de cette application.' },
   { id: 'online', title: 'En ligne', blurb: 'Créer ou rejoindre une table.' },
   { id: 'learn', title: 'Apprendre', blurb: 'Une courte ligne ECO.' },
+  { id: 'training', title: 'Entraînement', blurb: 'Stopper le CPU, annuler un coup, planifier.' },
 ];
 
 const PRESETS = {
@@ -54,6 +55,15 @@ const RANKS = {
   },
 };
 
+/** Arrival squares of an example plan. The piece sits on the board; no file or rank is written. */
+const PLAN_GHOSTS = [
+  { glyph: '♟', side: 'white', file: 3, rank: 4 },
+  { glyph: '♟', side: 'black', file: 3, rank: 5 },
+  { glyph: '♟', side: 'white', file: 2, rank: 4 },
+  { glyph: '♟', side: 'black', file: 4, rank: 6 },
+  { glyph: '♞', side: 'white', file: 2, rank: 3 },
+];
+
 const state = {
   screen: 'accueil',
   back: 'accueil',
@@ -70,6 +80,9 @@ const state = {
   notice: '',
   assistant: false,
   coachBusy: false,
+  trainingHeld: false,
+  horizon: 3,
+  objecting: false,
   hasModel: false,
   hasKey: false,
   provider: 'local',
@@ -138,8 +151,12 @@ function paintModes() {
   const extra = $('mode-extra');
   rememberChoiceThumb($('mode-color'));
   rememberChoiceThumb($('mode-openings'));
-  if (state.mode === 'cpu') {
-    extra.innerHTML = `<h2>Couleur</h2><div class="choice" id="mode-color">${colorButtons(state.color, 'data-color')}</div><label class="field" for="level">Niveau ${state.level}</label>${levelScale(state.level)}`;
+  if (state.mode === 'cpu' || state.mode === 'training') {
+    extra.innerHTML = `<h2>Couleur</h2><div class="choice" id="mode-color">${colorButtons(state.color, 'data-color')}</div>${
+      state.mode === 'cpu'
+        ? `<label class="field" for="level">Niveau ${state.level}</label>${levelScale(state.level)}`
+        : ''
+    }`;
   } else if (state.mode === 'learn') {
     extra.innerHTML = `<h2>Ligne</h2><div class="choice" id="mode-openings">${OPENINGS.map(
       (opening, index) =>
@@ -321,6 +338,33 @@ function paintPartie() {
   const online = state.mode === 'online';
   chip.hidden = !online;
   chip.textContent = online ? $('salon-status').textContent : '';
+  const training = state.mode === 'training';
+  $('coach-play').hidden = training;
+  $('coach-training').hidden = !training;
+  $('coach-stop').textContent = state.trainingHeld ? 'Reprendre' : 'Stop';
+  $('coach-horizon-label').textContent = `Profondeur ${state.horizon}`;
+  const horizon = $('coach-horizon');
+  if (horizon && horizon.value !== String(state.horizon)) horizon.value = String(state.horizon);
+  $('play-move').hidden = !training || state.objecting;
+  if (training && state.trainingHeld) $('turn-label').textContent = 'Partie arrêtée';
+  else $('turn-label').textContent = state.color === 'black' ? 'Les noirs jouent' : 'Les blancs jouent';
+  paintGhosts();
+}
+
+function paintGhosts() {
+  const board = $('studio-board');
+  const show = state.screen === 'partie' && state.mode === 'training' && state.assistant;
+  board.replaceChildren();
+  if (!show) return;
+  PLAN_GHOSTS.slice(0, state.horizon).forEach((ghost, index) => {
+    const node = document.createElement('span');
+    node.className = `board-ghost is-${ghost.side}${index === 0 ? ' is-next' : ''}`;
+    node.textContent = ghost.glyph;
+    node.style.left = `${((ghost.file + 0.5) / 8) * 100}%`;
+    node.style.top = `${((8 - ghost.rank + 0.5) / 8) * 100}%`;
+    node.style.opacity = String(Math.max(0.28, 0.92 - index * 0.16));
+    board.append(node);
+  });
 }
 
 function resolutionSize() {
@@ -479,6 +523,25 @@ function leaveTable() {
   show('salon', 'modes');
 }
 
+function raiseObjection() {
+  if (state.mode !== 'training' || state.screen !== 'partie' || state.objecting) return;
+  state.objecting = true;
+  state.trainingHeld = true;
+  state.assistant = true;
+  $('assistant').hidden = false;
+  $('objection').hidden = false;
+  $('studio').classList.add('is-shaken');
+  $('coach-body').textContent = 'Le coup joué n’est pas le fantôme le plus net.';
+  paintPartie();
+  window.setTimeout(() => {
+    state.objecting = false;
+    $('objection').hidden = true;
+    $('studio').classList.remove('is-shaken');
+    paintPartie();
+    if (state.assistant) $('coach-stop').focus();
+  }, 900);
+}
+
 function askCoach(kind) {
   const body = $('coach-body');
   if (!state.hasModel) {
@@ -500,6 +563,10 @@ function askCoach(kind) {
       explain: 'Les blancs tiennent davantage le centre. Le roi n’est pas encore à l’abri.',
       hint: 'Cherchez un développement qui ouvre une diagonale, sans proposer l’échange tout de suite.',
       ask: 'Le texte commente la position. Il ne propose pas de coup à jouer.',
+      mistake:
+        'Le coup joué n’est pas le fantôme le plus net. Suivez cette pièce, puis celles qui s’effacent derrière elle.',
+      strategy:
+        'Gardez le fantôme le plus net. Les suivants montrent la suite, de plus en plus discrets.',
     };
     body.textContent = replies[kind];
   }, 700);
@@ -605,14 +672,26 @@ document.addEventListener('click', (event) => {
   }
   if (id === 'sim-opponent') connectThenPlay();
   if (id === 'join-table') joinTable();
+  if (id === 'play-move') raiseObjection();
   if (id === 'open-assistant') {
     state.assistant = true;
     $('assistant').hidden = false;
-    $('coach-explain').focus();
+    paintGhosts();
+    (state.mode === 'training' ? $('coach-stop') : $('coach-explain')).focus();
+  }
+  if (id === 'coach-stop') {
+    state.trainingHeld = !state.trainingHeld;
+    paintPartie();
+  }
+  if (id === 'coach-undo') {
+    state.trainingHeld = true;
+    paintPartie();
+    $('coach-body').textContent = 'Votre coup est annulé. La partie reste en pause.';
   }
   if (id === 'close-assistant') {
     state.assistant = false;
     $('assistant').hidden = true;
+    paintGhosts();
     $('open-pause').focus();
   }
   if (id === 'open-pause') show('pause', 'partie');
@@ -632,6 +711,8 @@ document.addEventListener('click', (event) => {
   if (id === 'coach-explain') askCoach('explain');
   if (id === 'coach-hint') askCoach('hint');
   if (id === 'coach-ask') askCoach('ask');
+  if (id === 'coach-mistake') askCoach('mistake');
+  if (id === 'coach-strategy') askCoach('strategy');
   if (id === 'coach-settings') {
     state.reopenAssistant = true;
     show('parametres', 'partie');
@@ -659,6 +740,11 @@ document.addEventListener('pointerup', () => {
 document.addEventListener('input', (event) => {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
+  if (target.id === 'coach-horizon') {
+    state.horizon = Number(target.value);
+    $('coach-horizon-label').textContent = `Profondeur ${state.horizon}`;
+    paintGhosts();
+  }
   if (target.id === 'level') {
     state.level = Number(target.value);
     const label = document.querySelector('label[for="level"]');
@@ -688,9 +774,17 @@ document.addEventListener('input', (event) => {
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
   if (state.screen === 'chargement') return;
+  if (state.objecting) {
+    state.objecting = false;
+    $('objection').hidden = true;
+    $('studio').classList.remove('is-shaken');
+    paintPartie();
+    return;
+  }
   if (state.assistant && state.screen === 'partie') {
     state.assistant = false;
     $('assistant').hidden = true;
+    paintGhosts();
     $('open-pause').focus();
     return;
   }

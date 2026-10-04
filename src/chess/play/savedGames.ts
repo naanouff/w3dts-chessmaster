@@ -14,7 +14,7 @@ export const VOLUNTARY_SAVE_LIMIT = 20;
 
 const CLOCK_START_S = 600;
 
-export type SavedShellMode = 'cpu' | 'hotseat' | 'local' | 'online' | 'learn';
+export type SavedShellMode = 'cpu' | 'hotseat' | 'local' | 'online' | 'learn' | 'training';
 
 export interface SavedGame {
   id: string;
@@ -169,7 +169,14 @@ export function noteInterrupt(cabinet: SaveCabinet, raw: unknown, finished: bool
 }
 
 function parseMode(value: unknown): SavedShellMode | null {
-  if (value === 'cpu' || value === 'hotseat' || value === 'local' || value === 'online' || value === 'learn') {
+  if (
+    value === 'cpu' ||
+    value === 'hotseat' ||
+    value === 'local' ||
+    value === 'online' ||
+    value === 'learn' ||
+    value === 'training'
+  ) {
     return value;
   }
   return null;

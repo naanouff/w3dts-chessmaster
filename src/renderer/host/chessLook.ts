@@ -13,6 +13,7 @@ import {
   type PbrKhrExtensionCompileFlags,
   type ResourceManager,
   type ShaderGraph,
+  type ShaderGraphNode,
 } from '@naanouff/w3dts-core';
 import { fetchPublicAssetPreferSameOrigin } from './assetFetch';
 
@@ -255,7 +256,8 @@ export function createChessMoveGlowMaterial(
   neon: GPUTexture,
   name: string,
   tint: [number, number, number],
-  emissive: [number, number, number]
+  emissive: [number, number, number],
+  alpha = 1
 ): Material {
   const sampler = resourceManager['device']?.createSampler?.({
     magFilter: 'linear',
@@ -273,7 +275,7 @@ export function createChessMoveGlowMaterial(
     doubleSided: true,
     properties: {
       tag: 'transparent',
-      baseColor: [...tint, 1],
+      baseColor: [...tint, alpha],
       baseColorTexture: neon,
       emissiveColor: [...emissive, 1],
       emissiveTexture: neon,
@@ -283,6 +285,88 @@ export function createChessMoveGlowMaterial(
   });
   resourceManager.uploadMaterial(material);
   return material;
+}
+
+function coachProperty(id: string, propertyName: string, dataType: 'vec3f' | 'f32', y: number): ShaderGraphNode {
+  return {
+    id,
+    type: 'Property',
+    position: { x: 0, y },
+    stage: 'common',
+    inputs: [],
+    outputs: [{ id: 'out', name: propertyName, dataType }],
+    data: { propertyName },
+  };
+}
+
+/** Flat color. Ghosts blend it; the mask pass writes it for the silhouette. */
+const COACH_UNLIT_GRAPH: ShaderGraph = {
+  id: 'CoachCutoutUnlit',
+  properties: {
+    color: { name: 'Color', type: 'vec3f', defaultValue: [1, 1, 1] },
+    opacity: { name: 'Opacity', type: 'f32', defaultValue: 1 },
+  },
+  nodes: [
+    coachProperty('color', 'color', 'vec3f', 0),
+    coachProperty('opacity', 'opacity', 'f32', 80),
+    {
+      id: 'master',
+      type: 'UnlitMasterNode',
+      position: { x: 280, y: 0 },
+      stage: 'fragment',
+      inputs: [
+        { id: 'albedo', name: 'Albedo', dataType: 'vec3f' },
+        { id: 'alpha', name: 'Alpha', dataType: 'f32' },
+      ],
+      outputs: [],
+    },
+  ],
+  connections: [
+    { fromNodeId: 'color', fromSocketId: 'out', toNodeId: 'master', toSocketId: 'albedo' },
+    { fromNodeId: 'opacity', fromSocketId: 'out', toNodeId: 'master', toSocketId: 'alpha' },
+  ],
+};
+
+function createCoachUnlitMaterial(
+  resourceManager: ResourceManager,
+  name: string,
+  tint: readonly [number, number, number],
+  opacity: number,
+  alphaMode: 'OPAQUE' | 'BLEND',
+  tag: string
+): Material {
+  const material = new MaterialClass({
+    name,
+    shadingModel: 'unlit',
+    shaderGraph: COACH_UNLIT_GRAPH,
+    alphaMode,
+    doubleSided: false,
+    properties: {
+      tag,
+      color: [tint[0], tint[1], tint[2]],
+      opacity,
+    },
+  });
+  resourceManager.uploadMaterial(material);
+  return material;
+}
+
+/** Flat translucent piece on the destination square. */
+export function createChessGhostMaterial(
+  resourceManager: ResourceManager,
+  name: string,
+  tint: readonly [number, number, number]
+): Material {
+  return createCoachUnlitMaterial(resourceManager, name, tint, 0.72, 'BLEND', 'transparent');
+}
+
+/** Flat mask. Only the coach cutout pass draws it. */
+export function createChessCutoutMaterial(
+  resourceManager: ResourceManager,
+  name: string,
+  tint: readonly [number, number, number]
+): Material {
+  return createCoachUnlitMaterial(resourceManager, name, tint, 1, 'OPAQUE', 'coach_mask');
 }
 
 /** Legal / drop-hover / spline glow recipes used by ChessDemoProject. */

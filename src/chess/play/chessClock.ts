@@ -21,6 +21,8 @@ export interface ClockGate {
   covered: boolean;
   /** A peer game has not connected yet. */
   awaitingPeer: boolean;
+  /** Training study leaves the ten minutes alone. */
+  clockOff?: boolean;
 }
 
 /**
@@ -37,7 +39,7 @@ export function stepChessClock(
   dt: number,
   gate: ClockGate
 ): ChessClocks {
-  if (gate.covered || gate.awaitingPeer || clocks.flag !== null || !(dt > 0)) return clocks;
+  if (gate.covered || gate.awaitingPeer || gate.clockOff || clocks.flag !== null || !(dt > 0)) return clocks;
   const whiteSeconds = sideToMove === 'white' ? Math.max(0, clocks.whiteSeconds - dt) : clocks.whiteSeconds;
   const blackSeconds = sideToMove === 'black' ? Math.max(0, clocks.blackSeconds - dt) : clocks.blackSeconds;
   const flagged = sideToMove === 'white' ? whiteSeconds <= 0 : blackSeconds <= 0;

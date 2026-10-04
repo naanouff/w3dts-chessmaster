@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, ipcMain, net, protocol, screen } from 'electr
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { registerCoachIpc } from './coachIpc';
 import { loadWindowBounds, saveWindowBounds, type WindowBounds } from './windowBounds';
 
 const APP_SCHEME = 'app';
@@ -119,6 +120,7 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   if (!process.env.ELECTRON_RENDERER_URL) registerAppProtocol();
   ipcMain.handle('app-version', () => app.getVersion());
+  registerCoachIpc();
   ipcMain.handle('open-peer-window', (_event, search: unknown) => {
     if (peerWindow && !peerWindow.isDestroyed()) {
       peerWindow.focus();

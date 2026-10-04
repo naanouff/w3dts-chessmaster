@@ -62,7 +62,8 @@
 
 .shell .panel,
 .shell .bar,
-.shell .drawer {
+.shell .drawer,
+.shell .dialogue {
   position: relative;
   isolation: isolate;
   background: var(--glass);
@@ -77,6 +78,7 @@
 .shell .panel::before,
 .shell .bar::before,
 .shell .drawer::before,
+.shell .dialogue::before,
 .shell .split > div::before,
 .shell .stats > div::before,
 .shell .primary::before,
@@ -105,6 +107,7 @@
 
 .shell .panel::after,
 .shell .drawer::after,
+.shell .dialogue::after,
 .shell .bar::after {
   content: "";
   position: absolute;
@@ -136,6 +139,8 @@
 .shell .sheet {
   margin-top: 4vh;
   margin-bottom: 4vh;
+  max-height: calc(100% - 8vh);
+  overflow: auto;
 }
 
 .shell .sheet-head {
@@ -212,6 +217,14 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.shell .lesson {
+  margin: 0.2rem 0 0.8rem;
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.55;
+  white-space: pre-line;
 }
 
 .shell .hint,
@@ -506,8 +519,107 @@
   position: absolute;
   top: 4.5rem;
   right: 0.75rem;
+  bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
   width: min(22rem, calc(100% - 1.5rem));
-  padding: 1rem;
+  padding: 0.75rem;
+  overflow: hidden;
+}
+
+.shell .drawer-head {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.shell .drawer-head h2,
+.shell .drawer-head .banner {
+  margin: 0;
+}
+
+.shell .drawer-head .banner {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.shell .drawer .presence {
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: none;
+}
+
+.shell .drawer-actions {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  align-content: start;
+}
+
+.shell .drawer-actions .span-2 {
+  grid-column: 1 / -1;
+}
+
+.shell .drawer button.primary,
+.shell .drawer button.ghost {
+  width: 100%;
+  margin-top: 0;
+  padding: 0.4rem 0.5rem;
+}
+
+.shell .drawer .field {
+  margin: 0;
+}
+
+.shell .drawer textarea {
+  height: 2.1rem;
+  min-height: 0;
+  margin: 0.2rem 0 0;
+  resize: none;
+}
+
+.shell .drawer .notice {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+}
+
+.shell .dialogue {
+  position: absolute;
+  top: 4.5rem;
+  right: calc(min(22rem, calc(100% - 1.5rem)) + 1.25rem);
+  width: min(20rem, calc(100% - 26rem));
+  padding: 0.75rem 0.85rem 0.65rem;
+  border-radius: 22px;
+}
+
+.shell .dialogue p {
+  position: relative;
+  z-index: 2;
+  margin: 0 0 0.7rem;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.shell .dialogue-nav {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.shell .dialogue-nav .ghost {
+  width: auto;
+  margin-top: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.9rem;
 }
 
 .shell .keys {
@@ -547,6 +659,7 @@
 .shell input[type='text'],
 .shell input[type='url'],
 .shell input[type='password'],
+.shell select,
 .shell textarea {
   width: 100%;
   margin: 0.25rem 0 0.7rem;
@@ -855,6 +968,79 @@
   object-fit: fill;
 }
 
+.shell .presence {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: var(--shadow);
+}
+
+.shell .objection {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.6rem;
+  pointer-events: none;
+  background: transparent;
+}
+
+.shell .objection img {
+  width: 8.5rem;
+  height: 8.5rem;
+  object-fit: contain;
+  animation: coach-slam 0.45s ease-out;
+}
+
+.shell .objection p {
+  margin: 0;
+  color: var(--accent);
+  font-size: 4.2rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  transform: rotate(-7deg);
+  text-shadow: 0 10px 24px rgba(26, 20, 12, 0.35);
+  animation: coach-slam 0.45s ease-out;
+}
+
+body.is-shaken {
+  animation: coach-shake 0.42s linear;
+}
+
+@keyframes coach-slam {
+  0% {
+    transform: scale(1.8) rotate(-16deg);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(0.94) rotate(-6deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(-7deg);
+    opacity: 1;
+  }
+}
+
+@keyframes coach-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .shell .choice-thumb,
   .shell .check input,
@@ -864,7 +1050,10 @@
   .shell button.danger,
   .shell .scale-thumb,
   .shell .scale-mark.is-catch,
-  .shell .boot {
+  .shell .boot,
+  .shell .objection img,
+  .shell .objection p,
+  body.is-shaken {
     transition: none;
     animation: none;
   }

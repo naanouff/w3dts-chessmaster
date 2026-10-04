@@ -106,6 +106,22 @@
       "usage": 22
     },
     {
+      "name": "coachMask",
+      "format": "rgba16float",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
+      "name": "coachScene",
+      "format": "rgba16float",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 23
+    },
+    {
       "name": "ldrBuffer",
       "format": "rgba8unorm",
       "sizeType": "relative",
@@ -182,6 +198,24 @@
       "depthLoadOp": "load"
     },
     {
+      "name": "04e_CoachMask",
+      "type": "raster",
+      "inputs": ["sceneDepth"],
+      "outputs": ["coachMask"],
+      "viewType": "main",
+      "queueTags": ["coach_mask"],
+      "colorLoadOp": "clear",
+      "clearColor": { "r": 0.0, "g": 0.0, "b": 0.0, "a": 0.0 }
+    },
+    {
+      "name": "04f_CoachCutout",
+      "type": "fullscreen",
+      "inputs": ["sceneColor", "coachMask"],
+      "outputs": ["coachScene"],
+      "outputFormat": "rgba16float",
+      "shaderPath": "/shaders/post-processing/coach_cutout.frag.wgsl"
+    },
+    {
       "name": "04b_HBAO",
       "type": "fullscreen",
       "inputs": ["sceneDepth", "normalBuffer"],
@@ -208,7 +242,7 @@
     {
       "name": "04d_HBAO_Apply",
       "type": "fullscreen",
-      "inputs": ["sceneColor", "hbaoBlurred"],
+      "inputs": ["coachScene", "hbaoBlurred"],
       "outputs": ["aoSceneColor"],
       "outputFormat": "rgba16float",
       "shaderPath": "/shaders/post-processing/hbao_apply.frag.wgsl"
