@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Maquette des ambiances</title>
+    <style>
+      :root {
+        color: #f4efe6;
+        background: #141210;
+        font-family: "Segoe UI", sans-serif;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .bar {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        max-width: calc(100% - 24px);
+        z-index: 2;
+      }
+      button,
+      select {
+        border: 1px solid rgba(244, 239, 230, 0.35);
+        background: rgba(20, 18, 16, 0.72);
+        color: inherit;
+        border-radius: 999px;
+        padding: 8px 14px;
+        font: inherit;
+      }
+      button.is-on {
+        background: #f4efe6;
+        color: #141210;
+      }
+      .status {
+        position: fixed;
+        left: 12px;
+        bottom: 12px;
+        margin: 0;
+        font-size: 13px;
+        opacity: 0.8;
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div class="bar">
+      <button type="button" data-scene="atelier" class="is-on">Atelier</button>
+      <button type="button" data-scene="salon">Salon</button>
+      <button type="button" data-scene="club">Club</button>
+      <select id="tier" aria-label="Taille des textures">
+        <option value="256">256</option>
+        <option value="512">512</option>
+        <option value="1024" selected>1024</option>
+      </select>
+      <button type="button" id="reset">Caméra de jeu</button>
+      <button type="button" id="wide">Cadre concept</button>
+      <button type="button" id="intro">Arrivée</button>
+      <button type="button" data-fx="ssr" class="is-on">SSR</button>
+      <button type="button" data-fx="hbao" class="is-on">HBAO</button>
+      <button type="button" data-fx="bloom" class="is-on">Bloom</button>
+      <button type="button" data-fx="dof" class="is-on">DOF</button>
+      <button type="button" data-fx="aa" class="is-on">AA</button>
+    </div>
+    <p class="status" id="status">Chargement…</p>
+    <script type="module" src="./ambiances.js?v=28"></script>
+  </body>
+</html>

@@ -77,3 +77,9 @@ pnpm bake:piece-textures
 ```
 
 La preuve que l’échelle, le yaw des noirs et les cartes des pièces n’ont pas bougé est un hash identique des `.wmesh` et des WebP de pièces, avant et après ces commandes.
+
+## Décors
+
+Les cinq ambiances et les props à modéliser sont dans [ambiances.md](ambiances.md). L’atelier, le salon et le club ont leurs GLB Meshy dans `docs/raw_assets/`, hors git. Aucun décor n’est encore dans la scène jouable.
+
+`pnpm clean:set-props` remet l’échelle de la fiche, réduit les cartes en JPEG 256, 512 et 1024, et ajoute l’émission des sources. Le résultat est `docs/raw_assets/<ambiance>/baked/<taille>/`. Les maîtres 2048 restent la source. Pas de Draco : ces meshes sont sous 6 000 sommets. Pas de `.wmesh` tant que le décor n’est pas dans la scène. La revue se fait dans [la maquette](mockup/ambiances.html).

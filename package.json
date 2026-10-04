@@ -15,6 +15,7 @@
     "test": "vitest --run",
     "docs": "typedoc",
     "bake:piece-textures": "node scripts/bake-piece-textures.mjs",
+    "clean:set-props": "node scripts/clean-set-props.mjs",
     "check": "tsc --noEmit"
   },
   "dependencies": {

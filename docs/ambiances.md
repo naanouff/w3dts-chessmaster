@@ -1,0 +1,274 @@
+# Ambiances du plateau
+
+Cinq décors autour du même damier. Chacun pose l’échiquier sur une table, dans une pièce construite. L’HDRI éclaire et se reflète. Elle ne remplace pas le décor.
+
+Le jeu pose encore le damier sur un plan de 4,2 m, toile crème, sous une seule HDRI. Ce plan, `ChessStudioCloth` dans [ChessDemoProject.ts](../src/renderer/host/ChessDemoProject.ts), disparaît dans les cinq niveaux. Le plateau, les pièces et la caméra de jeu restent ceux d’aujourd’hui : œil à `[0, 0,55, -0,72]`, FOV 38°, far 20 m.
+
+Les 64 cases restent la zone la plus claire. L’ambiance vit autour, jamais sur les cases. Les surbrillances de coups légaux gardent leur couleur.
+
+```mermaid
+flowchart LR
+  board[Plateau jouable]
+  table[Table avec pieds]
+  set[Decor sol parois accessoires]
+  ibl[HDRI eclairage seul]
+  board --> table --> set --> ibl
+```
+
+- **Table.** Un meuble, pas un plan infini. Le dessus est à 74 cm du sol, pour garder la caméra actuelle. Le damier s’y pose : 48 cm de cases, 55 cm avec le cadre, 2,4 cm d’épaisseur. Le cimetière est sur la table.
+- **Décor.** Sol, au moins trois parois ou un équivalent (balustrade, pergola), et quatre à huit accessoires lisibles à 2–6 m. Rien ne masque une case.
+- **HDRI.** Éclairage et reflets seulement. Le ciel ne se voit que par une ouverture.
+
+Même plateau, mêmes pièces, même caméra. Le preset de niveau échange la table, le décor et l’HDRI ensemble. Les illustrations ci-dessous sont la référence de modélisation. Les prompts qui les ont produites ne le sont plus.
+
+## Atelier Kontrast
+
+Prise de vue produit. Défaut, toutes les parties. HDRI [studio_kontrast_04_2k.hdr](../public/hdri/studio_kontrast_04_2k.hdr) en fill. La softbox est une surface émissive, elle ne remplace pas le soleil.
+
+![Atelier Kontrast](ambiances/atelier-kontrast.png)
+
+Cases ivoire et wengé, cadre foncé. Blancs marbre ou ivoire mat, noirs acier brossé, déjà dans [chessLook.ts](../src/renderer/host/chessLook.ts). La prise fait un clic sec. L’échec ajoute un filet de bloom sur la pièce seule.
+
+La caméra de partie reste basse et proche. Le cyclo et la softbox entrent quand on orbite.
+
+**Table studio** — 180 × 100 cm, toile lin beige, retombée de 4 cm, pieds en tube d’acier carré, entretoise basse.
+
+![Table studio](ambiances/atelier-table.png)
+
+**Plateau toile** — 28 × 18 × 3 cm, même lin, bords relevés, vide. Deux instances, gauche et droite. Au jeu, les blancs pris vont à gauche et les noirs à droite.
+
+![Plateau toile](ambiances/atelier-plateau-toile.png)
+
+**Cyclorama** — 6 m de large, 3 m de haut, plâtre gris mat. Le sol du cyclo remonte en quart de cercle, rayon 80 cm. Le béton sous la table est un autre plan. Le GLB Meshy est à l’envers : la maquette le dessine en procédural, elle ne charge pas `cyclorama.glb`.
+
+![Cyclorama](ambiances/atelier-cyclorama.png)
+
+**Softbox** — Face blanche 80 × 120 cm, pied noir, câble, à droite.
+
+![Softbox](ambiances/atelier-softbox.png)
+
+**Pied de projecteur** — Pied noir, petite tête nue, câble, à gauche.
+
+![Pied de projecteur](ambiances/atelier-projecteur.png)
+
+**Tabouret** — Bois clair, assise carrée, 45 cm. Petit, au fond du cyclo.
+
+![Tabouret](ambiances/atelier-tabouret.png)
+
+### Maîtres Meshy
+
+Les six meshes texturés sont dans `docs/raw_assets/atelier/`. Ce sont des GLB locaux, ignorés par git, comme les pièces. Chacun porte une couleur, une carte métal/rugosité et une normale en JPEG 2048. Le nombre de sommets va de 2 300 à 5 300.
+
+Meshy a normé chaque objet pour que son plus grand côté fasse 1. Avant la scène, on remet l’échelle du document : table 1,80 m, plateau 0,28 m, cyclorama 6 m de large, softbox 1,20 m de face, tabouret 0,45 m de haut. Le projecteur suit la hauteur de son pied, calée à 1,60 m.
+
+Le facteur métallique du matériau vaut 1, et la métalité réelle est dans la texture. Au chargement, la texture commande. Sinon les six objets deviennent chromés.
+
+| Fichier | Prop | Source Meshy |
+| --- | --- | --- |
+| `table.glb` | Table lin, pieds tube carré | `1004065126` |
+| `plateau-toile.glb` | Plateau du cimetière | `1004065211` |
+| `tabouret.glb` | Tabouret bois, un peu plus chaud que la photo | `1004065135` |
+| `softbox.glb` | Softbox et pied | `1004065155` |
+| `projecteur.glb` | Pied de projecteur | `1004065202` |
+| `cyclorama.glb` | Cyclo gris. Le fichier Meshy s’appelait Curved Metal Sheet ; l’albédo est un gris neutre et le canal métal est proche de zéro | `1004065232` |
+
+## Salon de minuit
+
+Pièce close, partie lente. Lieu du coach et des parties classiques. La lampe est la key, teinte ambre, ombres vers la droite. La cheminée est un rim faible derrière les pièces du fond. HDRI monochrome en gain bas : les murs cachent le ciel. Poussière dans le cône de la lampe. Bloom sur l’abat-jour et l’âtre.
+
+![Salon de minuit](ambiances/salon-de-minuit.png)
+
+Cases buis et ébène, vernis mat. Pièces buis clair et bois foncé, via [WoodProceduralPBR.json](../public/shader-graphs/WoodProceduralPBR.json). La prise est un bois feutré. L’échec fait vaciller l’intensité de la lampe, pas la caméra.
+
+La lampe reste au coin arrière gauche, pour ne pas couvrir la colonne a.
+
+**Table chêne** — 160 × 90 cm, chant de 6 cm, quatre pieds tournés.
+
+![Table chêne](ambiances/salon-table.png)
+
+**Napperon** — Velours bordeaux, 70 × 70 cm, à plat, sans frange.
+
+![Napperon](ambiances/salon-napperon.png)
+
+**Plateau argent** — Ovale 32 × 22 cm, argent mat, à droite sur le bois nu. Les pièces prises s’y rangent par couleur.
+
+![Plateau argent](ambiances/salon-plateau.png)
+
+**Lampe** — Laiton, abat-jour gris, 45 cm, ampoule sous l’abat-jour.
+
+![Lampe](ambiances/salon-lampe.png)
+
+**Cheminée** — Pierre claire, 140 × 120 cm, bûches. Le feu est une lumière, pas une texture.
+
+![Cheminée](ambiances/salon-cheminee.png)
+
+**Fauteuil** — Cuir brun, pieds bois. Un mesh, deux instances, de part et d’autre de la cheminée.
+
+![Fauteuil](ambiances/salon-fauteuil.png)
+
+**Bibliothèque** — Chêne sombre, 220 cm, livres sans titre lisible, sur le mur gauche.
+
+![Bibliothèque](ambiances/salon-bibliotheque.png)
+
+**Tapis** — 200 × 140 cm, motif rouge et beige, frange comprise, sous la table. Jamais sous les cases.
+
+![Tapis](ambiances/salon-tapis.jpg)
+
+Parquet en chevron et boiserie sombre : un plan et une matière, pas un mesh de prop.
+
+### Maîtres Meshy
+
+Les huit meshes texturés sont dans `docs/raw_assets/salon/`. Même contrat que l’atelier : GLB locaux, hors git, couleur et normale en JPEG 2048. Meshy a encore normé le grand côté à 1. Le facteur métallique vaut 1 : la texture commande.
+
+| Fichier | Prop | Échelle | Source Meshy |
+| --- | --- | --- | --- |
+| `table.glb` | Chêne, pieds tournés | Longueur 1,60 m. La hauteur tombe alors vers 67 cm, la profondeur vers 88 cm | `1004071951` |
+| `napperon.glb` | Velours bordeaux, carré, très plat | 70 cm de côté | `1004071932` |
+| `plateau.glb` | Plateau ovale argent | Grand axe 32 cm | `1004071937` |
+| `lampe.glb` | Laiton et abat-jour gris | Hauteur 45 cm | `1004071926` |
+| `cheminee.glb` | Pierre et bûches. Le feu reste une lumière | Largeur 1,40 m. La hauteur tombe vers 1,12 m | `1004071829` |
+| `fauteuil.glb` | Chesterfield marron. Deux instances | Hauteur vers 78 cm, largeur vers 1,26 m | `1004071919` |
+| `bibliotheque.glb` | Chêne et livres, sans titres. Le mesh est plus large que haut | Hauteur 2,20 m, ce qui donne environ 2,56 m de large et 46 cm de profondeur | `1004071822` |
+| `tapis.glb` | Motif rouge et beige. Le mesh est carré, pas 200 × 140 | 2 m de côté, sous la table | `1004072006` |
+
+## Terrasse d’hiver
+
+Dehors, heure bleue. Pour les finales. Dalles mouillées qui portent le ciel. Brouillard dense derrière la balustrade, presque absent sur le damier. Les lanternes restent éteintes.
+
+![Terrasse d'hiver](ambiances/terrasse-hiver.jpg)
+
+Cases marbre veiné et ardoise, bord sombre pour ne pas se fondre dans la pierre. Pièces marbre chaud contre acier froid. La prise sonne pierre. La promotion pose un rayon plus chaud, bref, sur la nouvelle pièce.
+
+**Table fer et pierre** — Plateau calcaire 130 × 80 × 4 cm, tablier et pieds en fer forgé.
+
+![Table fer et pierre](ambiances/terrasse-table.png)
+
+**Lanterne** — Carrée, cuivre au vert-de-gris, verre, éteinte, 28 cm. Deux instances, à gauche, loin des cases.
+
+![Lanterne](ambiances/terrasse-lanterne.png)
+
+**Coupe de pierre** — Marbre, diamètre 16 cm, vide. Deux instances, une par couleur, à droite.
+
+![Coupe de pierre](ambiances/terrasse-coupe.png)
+
+**Travée de balustrade** — 120 cm de long, 90 cm de haut. Répétée sur trois côtés. Pas de mur plein.
+
+![Travée de balustrade](ambiances/terrasse-balustrade.png)
+
+**Banc de pierre** — 160 cm, dossier bas, contre la balustrade de droite.
+
+![Banc de pierre](ambiances/terrasse-banc.png)
+
+**Cyprès** — Environ 6 m. On modélise celui de droite, au tronc visible. Le plus étroit, à gauche, est la même essence en variante lointaine. Instancié au-delà de la balustrade, flou.
+
+![Cyprès](ambiances/terrasse-cypres.png)
+
+## Club néon
+
+Sous-sol, partie rapide. HDRI [neon_photostudio_2k.hdr](../public/hdri/neon_photostudio_2k.hdr) en fill, gain 0,9. Pas de jour. Bloom sur les tubes et sur la lueur de coup, pas sur les cases.
+
+![Club néon](ambiances/club-neon.png)
+
+Cases graphite mat et ivoire, cadre sombre, sans reflet. Blancs acier, noirs obsidienne. Le coup légal garde la lueur néon actuelle. L’échec fait monter le tube cyan du mur, pas le rail. Au mat, les enseignes s’éteignent et une petite lampe reste sous le roi.
+
+La maquette ne place pas le rail cyan sous la table.
+
+**Table verre** — 160 × 90 cm, hauteur 74 cm, verre fumé, pieds fins, entretoise courbe. Le damier mat est posé dessus. Le GLB Meshy est un bloc opaque : la maquette dessine la table, elle ne charge pas `table.glb`.
+
+![Table verre](ambiances/club-table.png)
+
+**Rail cyan** — 70 cm, diamètre 2 cm, culots métal, émissif cyan.
+
+![Rail cyan](ambiances/club-rail.png)
+
+**Bar** — Béton, 110 cm de haut, plan de travail plus clair, retour en L à droite.
+
+![Bar](ambiances/club-bar.png)
+
+**Tabouret** — Cylindre de béton, assise ronde, 45 cm. Trois instances.
+
+![Tabouret](ambiances/club-tabouret.png)
+
+**Tube néon** — 120 cm, verre clair, culots métal. Un mesh, teinté ensuite : cyan à la verticale sur le mur gauche, magenta à l’horizontale au-dessus du bar.
+
+![Tube néon](ambiances/club-tube.png)
+
+**Enseigne abstraite** — Nœud de tubes cyan, aucun caractère. Elle remplace le petit signe du concept de scène.
+
+![Enseigne abstraite](ambiances/club-enseigne.png)
+
+**Bouteilles** — Trois verres sombres, bouchons noirs, sans étiquette, sur le bar.
+
+![Bouteilles](ambiances/club-bouteilles.png)
+
+Le sol béton mouillé est un plan et une matière.
+
+### Maîtres Meshy
+
+Les sept meshes texturés sont dans `docs/raw_assets/club/`. Même contrat que l’atelier : GLB locaux, hors git, couleur et normale en JPEG 2048. Meshy a normé le grand côté à 1. Le facteur métallique vaut 1 : la texture commande.
+
+Aucun des sept n’a de texture émissive. Le cyan du rail, le cyan et le magenta des tubes se posent au chargement. L’enseigne a déjà un albédo cyan, mais son émission est à zéro : le bloom ne la prendra pas tant qu’on ne l’ajoute pas.
+
+| Fichier | Prop | Échelle | Source Meshy |
+| --- | --- | --- | --- |
+| `table.glb` | Verre fumé, pieds fins. L’albédo est presque noir et le verre n’est pas transparent | Longueur 1,60 m. La profondeur tombe vers 84 cm, la hauteur vers 58 cm | `1004073048` |
+| `rail.glb` | Tube fin, albédo gris métal. Le cyan vient ensuite | Longueur 70 cm. Le diamètre tombe vers 3 cm | `1004073019` |
+| `bar.glb` | Béton, retour en L. Le fichier Meshy s’appelait Concrete Countertop | Hauteur 1,10 m, ce qui donne environ 2,80 m de long et 1,80 m de profondeur | `1004072952` |
+| `tabouret.glb` | Cylindre de béton. Trois instances. Le fichier Meshy s’appelait Stone Pedestal Table | Hauteur 45 cm, emprise vers 35 cm | `1004073055` |
+| `tube.glb` | Verre clair, culots métal. Un mesh, teinté ensuite | Longueur 1,20 m. Le diamètre tombe vers 8 cm | `1004073104` |
+| `enseigne.glb` | Nœud cyan, sans caractère, très plat | Face 60 cm. La profondeur fait 8 % du côté | `1004073008` |
+| `bouteilles.glb` | Trois verres sombres, sans étiquette | Hauteur 30 cm. Le groupe est plus haut que large | `1004072959` |
+
+## Jardin suspendu
+
+Pavillon ouvert, fin d’après-midi. Lieu du mode apprentissage. Soleil bas et chaud. Le damier reste à l’ombre plate : pas de zébrures de feuilles. La flaque de soleil tombe sur les dalles au premier plan. Bloom seulement sur cette flaque.
+
+![Jardin suspendu](ambiances/jardin-suspendu.jpg)
+
+Cases terre cuite et vert jardin, cadre vert. Pièces buis clair et bois rouge, comme au salon. La prise est un bois sec, plus léger que le salon. Une ouverture réussie en mode learn rapproche un peu la tache de soleil du bord de table, sans couvrir une case.
+
+**Table de pierre** — Plateau irrégulier 150 × 90 × 8 cm, deux pieds sculptés. Le coin de softbox en haut à gauche de l’illustration ne fait pas partie du mesh.
+
+![Table de pierre](ambiances/jardin-table.png)
+
+**Coupe terre cuite** — Diamètre 18 cm, vide. Deux instances : pièces claires à gauche, pièces foncées à droite.
+
+![Coupe terre cuite](ambiances/jardin-coupe.png)
+
+**Pergola** — Quatre poteaux, poutres et traverses. Emprise 4 × 3 m, hauteur 2,6 m. Sans feuilles.
+
+![Pergola](ambiances/jardin-pergola.png)
+
+**Grappe de glycine** — Un brin, feuilles et fleurs violettes, répété en plan alpha. Pas un arbre.
+
+![Grappe de glycine](ambiances/jardin-glycine.png)
+
+**Panneau de haie** — 2 × 1,6 m, buis dense. Trois pans, ouverts vers la caméra. Le bac métallique au coin de l’illustration n’est pas modélisé.
+
+![Panneau de haie](ambiances/jardin-haie.jpg)
+
+**Banc de bois** — Lattes, accoudoirs, dossier, 140 cm, sans coussin.
+
+![Banc de bois](ambiances/jardin-banc.png)
+
+**Arrosoir** — Métal galvanisé, anse, pomme.
+
+![Arrosoir](ambiances/jardin-arrosoir.png)
+
+**Dalle terre cuite** — 30 × 30 cm, face usée. L’illustration la montre de chant : au sol, la face usée est à plat.
+
+![Dalle terre cuite](ambiances/jardin-dalle.png)
+
+## Props nettoyés
+
+`pnpm clean:set-props` lit les maîtres et écrit `docs/raw_assets/<ambiance>/baked/<taille>/<prop>.glb`. Les tailles sont 256, 512 et 1024, les mêmes paliers que les pièces. Le maître 2048 ne bouge pas. Ces GLB restent hors git.
+
+L’échelle est celle des tableaux ci-dessus. Le facteur métallique reste 1 : la texture commande. Pas de Draco : le plus lourd de ces meshes a moins de 6 000 sommets, le poids est dans les JPEG.
+
+L’émission est dans le GLB pour le softbox, le projecteur, l’ampoule de la lampe, le rail, le tube et l’enseigne. Le tube est blanc : le cyan et le magenta sont une teinte par instance. La cheminée n’a pas de carte de feu. Sa lueur est une lumière de scène.
+
+La maquette qui pose ces trois décors est [docs/mockup/ambiances.html](mockup/ambiances.html). Elle n’entre pas dans l’application.
+
+## Hors de ce document
+
+Aucun de ces décors n’est dans la scène jouable. L’atelier, le salon et le club ont leurs maîtres dans `docs/raw_assets/`, et leurs GLB nettoyés à côté. La terrasse et le jardin n’ont encore que leurs illustrations.
