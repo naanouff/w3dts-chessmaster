@@ -1,6 +1,6 @@
 # Assets 3D Staunton
 
-Les pièces jouées viennent de maîtres locaux, pas du dépôt. Le client charge un `.wmesh` et des WebP. Les GLB et le fichier Blender restent la source, à pleine définition.
+Les pièces jouées viennent de maîtres locaux. Le client charge le `.wmesh` et les WebP copiés dans le dépôt. Les GLB et le fichier Blender restent la source, à pleine définition, hors git.
 
 Sprint d’implémentation : [CHESS-B9](sprints/CHESS-B9.md). Le dossier des binaires est [docs/raw_assets](raw_assets/README.md).
 
@@ -56,13 +56,13 @@ docs/raw_assets/
 
 `b_` est le camp blanc, `n_` le camp noir. Les noms de fichiers restent ceux des exports.
 
-Les binaires ne vont pas dans git : le dépôt n’a pas de LFS. Même règle que `public/models/chess/`. Seuls les textes de ce dossier sont versionnés. Sur disque, chaque maître est un lien dur NTFS vers son fichier d’origine, sur le même volume. Une seule copie réelle.
+Les maîtres ne vont pas dans git : le dépôt n’a pas de LFS. Seuls les textes de `docs/raw_assets` sont versionnés. Sur disque, chaque maître est un lien dur NTFS vers son fichier d’origine, sur le même volume. Une seule copie réelle.
 
 Les pièces pointent vers `c:/Local/Travail/Print/Models/Echecs`. Le plateau pointe vers le GLB d’apport, aujourd’hui `Downloads/chess_board_B.glb`.
 
 ## Runtime
 
-`public/models/chess/` ne garde que les `.wmesh` et `tex/{256,512,1024,2048}/{nom}-{color|normal|orm}.webp`. L’import n’y dépose plus le GLB. Les pixels des pièces ne changent pas tant que le bake relit les mêmes GLB.
+`public/models/chess/` ne garde que les `.wmesh` et `tex/{256,512,1024,2048}/{nom}-{color|normal|orm}.webp`. Ces fichiers runtime sont dans git, pour que l’installateur construit par la CI puisse les servir. L’import n’y dépose plus le GLB, et les `.glb` restent ignorés. Les pixels des pièces ne changent pas tant que le bake relit les mêmes GLB.
 
 Le repli qui fetch `/models/chess/{fichier}.glb` dans `hdChessPieces.ts` reste. Sans WebP, ce fetch échoue. Pas d’autre chemin de chargement.
 
