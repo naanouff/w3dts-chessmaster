@@ -49,6 +49,8 @@ import {
   CHESS_GRAB_LIFT_M,
   CHESS_GROUP_BOARD,
   CHESS_GROUP_PIECE,
+  CHESS_COACH_CONTEXT_EVENT,
+  CHESS_COACH_OBJECT_EVENT,
   CHESS_HUD_COMMAND_EVENT,
   CHESS_HUD_STATE_EVENT,
   CHESS_MASK_BOARD,
@@ -112,6 +114,19 @@ import {
   type ChessPieceRole,
   type ChessSquareName,
   type ChessTableSfxId,
+  type CoachGhostStep,
+  type TrainingPly,
+  COACH_MASK_SCALE,
+  coachErrorColor,
+  coachGhostColor,
+  coachMaskPosition,
+  coachPinnedSquares,
+  coachStableMarks,
+  lastUserPly,
+  recordPly,
+  reviewPlayedMove,
+  shouldCpuReply,
+  undoMyMove,
 } from '../../chess';
 import { BroadcastChannelTransport } from '@naanouff/w3dts-multiplayer-p2p';
 import { mat4, quat, vec3 } from 'gl-matrix';
@@ -131,6 +146,8 @@ import {
   loadChessPhotoPbrMaterials,
   loadChessPieceShaderGraphs,
   loadChessMoveGlowTexture,
+  createChessCutoutMaterial,
+  createChessGhostMaterial,
   createChessMoveGlowMaterial,
   patchChessPhotoMaterialsFromCache,
 } from './chessLook';
@@ -279,6 +296,23 @@ export class ChessDemoProject extends LitAbstractProject {
   private learnEco = 'C50';
   private learnMiss = false;
   private learnLastSan: string | null = null;
+  private trainingLog: TrainingPly[] = [];
+  private coachHistory: string[] = [];
+  private trainingHeld = false;
+  /** Ten-minute clocks stay off until the student asks for them. */
+  private trainingClock = false;
+  private ghostMats: Material[] = [];
+  private ghostNodes = new Map<string, SceneNode>();
+  private ghostSteps: CoachGhostStep[] = [];
+  /** Depth of the line drawn for the student. The objection uses the same depth. */
+  private coachHorizon = 3;
+  /** Source squares accepted when the current line was drawn. */
+  private pinnedCutouts = new Set<string>();
+  private cutoutMats: Material[] = [];
+  private errorCutoutMat: Material | null = null;
+  private cutoutNodes = new Map<string, SceneNode>();
+  /** Square of the piece that just played a weak move. */
+  private mistakeSquare: ChessSquareName | null = null;
   private modePickerOpen = false;
   private cameraControllers: CameraControllerManager | null = null;
   private decalOutput: DecalSystemOutput | null = null;
@@ -349,6 +383,30 @@ export class ChessDemoProject extends LitAbstractProject {
     if (cmd.type === 'resume-saved') {
       this.modePickerOpen = false;
       this.restoreGame(cmd.game, undefined, cmd.cpuDepth);
+      return;
+    }
+    if (cmd.type === 'training-stop') {
+      this.holdTraining();
+      return;
+    }
+    if (cmd.type === 'training-resume') {
+      this.resumeTraining();
+      return;
+    }
+    if (cmd.type === 'training-undo') {
+      this.undoTrainingMove();
+      return;
+    }
+    if (cmd.type === 'training-clock') {
+      if (this.playMode === 'training') {
+        this.trainingClock = cmd.on;
+        this.emitHud();
+      }
+      return;
+    }
+    if (cmd.type === 'coach-ghosts') {
+      this.coachHorizon = cmd.horizon;
+      if (this.world) this.showCoachGhosts(this.world, cmd.steps);
       return;
     }
     this.modePickerOpen = false;
@@ -476,6 +534,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.resetClocks();
     this.learnMiss = false;
     this.learnLastSan = null;
+    this.clearTraining();
     this.flagSfxPlayed = false;
     if (this.playMode === 'learn' && this.trainer) {
       if (this.trainer.isComplete()) this.trainer.nextOpening();
@@ -1066,6 +1125,13 @@ export class ChessDemoProject extends LitAbstractProject {
     device: GPUDevice
   ): Promise<void> {
     const neon = await loadChessMoveGlowTexture(device, resourceManager);
+    this.ghostMats = [0, 1, 2, 3, 4].map((index) =>
+      createChessGhostMaterial(resourceManager, `ChessGhost-${index}`, coachGhostColor(index))
+    );
+    this.cutoutMats = [0, 1, 2, 3, 4].map((index) =>
+      createChessCutoutMaterial(resourceManager, `ChessCutout-${index}`, coachGhostColor(index))
+    );
+    this.errorCutoutMat = createChessCutoutMaterial(resourceManager, 'ChessCutout-error', coachErrorColor());
     const mesh = PrimitiveFactory.createPlane(CHESS_SQUARE_SIZE * 1.02);
     resourceManager.uploadMesh(mesh);
     const mat = createChessMoveGlowMaterial(
@@ -1288,9 +1354,13 @@ export class ChessDemoProject extends LitAbstractProject {
     let description =
       this.playMode === 'cpu'
         ? `You are ${this.localColor}. CPU replies automatically.`
-        : this.playMode === 'p2p'
-          ? chessPlayP2pHint(this.localColor)
-          : 'Hot-seat: grab the side to move.';
+        : this.playMode === 'training'
+          ? this.trainingHeld
+            ? 'Training is paused.'
+            : `You are ${this.localColor}. The computer replies until you stop.`
+          : this.playMode === 'p2p'
+            ? chessPlayP2pHint(this.localColor)
+            : 'Hot-seat: grab the side to move.';
     if (this.clockFlag) {
       const flagged = this.clockFlag === 'white' ? 'White' : 'Black';
       title = `${flagged} flagged`;
@@ -1312,12 +1382,13 @@ export class ChessDemoProject extends LitAbstractProject {
       description,
       localColor: this.localColor,
       sideToMove: side,
-      cpuThinking: mode === 'cpu' && this.cpuBusy,
+      cpuThinking: (mode === 'cpu' || mode === 'training') && this.cpuBusy,
       p2pStatus: mode === 'p2p' ? this.p2pStatus : null,
       clocks: { whiteSeconds: this.clockWhite, blackSeconds: this.clockBlack },
       flag: this.clockFlag,
       session: this.currentSession(),
     });
+    this.emitCoachContext();
   }
 
   private emitLearnHud(): void {
@@ -1363,6 +1434,7 @@ export class ChessDemoProject extends LitAbstractProject {
       plies: buildChessHudLearnPlies(opening.sans, trainer.plyIndex(), this.learnQuiz),
       session: this.currentSession(),
     });
+    this.emitCoachContext();
   }
 
   private clearBoardVisuals(world: World): void {
@@ -1477,9 +1549,10 @@ export class ChessDemoProject extends LitAbstractProject {
     if (game.eco) this.learnEco = game.eco;
     this.trainer = mode === 'learn' ? new OpeningTrainer(this.learnEco) : null;
     if (this.trainer) this.learnEco = this.trainer.opening().eco;
-    if (mode === 'cpu') {
+    if (mode === 'cpu' || mode === 'training') {
       this.cpu = new HeuristicChessEngine({ depth: cpuSearchDepth(cpuDepth ?? 2), thinkMs: 280 });
     }
+    this.clearTraining();
     this.holdForLobby = game.shellMode === 'online';
     this.pendingRestore = game.shellMode === 'local' || game.shellMode === 'online';
     this.pendingP2pBytes = null;
@@ -1556,9 +1629,10 @@ export class ChessDemoProject extends LitAbstractProject {
     this.playMode = query.mode;
     this.localColor = query.localColor;
     this.learnQuiz = query.quiz;
-    if (query.mode === 'cpu') {
+    if (query.mode === 'cpu' || query.mode === 'training') {
       this.cpu = new HeuristicChessEngine({ depth: query.cpuDepth ?? 2, thinkMs: 280 });
     }
+    if (query.mode === 'training') this.trainingClock = false;
     if (query.eco) this.learnEco = query.eco;
     this.trainer = query.mode === 'learn' ? new OpeningTrainer(this.learnEco) : null;
     if (this.trainer) this.learnEco = this.trainer.opening().eco;
@@ -1571,6 +1645,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.resetClocks();
     this.learnMiss = false;
     this.learnLastSan = null;
+    this.clearTraining();
     this.flagSfxPlayed = false;
     this.spawnMatchPieces(world);
     this.syncFileRankLabels(world);
@@ -1604,6 +1679,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.resetClocks();
     this.learnMiss = false;
     this.learnLastSan = null;
+    this.clearTraining();
     if (this.playMode === 'learn' && this.trainer) {
       if (this.trainer.isComplete()) this.trainer.nextOpening();
       else this.trainer.restart();
@@ -1616,7 +1692,208 @@ export class ChessDemoProject extends LitAbstractProject {
     }
   }
 
+  private clearTraining(): void {
+    this.trainingLog = [];
+    this.coachHistory = [];
+    this.trainingHeld = false;
+    this.mistakeSquare = null;
+    if (this.world) this.showCoachGhosts(this.world, []);
+  }
+
+  private emitCoachContext(): void {
+    const last = lastUserPly(this.trainingLog, this.localColor);
+    uiBus.emit(CHESS_COACH_CONTEXT_EVENT, {
+      fen: this.match.fen(),
+      history: this.coachHistory,
+      sideToMove: this.match.sideToMove(),
+      training:
+        this.playMode === 'training'
+          ? {
+              held: this.trainingHeld,
+              localColor: this.localColor,
+              lastUserSan: last?.san ?? null,
+              lastUserFen: last?.fenBefore ?? null,
+              clock: this.trainingClock,
+            }
+          : null,
+    });
+  }
+
+  private noteTrainingPly(fenBefore: string, san: string, color: ChessColor, to: ChessSquareName): void {
+    this.coachHistory = [...this.coachHistory, san].slice(-24);
+    if (this.playMode !== 'training') {
+      this.emitCoachContext();
+      return;
+    }
+    this.trainingLog = recordPly(this.trainingLog, { fenBefore, san, color });
+    if (color === this.localColor && !this.trainingHeld) {
+      const review = reviewPlayedMove(fenBefore, san, this.coachHorizon, this.ghostSteps);
+      if (review?.kind === 'mistake') {
+        this.mistakeSquare = to;
+        this.trainingHeld = true;
+        this.cpuGen += 1;
+        this.cpuBusy = false;
+        if (this.world) this.syncCoachCutouts(this.world);
+        uiBus.emit(CHESS_COACH_OBJECT_EVENT, {});
+        this.emitHud();
+        return;
+      }
+      this.mistakeSquare = null;
+    }
+    if (this.world) this.syncCoachCutouts(this.world);
+    this.emitCoachContext();
+  }
+
+  private holdTraining(): void {
+    if (this.playMode !== 'training') return;
+    this.trainingHeld = true;
+    this.cpuGen += 1;
+    this.cpuBusy = false;
+    if (this.world) this.cancelActiveGrab(this.world);
+    this.emitHud();
+  }
+
+  private resumeTraining(): void {
+    if (this.playMode !== 'training') return;
+    this.trainingHeld = false;
+    this.mistakeSquare = null;
+    if (this.world) this.syncCoachCutouts(this.world);
+    this.emitHud();
+    this.pumpCpu();
+  }
+
+  private undoTrainingMove(): void {
+    if (this.playMode !== 'training' || !this.world) return;
+    const undone = undoMyMove(this.trainingLog, this.localColor);
+    if (!undone) return;
+    const log = undone.log;
+    this.trainingHeld = true;
+    this.cpuGen += 1;
+    this.rebuildFromFen(this.world, undone.fen);
+    this.trainingLog = log;
+    this.coachHistory = log.map((ply) => ply.san);
+    this.trainingHeld = true;
+    this.emitHud();
+  }
+
+  private showCoachGhosts(world: World, steps: readonly CoachGhostStep[]): void {
+    const scene = this.sceneRef;
+    const keep = new Set<string>();
+    this.ghostSteps = steps.slice(0, 5);
+    this.pinnedCutouts = new Set(coachPinnedSquares(this.ghostSteps, this.mistakeSquare, (square) => this.pieceOn(square)));
+    if (scene && this.ghostMats.length > 0) {
+      this.ghostSteps.forEach((step, index) => {
+        const key = `${index}:${step.color}:${step.role}`;
+        keep.add(key);
+        let node = this.ghostNodes.get(key);
+        if (!node) {
+          const hd = this.hdPieces?.get(hdPieceKey(step.color, step.role));
+          const mesh = hd?.mesh ?? this.pieceMeshes.get(step.role);
+          const mat = this.ghostMats[index];
+          if (!mesh || !mat) return;
+          node = new SceneNode(`CoachGhost-${key}`, world, mesh, mat);
+          const created = world.getComponent(node.entityId, RenderableComponent);
+          if (created) created.castShadow = false;
+          scene.add(node);
+          this.ghostNodes.set(key, node);
+        }
+        const transform = world.getComponent(node.entityId, TransformComponent);
+        if (transform) {
+          const pos = squareToWorld(step.to, CHESS_BOARD_SURFACE_Y + 0.012);
+          vec3.copy(transform.position, pos);
+          quat.identity(transform.rotation);
+          vec3.set(transform.scale, 1, 1, 1);
+          transform.updateLocalTransform();
+          mat4.copy(transform.worldTransform, transform.localTransform);
+        }
+        const renderable = world.getComponent(node.entityId, RenderableComponent);
+        if (renderable) renderable.visible = true;
+      });
+    }
+    for (const [key, node] of this.ghostNodes) {
+      if (keep.has(key)) continue;
+      const renderable = world.getComponent(node.entityId, RenderableComponent);
+      if (renderable) renderable.visible = false;
+    }
+    this.syncCoachCutouts(world);
+  }
+
+  private syncCoachCutouts(world: World): void {
+    const scene = this.sceneRef;
+    const keep = new Set<string>();
+    if (scene) {
+      for (const mark of coachStableMarks(this.ghostSteps, this.mistakeSquare, this.pinnedCutouts, (square) =>
+        this.pieceOn(square)
+      )) {
+        const mat = this.cutoutMats[mark.index];
+        if (!mat) continue;
+        this.placeCoachCutout(world, scene, `src-${mark.index}`, mark.square, mat, keep);
+      }
+      if (this.mistakeSquare && this.errorCutoutMat) {
+        this.placeCoachCutout(world, scene, 'err', this.mistakeSquare, this.errorCutoutMat, keep);
+      }
+    }
+    for (const [key, node] of this.cutoutNodes) {
+      if (keep.has(key)) continue;
+      const renderable = world.getComponent(node.entityId, RenderableComponent);
+      if (renderable) renderable.visible = false;
+    }
+  }
+
+  private placeCoachCutout(
+    world: World,
+    scene: SceneNode,
+    key: string,
+    square: string,
+    mat: Material,
+    keep: Set<string>
+  ): void {
+    const entity = this.entityBySquare.get(square as ChessSquareName);
+    const host = entity !== undefined ? this.nodeByEntity.get(entity) : undefined;
+    if (!host) return;
+    const hostRenderable = world.getComponent(host.entityId, RenderableComponent);
+    const hostTransform = world.getComponent(host.entityId, TransformComponent);
+    if (!hostRenderable?.mesh || !hostTransform || !hostRenderable.visible) return;
+    const mesh = hostRenderable.mesh;
+    keep.add(key);
+    let node = this.cutoutNodes.get(key);
+    if (!node) {
+      node = new SceneNode(`CoachCutout-${key}`, world, mesh, mat);
+      const created = world.getComponent(node.entityId, RenderableComponent);
+      if (created) created.castShadow = false;
+      scene.add(node);
+      this.cutoutNodes.set(key, node);
+    }
+    const renderable = world.getComponent(node.entityId, RenderableComponent);
+    if (renderable) {
+      renderable.mesh = mesh;
+      renderable.material = mat;
+      renderable.visible = true;
+      renderable.castShadow = false;
+    }
+    const transform = world.getComponent(node.entityId, TransformComponent);
+    if (!transform) return;
+    const biased = coachMaskPosition(
+      [hostTransform.position[0], hostTransform.position[1], hostTransform.position[2]],
+      GAME_CAM_EYE
+    );
+    vec3.set(transform.position, biased[0], biased[1], biased[2]);
+    quat.copy(transform.rotation, hostTransform.rotation);
+    vec3.set(transform.scale, COACH_MASK_SCALE, COACH_MASK_SCALE, COACH_MASK_SCALE);
+    transform.updateLocalTransform();
+    mat4.copy(transform.worldTransform, transform.localTransform);
+  }
+
+  private pieceOn(square: string): { role: string; color: string } | null {
+    const name = square as ChessSquareName;
+    if (!this.entityBySquare.has(name)) return null;
+    const piece = this.match.pieceAt(name);
+    if (!piece) return null;
+    return { role: piece.role, color: piece.color };
+  }
+
   private rebuildFromFen(world: World, fen: string): void {
+    this.clearTraining();
     this.clearBoardVisuals(world);
     if (!this.match.loadFen(fen)) this.match.reset();
     this.cpuGen += 1;
@@ -1755,6 +2032,8 @@ export class ChessDemoProject extends LitAbstractProject {
         return;
       }
     }
+    const fenBefore = this.match.fen();
+    const mover = this.match.sideToMove();
     const result = dest
       ? this.match.tryMove(from, dest)
       : { ok: false as const, reason: 'illegal' as const };
@@ -1775,6 +2054,7 @@ export class ChessDemoProject extends LitAbstractProject {
         true,
         false
       );
+      this.noteTrainingPly(fenBefore, result.san, mover, result.to);
     } else {
       this.snapEntityToSquare(world, entity, from);
     }
@@ -1910,8 +2190,9 @@ export class ChessDemoProject extends LitAbstractProject {
       this.match.sideToMove(),
       dt,
       {
-        covered: this.modePickerOpen || this.playMode === 'learn' || this.gameOver(),
+        covered: this.modePickerOpen || this.playMode === 'learn' || this.trainingHeld || this.gameOver(),
         awaitingPeer: this.playMode === 'p2p' && this.p2pStatus !== 'connected',
+        clockOff: this.playMode === 'training' && !this.trainingClock,
       }
     );
     this.clockWhite = next.whiteSeconds;
@@ -1932,8 +2213,19 @@ export class ChessDemoProject extends LitAbstractProject {
   }
 
   private pumpCpu(): void {
-    if (this.playMode !== 'cpu' || this.cpuBusy || this.motionBusy || this.gameOver()) return;
-    if (this.match.sideToMove() === this.localColor) return;
+    if (
+      !shouldCpuReply({
+        mode: this.playMode,
+        held: this.trainingHeld,
+        busy: this.cpuBusy,
+        motion: this.motionBusy,
+        gameOver: this.gameOver(),
+        side: this.match.sideToMove(),
+        local: this.localColor,
+      })
+    ) {
+      return;
+    }
     this.queueCpuMove();
   }
 
@@ -1990,6 +2282,8 @@ export class ChessDemoProject extends LitAbstractProject {
   private playProgrammaticMove(world: World, from: ChessSquareName, to: ChessSquareName): boolean {
     const entity = this.entityBySquare.get(from);
     if (entity === undefined) return false;
+    const fenBefore = this.match.fen();
+    const mover = this.match.sideToMove();
     const result = this.match.tryMove(from, to);
     if (!result.ok) return false;
     this.applySuccessfulMove(
@@ -2003,6 +2297,7 @@ export class ChessDemoProject extends LitAbstractProject {
       false,
       true
     );
+    this.noteTrainingPly(fenBefore, result.san, mover, result.to);
     return true;
   }
 

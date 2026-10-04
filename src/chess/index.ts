@@ -178,3 +178,33 @@ export {
   type ChessSceneExtensionPayload,
   type ChessSceneExtensionHandler,
 } from './scene/chessSceneExtension';
+export { clampCoachHorizon, coachMaterial, planAhead, reviewPlayedMove } from './coach/coachPlan';
+export {
+  COACH_MASK_BIAS,
+  COACH_MASK_SCALE,
+  coachErrorColor,
+  coachGhostColor,
+  coachMaskPosition,
+  coachPieceMarks,
+  coachPinnedSquares,
+  coachSourceMarks,
+  coachStableMarks,
+} from './coach/coachMarks';
+export type { CoachGhostStep, CoachReview, CoachVariation } from './coach/coachPlan';
+export type { CoachTurn, CoachChatMessage } from './coach/coachTurn';
+export {
+  buildAskMessages,
+  buildExplainMessages,
+  buildHintMessages,
+  buildMistakeMessages,
+  buildStrategyMessages,
+  legalSansFromFen,
+} from './coach/coachPrompt';
+export {
+  CHESS_COACH_CONTEXT_EVENT,
+  CHESS_COACH_OBJECT_EVENT,
+  parseChessCoachContext,
+} from './coach/coachContext';
+export type { CoachContext, CoachTrainingView } from './coach/coachContext';
+export { canUndoMyMove, lastUserPly, recordPly, shouldCpuReply, undoMyMove } from './coach/trainingReview';
+export type { TrainingPly, TrainingUndo } from './coach/trainingReview';

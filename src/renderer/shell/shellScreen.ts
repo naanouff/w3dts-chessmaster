@@ -21,7 +21,7 @@ export type ShellScreen =
   | 'propos'
   | 'sauvegardes';
 
-export type ShellMode = 'cpu' | 'hotseat' | 'local' | 'online' | 'learn';
+export type ShellMode = 'cpu' | 'hotseat' | 'local' | 'online' | 'learn' | 'training';
 
 export interface ShellState {
   screen: ShellScreen;
@@ -153,7 +153,7 @@ export function shellSession(
     localColor,
     quiz: mode === 'learn',
     ...(mode === 'learn' ? { eco } : {}),
-    ...(mode === 'cpu' ? { cpuDepth: cpuSearchDepth(level) } : {}),
+    ...(mode === 'cpu' || mode === 'training' ? { cpuDepth: cpuSearchDepth(level) } : {}),
   };
 }
 
@@ -241,7 +241,14 @@ function firstEco(): string {
 }
 
 function parseStoredMode(value: unknown): ShellMode {
-  if (value === 'cpu' || value === 'hotseat' || value === 'local' || value === 'online' || value === 'learn') {
+  if (
+    value === 'cpu' ||
+    value === 'hotseat' ||
+    value === 'local' ||
+    value === 'online' ||
+    value === 'learn' ||
+    value === 'training'
+  ) {
     return value;
   }
   return 'cpu';

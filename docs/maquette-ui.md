@@ -53,21 +53,24 @@ flowchart LR
 
 **Accueil.** Blason centré, une ligne « W3DTS ChessMaster », bouton principal Jouer. S’il existe une partie interrompue, un bouton « Reprendre la partie », centré sous Jouer. Puis cinq liens : Sauvegardes, Classements, Options, Paramètres, À propos. La carte est plus large que les autres panneaux, pour que ces liens restent dans le verre. Le studio reste visible autour. Les pièces sont au repos.
 
-**Modes.** Cinq cartes. Les quatre premières existent dans [`ChessModePicker.tsx`](../src/renderer/ui/ChessModePicker.tsx). La cinquième est le salon en ligne, distinct du P2P local.
+**Modes.** Six cartes. Les quatre premières existent dans [`ChessModePicker.tsx`](../src/renderer/ui/ChessModePicker.tsx). La cinquième est le salon en ligne, distinct du P2P local. La sixième est l’entraînement.
 
 - Contre l’ordinateur — couleur (blancs / noirs) et un curseur de niveau affiché. Le moteur reste l’heuristique actuelle.
 - À deux, même écran — hot-seat.
 - Sur cet ordinateur — la seconde fenêtre déjà ouverte par `openPeerWindow` et `BroadcastChannelTransport`.
 - En ligne — ouvre le salon, pas une partie tout de suite.
 - Apprendre — liste ECO déjà fournie par `ECO_OPENINGS`.
+- Entraînement — partie contre l’ordinateur, avec la revue du tiroir. La couleur se choisit comme contre l’ordinateur. Pas de curseur de niveau.
 
 Le bouton Commencer, hors ligne, correspond au chemin `apply-session` du picker actuel.
 
-**Salon en ligne.** Deux colonnes : Créer une table (code à partager, copie, attente de l’adversaire) et Rejoindre (saisie du code). Bandeau d’état repris des libellés P2P du HUD : en attente, connexion, connecté, déconnecté. La couleur se choisit seulement pour celui qui crée la table ; l’invité prend l’autre. Une fois les deux présents, la partie démarre sur le même plateau. Le transport réel aujourd’hui est le canal local de [`ChessDemoProject.ts`](../src/renderer/host/ChessDemoProject.ts). L’écran montre le parcours (code, attente, abandon, adversaire parti). Le relais qui ferait se rencontrer deux machines n’est pas dans cette maquette.
+**Salon en ligne.** Deux colonnes : Créer une table (code à partager, copie, attente de l’adversaire) et Rejoindre (saisie du code). Bandeau d’état repris des libellés P2P du HUD : en attente, connexion, connecté, déconnecté. La couleur se choisit seulement pour celui qui crée la table ; l’invité prend l’autre. Une fois les deux présents, la partie démarre sur le même plateau. Le transport réel aujourd’hui est le canal local de [`ChessDemoProject.ts`](../src/renderer/host/ChessDemoProject.ts). L’écran montre le parcours (code, attente, abandon, adversaire parti). Le relais qui ferait se rencontrer deux machines n’est pas dans cette maquette. Son contrat est [multijoueur.md](multijoueur.md).
 
 **Partie.** La barre fine remplace le bloc bas-gauche (statut, pendules, Mode, Options) : blason réduit, trait et pendule, Assistant, Pause. En ligne, la barre ajoute l’état de liaison. Les touches LMB / RMB / X restent en bas, plus petites.
 
-**Assistant.** Tiroir à droite du plateau, ouvert depuis la barre, sans quitter la partie. Trois actions de [coach-ia.md](coach-ia.md) : Expliquer la position, Indice, question libre. Un bandeau rappelle que le texte commente : il ne joue pas et ne remplace pas le moteur. L’attente reste dans le tiroir. Sans modèle, le tiroir renvoie vers Paramètres. En mode Apprendre, le coup du livre n’est pas donné tel quel.
+**Assistant.** Tiroir à droite du plateau, ouvert depuis la barre, sans quitter la partie. Un cadre rond en tête porte le blason, au repos : c’est la place d’un avatar plus tard. Le texte de la réponse est sous les actions. Un bandeau rappelle que le texte commente : il ne joue pas et ne remplace pas le moteur. L’attente reste dans le tiroir.
+
+En entraînement, « Jouer le coup » fait intervenir l’assistant : le blason bondit, le plateau tremble une fraction de seconde, et « Objection ! » claque en grand. Le tiroir s’ouvre ensuite, la partie est arrêtée, les fantômes sont là. Ce n’est pas une copie d’un autre jeu : le cri et le blason sont les nôtres. En partie ordinaire, trois actions de [coach-ia.md](coach-ia.md) : Expliquer, Indice, question libre. En entraînement : Stop ou Reprendre, Annuler mon coup, un curseur de 1 à 5, Expliquer mon erreur, Stratégie. Le plan est sur le plateau, pas dans le tiroir : un pion ou une pièce fantôme par demi-coup, le plus net pour le prochain coup, les autres plus transparents. Sans modèle, ces fantômes restent et le texte renvoie vers Paramètres. En mode Apprendre, le coup du livre n’est pas donné tel quel.
 
 **Pause.** Reprendre, Sauvegarder, Sauvegardes, Changer de mode, Options, Retour à l’accueil. Sauvegarder confirme en une ligne « Partie sauvegardée ». Reprendre ramène à la table : ce n’est pas le chargement d’une fiche. En ligne, si la liaison est encore ouverte, Reprendre est accompagné de Quitter la table. Retour à l’accueil masque la partie, il ne détruit pas le plateau.
 
@@ -84,6 +87,6 @@ Le bouton Commencer, hors ligne, correspond au chemin `apply-session` du picker 
 ## Hors maquette
 
 - Pas de compte joueur, pas de serveur de matchmaking, pas de Stockfish.
-- L’assistant suit le contrat de B7. Sans les canaux IPC, le tiroir et Paramètres restent cliquables avec des réponses d’exemple.
+- L’assistant suit le contrat de [CHESS-B15](sprints/CHESS-B15.md). Sans les canaux IPC, le tiroir et Paramètres restent cliquables avec des réponses d’exemple. Le cadre de présence ne contient pas encore d’avatar.
 - Pas de refonte du rendu 3D, du grab, ni des règles.
 - Une fois le shell branché dans le client, le sélecteur Mode et le dialogue Graphismes quittent la barre de partie pour ne pas avoir deux entrées.

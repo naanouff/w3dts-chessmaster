@@ -1,6 +1,8 @@
 # Sprint CHESS-B7 — Coach IA
 
-Découpage de [docs/coach-ia.md](../coach-ia.md). Le CPU heuristique ne change pas. Aucun coup n’est joué à partir du texte du modèle.
+Archive. La suite est [CHESS-B15](CHESS-B15.md) : le tiroir de la coque remplace le panneau HUD de B7c.
+
+Découpage d’origine de [docs/coach-ia.md](../coach-ia.md). Le CPU heuristique ne change pas. Aucun coup n’est joué à partir du texte du modèle.
 
 Ordre : B7a, puis B7b, puis B7c. Chaque ticket se termine par `pnpm test` et `pnpm check`.
 

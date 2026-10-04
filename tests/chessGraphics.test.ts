@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FLUID_GRAPHICS,
   GRAPHICS_PRESETS,
+  coachOutlineFromStored,
   gamePassNames,
   gameSurfacePixels,
   matchingGraphicsPreset,
@@ -38,6 +39,8 @@ describe('chess graphics', () => {
     expect(names).not.toContain('04b_HBAO');
     expect(names).not.toContain('05_SSR_Floor');
     expect(names).not.toContain('06_Bright');
+    expect(names).not.toContain('04e_CoachMask');
+    expect(names).not.toContain('04f_CoachCutout');
   });
 
   it('enables the heavy passes for the quality preset', () => {
@@ -45,9 +48,41 @@ describe('chess graphics', () => {
     expect(quality).toBeDefined();
     const names = gamePassNames(quality!.settings);
     expect(names).toEqual(
-      expect.arrayContaining(['04d_HBAO_Apply', '05b_SSR_Composite', '06d_BloomAdd'])
+      expect.arrayContaining([
+        '04d_HBAO_Apply',
+        '04e_CoachMask',
+        '04f_CoachCutout',
+        '05b_SSR_Composite',
+        '06d_BloomAdd',
+      ])
+    );
+    const balanced = GRAPHICS_PRESETS.find((preset) => preset.id === 'equilibre');
+    expect(gamePassNames(balanced!.settings)).toEqual(
+      expect.arrayContaining(['04e_CoachMask', '04f_CoachCutout'])
     );
     expect(matchingGraphicsPreset(quality!.settings)).toBe('qualite');
+  });
+
+  it('turns the silhouette on for a saved higher look that predates the flag', () => {
+    expect(
+      coachOutlineFromStored({
+        resolution: 'native',
+        ambientOcclusion: true,
+        reflections: false,
+        bloom: false,
+      })
+    ).toBe(true);
+  });
+
+  it('keeps the silhouette off for a saved fluid look that predates the flag', () => {
+    expect(
+      coachOutlineFromStored({
+        resolution: '1080',
+        ambientOcclusion: false,
+        reflections: false,
+        bloom: false,
+      })
+    ).toBe(false);
   });
 
   it('maps texture quality to the baked sizes', () => {

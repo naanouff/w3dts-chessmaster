@@ -8,7 +8,7 @@
 
 import type { ChessColor } from '../rules/chessTypes';
 
-export type ChessPlayMode = 'cpu' | 'hotseat' | 'p2p' | 'learn';
+export type ChessPlayMode = 'cpu' | 'hotseat' | 'p2p' | 'learn' | 'training';
 
 export interface ChessDemoQuery {
   mode: ChessPlayMode;
@@ -38,9 +38,11 @@ export function parseChessDemoQuery(search: string): ChessDemoQuery {
       ? 'hotseat'
       : modeRaw === 'p2p'
         ? 'p2p'
-        : modeRaw === 'learn' || modeRaw === 'eco' || modeRaw === 'train'
-          ? 'learn'
-          : 'cpu';
+        : modeRaw === 'training'
+          ? 'training'
+          : modeRaw === 'learn' || modeRaw === 'eco' || modeRaw === 'train'
+            ? 'learn'
+            : 'cpu';
   const colorRaw = (q.get('chessColor') ?? 'white').toLowerCase();
   const localColor: ChessColor = colorRaw === 'black' ? 'black' : 'white';
   const ecoRaw = (q.get('chessEco') ?? q.get('eco') ?? '').trim();
@@ -65,11 +67,13 @@ export function parseChessDemoSession(raw: unknown): ChessDemoQuery | null {
       ? 'hotseat'
       : modeRaw === 'p2p'
         ? 'p2p'
-        : modeRaw === 'learn' || modeRaw === 'eco' || modeRaw === 'train'
-          ? 'learn'
-          : modeRaw === 'cpu'
-            ? 'cpu'
-            : null;
+        : modeRaw === 'training'
+          ? 'training'
+          : modeRaw === 'learn' || modeRaw === 'eco' || modeRaw === 'train'
+            ? 'learn'
+            : modeRaw === 'cpu'
+              ? 'cpu'
+              : null;
   if (!mode) return null;
   const colorRaw = typeof rec.localColor === 'string' ? rec.localColor.toLowerCase() : 'white';
   const localColor: ChessColor = colorRaw === 'black' ? 'black' : 'white';

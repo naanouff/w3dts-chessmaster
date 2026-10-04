@@ -5,6 +5,8 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react';
 import {
+  CHESS_COACH_CONTEXT_EVENT,
+  CHESS_COACH_OBJECT_EVENT,
   CHESS_HUD_COMMAND_EVENT,
   CHESS_HUD_STATE_EVENT,
   CHESS_SAVES_EVENT,
@@ -13,10 +15,12 @@ import {
   cpuSearchDepth,
   emptySaveCabinet,
   formatChessClock,
+  parseChessCoachContext,
   parseChessHudState,
   parseSaveCabinet,
   type ChessColor,
   type ChessHudState,
+  type CoachContext,
   type SaveCabinet,
   type SavedGame,
 } from '../../chess';
@@ -66,9 +70,13 @@ import {
   type ShellPrefs,
   type ShellState,
 } from './shellScreen';
+import { COACH_LOCAL_BASE_URL, preferCoachModel, probeLocalOllama } from '../../chess/coach/coachClient';
+import type { CoachProbeResult } from '../chessMaster';
+import { coachDialoguePages } from './coachDialogue';
+import { coachGhostSteps, coachMessages, type CoachAskKind } from './coachDrawer';
 import './shell.css';
 
-const MODE_IDS = ['cpu', 'hotseat', 'local', 'online', 'learn'] as const satisfies readonly ShellMode[];
+const MODE_IDS = ['cpu', 'hotseat', 'local', 'online', 'learn', 'training'] as const satisfies readonly ShellMode[];
 
 function loadPrefs(): ShellPrefs {
   try {
@@ -247,6 +255,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
     if (peer) return base;
     return { ...base, mode: loadPrefs().mode };
   });
+  const copy = shellCopy(prefs.language);
   const [hud, setHud] = useState<ChessHudState | null>(null);
   const [color, setColor] = useState<ChessColor>(() => (peer ? 'white' : loadPrefs().color));
   const [hostColor, setHostColor] = useState<ChessColor>(() => (peer ? 'white' : loadPrefs().color));
@@ -259,6 +268,19 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
   const [surface, setSurface] = useState({ width: 0, height: 0 });
   const [question, setQuestion] = useState('');
   const [coachNote, setCoachNote] = useState('');
+  const [dialoguePage, setDialoguePage] = useState(0);
+  const [welcomeHidden, setWelcomeHidden] = useState(false);
+  const [coachContext, setCoachContext] = useState<CoachContext | null>(null);
+  const [horizon, setHorizon] = useState(3);
+  const [objecting, setObjecting] = useState(false);
+  const [coachModels, setCoachModels] = useState<string[]>([]);
+  const [coachStatus, setCoachStatus] = useState<'checking' | 'ready' | 'installed' | 'missing'>('checking');
+  const [coachRemote, setCoachRemote] = useState(false);
+  const [coachBase, setCoachBase] = useState('http://127.0.0.1:11434/v1');
+  const [coachModel, setCoachModel] = useState('');
+  const [coachKey, setCoachKey] = useState('');
+  const objectingRef = useRef(false);
+  const explainAfterRef = useRef(false);
   const [rankTab, setRankTab] = useState<'local' | 'online'>('local');
   const [cabinet, setCabinet] = useState<SaveCabinet>(loadCabinet);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -312,11 +334,166 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape' || !bootGone) return;
+      if (objectingRef.current) {
+        objectingRef.current = false;
+        setObjecting(false);
+        document.body.classList.remove('is-shaken');
+        return;
+      }
       setShell((prev) => reduceShell(prev, { type: 'escape' }));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [bootGone]);
+
+  useEffect(() => {
+    const onContext = (raw: unknown): void => {
+      const parsed = parseChessCoachContext(raw);
+      if (!parsed) return;
+      setCoachContext((prev) => {
+        if (
+          prev &&
+          prev.fen === parsed.fen &&
+          prev.sideToMove === parsed.sideToMove &&
+          prev.history.join(' ') === parsed.history.join(' ') &&
+          prev.training?.held === parsed.training?.held &&
+          prev.training?.lastUserSan === parsed.training?.lastUserSan &&
+          prev.training?.clock === parsed.training?.clock
+        ) {
+          return prev;
+        }
+        return parsed;
+      });
+    };
+    const onObject = (): void => {
+      objectingRef.current = true;
+      setObjecting(true);
+      setCoachNote(copy.objectionLesson);
+      explainAfterRef.current = true;
+      setShell((prev) => reduceShell(prev, { type: 'open-assistant' }));
+      document.body.classList.add('is-shaken');
+      window.setTimeout(() => {
+        objectingRef.current = false;
+        setObjecting(false);
+        document.body.classList.remove('is-shaken');
+      }, 900);
+    };
+    chessBus.on(CHESS_COACH_CONTEXT_EVENT, onContext);
+    chessBus.on(CHESS_COACH_OBJECT_EVENT, onObject);
+    return () => {
+      chessBus.off(CHESS_COACH_CONTEXT_EVENT, onContext);
+      chessBus.off(CHESS_COACH_OBJECT_EVENT, onObject);
+    };
+  }, [copy.objectionLesson]);
+
+  useEffect(() => {
+    const show =
+      shell.screen === 'partie' && shell.mode === 'training' && shell.assistant && coachContext !== null;
+    const student = coachContext?.training?.localColor;
+    chessBus.emit(CHESS_HUD_COMMAND_EVENT, {
+      type: 'coach-ghosts',
+      horizon,
+      steps: show && coachContext && student ? coachGhostSteps(coachContext.fen, horizon, student) : [],
+    });
+  }, [shell.screen, shell.mode, shell.assistant, coachContext, horizon]);
+
+  const applyProbe = (result: CoachProbeResult): void => {
+    setCoachStatus(result.state);
+    setCoachModels(result.models ?? []);
+    setCoachBase(result.settings.baseUrl);
+    setCoachModel(result.settings.model);
+    if (result.settings.baseUrl !== COACH_LOCAL_BASE_URL && result.settings.model) setCoachRemote(true);
+  };
+
+  useEffect(() => {
+    const bridge = window.chessMaster;
+    if (!bridge) return;
+    let cancelled = false;
+    const accept = (result: CoachProbeResult): void => {
+      if (!cancelled) applyProbe(result);
+    };
+    if (bridge.coachProbe) {
+      void bridge.coachProbe().then(accept);
+      return () => {
+        cancelled = true;
+      };
+    }
+    void probeLocalOllama(globalThis.fetch.bind(globalThis), false).then(async (probe) => {
+      if (cancelled) return;
+      if (probe.state !== 'ready') {
+        setCoachStatus('installed');
+        return;
+      }
+      const model = preferCoachModel(probe.models, '');
+      setCoachStatus('ready');
+      setCoachModels(probe.models);
+      if (!model) return;
+      const saved = await bridge.coachSaveSettings?.({ baseUrl: COACH_LOCAL_BASE_URL, model });
+      if (cancelled) return;
+      if (saved?.ok) {
+        setCoachModel(saved.settings.model);
+        setCoachBase(saved.settings.baseUrl);
+      } else {
+        setCoachModel(model);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [shell.screen]);
+
+  const askCoach = (kind: CoachAskKind): void => {
+    const chat = window.chessMaster?.coachChat;
+    if (!coachContext || !chat) {
+      if (kind !== 'mistake') setCoachNote(copy.noModel);
+      return;
+    }
+    const messages = coachMessages(kind, coachContext, question, horizon, shell.mode === 'learn', prefs.language);
+    void chat(messages).then((result) => {
+      if (result.ok) setCoachNote(result.text);
+      else if (result.error === 'no-model') setCoachNote(copy.noModel);
+      else if (result.error !== 'cancelled') setCoachNote(copy.noAnswer);
+    });
+  };
+
+  useEffect(() => {
+    setDialoguePage(0);
+  }, [coachNote, welcomeHidden, shell.mode, shell.assistant, prefs.language]);
+
+  useEffect(() => {
+    if (!explainAfterRef.current || !shell.assistant || !coachContext?.training?.lastUserSan) return;
+    explainAfterRef.current = false;
+    askCoach('mistake');
+  }, [shell.assistant, coachContext, prefs.language]);
+
+  const saveCoachLink = (): void => {
+    void window.chessMaster
+      ?.coachSaveSettings?.({
+        baseUrl: coachBase,
+        model: coachModel,
+        ...(coachKey ? { apiKey: coachKey } : {}),
+      })
+      .then((result) => {
+        if (result.ok) {
+          setCoachBase(result.settings.baseUrl);
+          setCoachModel(result.settings.model);
+          setCoachKey('');
+          setCoachNote('');
+        } else {
+          setCoachNote(copy.noAnswer);
+        }
+      });
+  };
+
+  const chooseLocalModel = (model: string): void => {
+    setCoachModel(model);
+    void window.chessMaster?.coachSaveSettings?.({ baseUrl: COACH_LOCAL_BASE_URL, model });
+  };
+
+  const launchOllama = (): void => {
+    setCoachStatus('checking');
+    void window.chessMaster?.coachLaunch?.().then(applyProbe);
+  };
 
   useEffect(() => {
     const primary = root.current?.querySelector<HTMLElement>('[data-primary]');
@@ -370,7 +547,9 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
     chessBus.emit(CHESS_HUD_COMMAND_EVENT, {
       type: 'resume-saved',
       game,
-      ...(game.shellMode === 'cpu' ? { cpuDepth: cpuSearchDepth(level) } : {}),
+      ...(game.shellMode === 'cpu' || game.shellMode === 'training'
+        ? { cpuDepth: cpuSearchDepth(level) }
+        : {}),
     });
     setColor(game.localColor);
     if (game.shellMode === 'online') setHostColor(game.localColor);
@@ -401,7 +580,6 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
     if (after.voluntary.at(-1)?.id !== before) setSavedFlash(true);
   };
 
-  const copy = shellCopy(prefs.language);
   const menu = shell.screen !== 'partie';
   const play = hud?.kind === 'play' ? hud : null;
   const turn =
@@ -416,10 +594,23 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
     shell.mode === 'learn'
       ? `${copy.learn} · ${opening}`
       : copy.modeCards[shell.mode].title;
+  const coachSpeech =
+    coachNote ||
+    (!welcomeHidden && shell.mode === 'training' && shell.assistant
+      ? `${copy.trainingWelcome} ${copy.ghostHint}`
+      : '');
+  const dialoguePages = coachDialoguePages(coachSpeech);
+  const dialogueIndex = Math.min(dialoguePage, Math.max(0, dialoguePages.length - 1));
 
   return (
     <div ref={root} className={menu ? 'shell is-menu' : 'shell'} data-screen={shell.screen}>
       <BootCover studioReady={studioReady} onGone={() => setBootGone(true)} />
+      {objecting ? (
+        <div className="objection" role="alert">
+          <img src="/brand/coach-crest.webp" alt="" />
+          <p>{copy.objection}</p>
+        </div>
+      ) : null}
       {shell.screen === 'accueil' ? (
         <section className="panel">
           <img className="crest" src="/brand/w3dts-chessmaster-logo.png" alt="" />
@@ -468,7 +659,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
               </button>
             ))}
           </div>
-          {shell.mode === 'cpu' ? (
+          {shell.mode === 'cpu' || shell.mode === 'training' ? (
             <>
               <h2>{copy.color}</h2>
               <Choice
@@ -479,18 +670,22 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
                 selected={color}
                 onSelect={(id) => rememberColor(id === 'black' ? 'black' : 'white')}
               />
-              <p className="field">
-                {copy.level} {level}
-              </p>
-              <ScaleRange
-                min={1}
-                max={5}
-                value={level}
-                onChange={(value) => {
-                  setLevel(value);
-                  setPrefs((prev) => ({ ...prev, level: value }));
-                }}
-              />
+              {shell.mode === 'cpu' ? (
+                <>
+                  <p className="field">
+                    {copy.level} {level}
+                  </p>
+                  <ScaleRange
+                    min={1}
+                    max={5}
+                    value={level}
+                    onChange={(value) => {
+                      setLevel(value);
+                      setPrefs((prev) => ({ ...prev, level: value }));
+                    }}
+                  />
+                </>
+              ) : null}
             </>
           ) : null}
           {shell.mode === 'learn' ? (
@@ -591,7 +786,9 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
               <p>{play?.cpuThinking ? copy.thinking : turn}</p>
               <p className="hint">{modeTitle}</p>
             </div>
+            {shell.mode === 'training' && coachContext?.training?.clock !== true ? null : (
             <p className="clock">{clock}</p>
+          )}
             {play?.p2pStatus ? (
               <p className="hint">
                 {copy.p2p[play.p2pStatus]}
@@ -621,39 +818,130 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
               <kbd>X</kbd> {copy.reset}
             </span>
           </p>
+          {shell.screen === 'partie' && dialoguePages.length > 0 ? (
+            <section className="dialogue" aria-live="polite">
+              <p>{dialoguePages[dialogueIndex]}</p>
+              <div className="dialogue-nav">
+                {dialogueIndex > 0 ? (
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => setDialoguePage((page) => Math.max(0, page - 1))}
+                  >
+                    {copy.dialoguePrev}
+                  </button>
+                ) : null}
+                {dialogueIndex < dialoguePages.length - 1 ? (
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => setDialoguePage((page) => page + 1)}
+                  >
+                    {copy.dialogueNext}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    if (coachNote) setCoachNote('');
+                    else setWelcomeHidden(true);
+                  }}
+                >
+                  {dialogueIndex < dialoguePages.length - 1 ? copy.dialogueSkip : copy.close}
+                </button>
+              </div>
+            </section>
+          ) : null}
           {shell.screen === 'partie' && shell.assistant ? (
             <aside className="drawer">
-              <h2>{copy.assistant}</h2>
-              <p className="banner">{copy.coachBanner}</p>
-              <p className="notice">{coachNote || copy.noModel}</p>
-              <button type="button" className="ghost" onClick={() => setCoachNote(copy.noModel)}>
-                {copy.explain}
-              </button>
-              <button type="button" className="ghost" onClick={() => setCoachNote(copy.noModel)}>
-                {copy.hint}
-              </button>
-              <label className="field" htmlFor="coach-ask">
-                {copy.ask}
-              </label>
-              <textarea
-                id="coach-ask"
-                value={question}
-                onChange={(event) => setQuestion(event.target.value)}
-              />
-              <button type="button" className="primary" onClick={() => setCoachNote(copy.noModel)}>
-                {copy.send}
-              </button>
-              <button type="button" className="ghost" onClick={() => dispatch({ type: 'coach-settings' })}>
-                {copy.openSettings}
-              </button>
-              <button
-                type="button"
-                className="ghost"
-                data-primary
-                onClick={() => dispatch({ type: 'close-assistant' })}
-              >
-                {copy.close}
-              </button>
+              <header className="drawer-head">
+                <img className="presence" src="/brand/coach-crest.webp" alt="" />
+                <div>
+                  <h2>{copy.assistant}</h2>
+                  <p className="banner">{copy.coachBanner}</p>
+                </div>
+              </header>
+              {!coachNote && coachStatus !== 'checking' && !coachModel ? (
+                <p className="notice">{copy.noModel}</p>
+              ) : null}
+              <div className="drawer-actions">
+                {shell.mode === 'training' ? (
+                  <>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() =>
+                        chessBus.emit(CHESS_HUD_COMMAND_EVENT, {
+                          type: coachContext?.training?.held ? 'training-resume' : 'training-stop',
+                        })
+                      }
+                    >
+                      {coachContext?.training?.held ? copy.resume : copy.stop}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => chessBus.emit(CHESS_HUD_COMMAND_EVENT, { type: 'training-undo' })}
+                    >
+                      {copy.undoMove}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost span-2"
+                      onClick={() =>
+                        chessBus.emit(CHESS_HUD_COMMAND_EVENT, {
+                          type: 'training-clock',
+                          on: coachContext?.training?.clock !== true,
+                        })
+                      }
+                    >
+                      {coachContext?.training?.clock === true ? copy.clockOff : copy.clockOn}
+                    </button>
+                    <label className="field span-2" htmlFor="coach-horizon">
+                      {copy.horizon} {horizon}
+                      <input
+                        id="coach-horizon"
+                        type="range"
+                        min={1}
+                        max={5}
+                        value={horizon}
+                        onChange={(event) => setHorizon(Number(event.target.value))}
+                      />
+                    </label>
+                    <button type="button" className="ghost" onClick={() => askCoach('mistake')}>
+                      {copy.mistake}
+                    </button>
+                    <button type="button" className="ghost" onClick={() => askCoach('strategy')}>
+                      {copy.strategy}
+                    </button>
+                  </>
+                ) : null}
+                <button type="button" className="ghost" onClick={() => askCoach('explain')}>
+                  {copy.explain}
+                </button>
+                <button type="button" className="ghost" onClick={() => askCoach('hint')}>
+                  {copy.hint}
+                </button>
+                <label className="field span-2" htmlFor="coach-ask">
+                  {copy.ask}
+                  <textarea
+                    id="coach-ask"
+                    rows={1}
+                    value={question}
+                    onChange={(event) => setQuestion(event.target.value)}
+                  />
+                </label>
+                <button type="button" className="primary span-2" onClick={() => askCoach('ask')}>
+                  {copy.send}
+                </button>
+                <button type="button" className="ghost" onClick={() => dispatch({ type: 'coach-settings' })}>
+                  {copy.openSettings}
+                </button>
+                <button type="button" className="ghost" data-primary onClick={() => dispatch({ type: 'close-assistant' })}>
+                  {copy.close}
+                </button>
+              </div>
             </aside>
           ) : null}
         </>
@@ -830,7 +1118,99 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
           </section>
           <section className="sheet-section">
             <h2>{copy.assistant}</h2>
-            <p className="notice">{copy.noModel}</p>
+            {window.chessMaster?.coachSettings ? (
+              <>
+                {coachStatus === 'checking' ? <p className="hint">{copy.coachChecking}</p> : null}
+                {coachStatus === 'ready' ? (
+                  <>
+                    <p className="banner">{copy.coachReady}</p>
+                    {coachModels.length === 0 ? <p className="hint">{copy.coachNoModels}</p> : null}
+                    {coachModels.length > 1 ? (
+                      <>
+                        <label className="field" htmlFor="coach-model">
+                          {copy.coachModel}
+                        </label>
+                        <select
+                          id="coach-model"
+                          value={coachModel}
+                          onChange={(event) => chooseLocalModel(event.target.value)}
+                        >
+                          {coachModels.map((id) => (
+                            <option key={id} value={id}>
+                              {id}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    ) : coachModel ? (
+                      <p className="hint">
+                        {copy.coachModel} · {coachModel}
+                      </p>
+                    ) : null}
+                  </>
+                ) : null}
+                {coachStatus === 'installed' ? (
+                  <>
+                    <p className="banner">{copy.coachInstalled}</p>
+                    <button type="button" className="primary" onClick={launchOllama}>
+                      {copy.coachStart}
+                    </button>
+                  </>
+                ) : null}
+                {coachStatus === 'missing' ? (
+                  <>
+                    <p className="banner">{copy.coachMissing}</p>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() => void window.chessMaster?.coachOpenDownload()}
+                    >
+                      {copy.coachInstall}
+                    </button>
+                  </>
+                ) : null}
+                <button type="button" className="ghost" onClick={() => setCoachRemote((open) => !open)}>
+                  {copy.coachOther}
+                </button>
+                {coachRemote ? (
+                  <>
+                    <label className="field" htmlFor="coach-base">
+                      {copy.coachBase}
+                    </label>
+                    <input
+                      id="coach-base"
+                      type="url"
+                      value={coachBase}
+                      onChange={(event) => setCoachBase(event.target.value)}
+                    />
+                    <label className="field" htmlFor="coach-remote-model">
+                      {copy.coachModel}
+                    </label>
+                    <input
+                      id="coach-remote-model"
+                      type="text"
+                      value={coachModel}
+                      onChange={(event) => setCoachModel(event.target.value)}
+                    />
+                    <label className="field" htmlFor="coach-key">
+                      {copy.coachKey}
+                    </label>
+                    <input
+                      id="coach-key"
+                      type="password"
+                      value={coachKey}
+                      autoComplete="off"
+                      onChange={(event) => setCoachKey(event.target.value)}
+                    />
+                    <button type="button" className="primary" onClick={saveCoachLink}>
+                      {copy.coachSave}
+                    </button>
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <p className="notice">{copy.noModel}</p>
+            )}
           </section>
         </section>
       ) : null}

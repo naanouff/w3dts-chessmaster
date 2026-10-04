@@ -17,6 +17,12 @@ describe('chess clocks', () => {
     expect(stepChessClock(running, 'black', 3, { covered: false, awaitingPeer: true })).toEqual(running);
   });
 
+  it('leaves both clocks alone when training time is off', () => {
+    expect(stepChessClock(running, 'white', 5, { covered: false, awaitingPeer: false, clockOff: true })).toEqual(
+      running
+    );
+  });
+
   it('spends the side to move when the table is open', () => {
     expect(stepChessClock(running, 'white', 2.5, { covered: false, awaitingPeer: false })).toEqual({
       whiteSeconds: 97.5,

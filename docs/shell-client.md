@@ -18,11 +18,11 @@ Jouer et Commencer émettent `apply-session`. Contre l’ordinateur devient `cpu
 
 Options appelle `setChessGraphicsSettings`. Paramètres mémorise les volumes comme multiplicateurs des constantes de [`chessTableAudio.ts`](../src/renderer/host/chessTableAudio.ts) et la langue, français par défaut. Les huit langues du shell sont décrites dans [docs/i18n.md](i18n.md) et découpées dans [CHESS-B11](sprints/CHESS-B11.md).
 
-Le salon ouvre la seconde fenêtre sur le canal `BroadcastChannel` existant et affiche le vrai `p2pStatus`. Le code se copie. Il ne choisit pas un canal. Un code refusé reste sur le salon. Pas de relais entre deux machines.
+Le salon ouvre la seconde fenêtre sur le canal `BroadcastChannel` existant et affiche le vrai `p2pStatus`. Le code se copie. Il ne choisit pas un canal. Un code refusé reste sur le salon. Pas de relais entre deux machines. Le contrat prévu est [multijoueur.md](multijoueur.md).
 
 Les classements restent des exemples. Pas de compte, pas de serveur de scores.
 
-Sans pont `coachSettings` publié, le tiroir dit qu’aucun modèle n’est branché et ouvre Paramètres.
+Le tiroir assistant est le présentateur du coach. Le cadre rond porte le blason. En entraînement, Stop fige la partie sans cri, Annuler revient au coup de l’élève, les 10 minutes sont coupées tant qu’on ne les remet pas, et les fantômes sur le plateau montrent seulement les coups de l’élève : vert, puis bleu, puis jaune, avec le même liseré sur sa pièce. La réponse tient dans une bulle collée à gauche du tiroir. Une page ne coupe pas une phrase. Précédent et Suivant n’apparaissent que s’il y a une page de ce côté. À la dernière, Passer devient Fermer. Le rouge entoure le coup faible. Quand l’assistant coupe de lui-même, le mot Objection s’abat, le plateau tremble, puis le tiroir explique la leçon. `chess=training` est ce mode. `chess=train` reste l’alias d’apprendre. Le modèle parle par le processus principal. La clé ne revient pas au rendu. Le détail est [CHESS-B15](sprints/CHESS-B15.md).
 
 À propos est dans la coque, ouvert depuis l’accueil. La version affichée est `app.getVersion()`, donc le champ `version` de `package.json`. La note est le fichier `docs/releases/X.Y.Z.md` de cette version quand il existe. Il n’y a plus de ligne de version flottante dans [`main.tsx`](../src/renderer/main.tsx).
 

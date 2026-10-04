@@ -6,7 +6,8 @@
  * @description Typed Chess Game HUD payload (`uiBus` `w3dts-chess-hud-state`). CHESS-B5.
  */
 
-import type { ChessColor } from '../rules/chessTypes';
+import type { CoachGhostStep } from '../coach/coachPlan';
+import type { ChessColor, ChessPieceRole, ChessSquareName } from '../rules/chessTypes';
 import { acceptSavedGame, type SavedGame, type SavedShellMode } from './savedGames';
 import {
   parseChessDemoSession,
@@ -27,7 +28,12 @@ export type ChessHudCommand =
   | { type: 'resume-saved'; game: SavedGame; cpuDepth?: number }
   | { type: 'save-voluntary' }
   | { type: 'discard-interrupt' }
-  | { type: 'delete-voluntary'; id: string };
+  | { type: 'delete-voluntary'; id: string }
+  | { type: 'training-stop' }
+  | { type: 'training-resume' }
+  | { type: 'training-undo' }
+  | { type: 'training-clock'; on: boolean }
+  | { type: 'coach-ghosts'; steps: CoachGhostStep[]; horizon: number };
 
 export type ChessHudP2pStatus = 'waiting' | 'connecting' | 'connected' | 'disconnected';
 
@@ -85,7 +91,7 @@ function parseColor(raw: unknown): ChessColor | null {
 }
 
 function parsePlayMode(raw: unknown): ChessHudPlayMode | null {
-  return raw === 'cpu' || raw === 'hotseat' || raw === 'p2p' ? raw : null;
+  return raw === 'cpu' || raw === 'hotseat' || raw === 'p2p' || raw === 'training' ? raw : null;
 }
 
 function parseP2pStatus(raw: unknown): ChessHudP2pStatus | null {
@@ -245,12 +251,46 @@ export function parseChessHudCommand(raw: unknown): ChessHudCommand | null {
   if (raw.type === 'delete-voluntary' && typeof raw.id === 'string' && raw.id.length > 0) {
     return { type: 'delete-voluntary', id: raw.id };
   }
+  if (raw.type === 'training-stop') return { type: 'training-stop' };
+  if (raw.type === 'training-resume') return { type: 'training-resume' };
+  if (raw.type === 'training-undo') return { type: 'training-undo' };
+  if (raw.type === 'training-clock') return { type: 'training-clock', on: raw.on === true };
+  if (raw.type === 'coach-ghosts') {
+    const steps = Array.isArray(raw.steps) ? raw.steps.map(parseGhostStep).filter((step) => step !== null) : [];
+    const horizon = typeof raw.horizon === 'number' ? Math.min(5, Math.max(1, Math.floor(raw.horizon))) : 3;
+    return { type: 'coach-ghosts', steps: steps.slice(0, 5), horizon };
+  }
   return null;
 }
 
 function parseTable(value: unknown): SavedShellMode | undefined {
-  if (value === 'cpu' || value === 'hotseat' || value === 'local' || value === 'online' || value === 'learn') {
+  if (
+    value === 'cpu' ||
+    value === 'hotseat' ||
+    value === 'local' ||
+    value === 'online' ||
+    value === 'learn' ||
+    value === 'training'
+  ) {
     return value;
   }
   return undefined;
+}
+
+const GHOST_ROLES: readonly ChessPieceRole[] = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'];
+
+function parseGhostStep(raw: unknown): CoachGhostStep | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const rec = raw as Record<string, unknown>;
+  if (typeof rec.san !== 'string' || typeof rec.from !== 'string' || typeof rec.to !== 'string') return null;
+  if (!/^[a-h][1-8]$/.test(rec.from) || !/^[a-h][1-8]$/.test(rec.to)) return null;
+  if (rec.color !== 'white' && rec.color !== 'black') return null;
+  if (!GHOST_ROLES.includes(rec.role as ChessPieceRole)) return null;
+  return {
+    san: rec.san,
+    from: rec.from as ChessSquareName,
+    to: rec.to as ChessSquareName,
+    role: rec.role as ChessPieceRole,
+    color: rec.color,
+  };
 }

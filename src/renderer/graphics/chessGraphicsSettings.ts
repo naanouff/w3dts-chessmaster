@@ -18,6 +18,8 @@ export interface ChessGraphicsSettings {
   ambientOcclusion: boolean;
   reflections: boolean;
   bloom: boolean;
+  /** Silhouette cutout for the coach. Off on Fluide. */
+  coachOutline: boolean;
 }
 
 const STORAGE_KEY = 'w3dts-chess-graphics';
@@ -64,6 +66,7 @@ export const FLUID_GRAPHICS: ChessGraphicsSettings = {
   ambientOcclusion: false,
   reflections: false,
   bloom: false,
+  coachOutline: false,
 };
 
 export const GRAPHICS_PRESETS: {
@@ -89,6 +92,7 @@ export const GRAPHICS_PRESETS: {
       ambientOcclusion: false,
       reflections: false,
       bloom: true,
+      coachOutline: true,
     },
   },
   {
@@ -102,6 +106,7 @@ export const GRAPHICS_PRESETS: {
       ambientOcclusion: true,
       reflections: true,
       bloom: true,
+      coachOutline: true,
     },
   },
   {
@@ -115,6 +120,7 @@ export const GRAPHICS_PRESETS: {
       ambientOcclusion: true,
       reflections: true,
       bloom: true,
+      coachOutline: true,
     },
   },
 ];
@@ -145,6 +151,21 @@ function textureQualityForResolution(resolution: ChessResolution): ChessTextureQ
   return 'low';
 }
 
+/**
+ * Older saves omit the flag. The ring stays off only for the fluid look.
+ * @param parsed - Partial settings read from storage.
+ */
+export function coachOutlineFromStored(parsed: Partial<ChessGraphicsSettings>): boolean {
+  if (parsed.coachOutline === true) return true;
+  if (parsed.coachOutline === false) return false;
+  return (
+    parsed.resolution !== '1080' ||
+    parsed.ambientOcclusion === true ||
+    parsed.reflections === true ||
+    parsed.bloom === true
+  );
+}
+
 function readStoredSettings(): ChessGraphicsSettings {
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
@@ -160,6 +181,7 @@ function readStoredSettings(): ChessGraphicsSettings {
       ambientOcclusion: parsed.ambientOcclusion === true,
       reflections: parsed.reflections === true,
       bloom: parsed.bloom === true,
+      coachOutline: coachOutlineFromStored(parsed),
     };
   } catch {
     return { ...FLUID_GRAPHICS };
@@ -189,7 +211,8 @@ function sameSettings(a: ChessGraphicsSettings, b: ChessGraphicsSettings): boole
     a.shadows === b.shadows &&
     a.ambientOcclusion === b.ambientOcclusion &&
     a.reflections === b.reflections &&
-    a.bloom === b.bloom
+    a.bloom === b.bloom &&
+    a.coachOutline === b.coachOutline
   );
 }
 
@@ -220,6 +243,7 @@ export function gamePassNames(value: ChessGraphicsSettings): string[] {
   if (value.ambientOcclusion) names.push('04b_HBAO', '04c_HBAO_Blur', '04d_HBAO_Apply');
   if (value.reflections) names.push('05_SSR_Floor', '05b_SSR_Composite');
   if (value.bloom) names.push('06_Bright', '06b_BlurH', '06c_BlurV', '06d_BloomAdd');
+  if (value.coachOutline) names.push('04e_CoachMask', '04f_CoachCutout');
   return names;
 }
 
