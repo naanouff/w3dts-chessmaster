@@ -31,7 +31,7 @@ Chaque fiche porte un identifiant, la sorte, la date, le mode du shell (`cpu`, `
 
 ## Écran Sauvegardes
 
-- **Accueil.** Lien « Sauvegardes » à côté de Classements. S’il existe une interruption, une ligne sous Jouer : « Partie interrompue » et « Restaurer ». Les pendules ne tournent pas tant que le joueur n’a pas restauré.
+- **Accueil.** Lien « Sauvegardes » à côté de Classements. S’il existe une interruption, un bouton « Reprendre la partie », centré sous Jouer. Les pendules ne tournent pas tant que le joueur n’a pas restauré.
 - **Gestion.** Bandeau d’interruption en tête : mode, camp, temps, date, Restaurer, Écarter. Puis la liste des volontaires, avec le même résumé, Restaurer et Supprimer. L’état vide ne montre pas de fausses parties. La maquette affiche trois exemples figés : une interruption contre l’ordinateur, une volontaire « Sur cet ordinateur », une volontaire « En ligne ».
 - **Pause.** « Sauvegarder » ajoute une volontaire et confirme en une ligne. « Sauvegardes » ouvre la gestion. Reprendre ramène à la table. Ce n’est pas le chargement d’une fiche.
 

@@ -39,6 +39,18 @@ describe('OpeningTrainer', () => {
     expect(trainer.plyIndex()).toBe(2);
   });
 
+  it('seeks to a book ply and stops at the end of the line', () => {
+    const trainer = new OpeningTrainer('C50');
+    trainer.seek(2);
+    expect(trainer.plyIndex()).toBe(2);
+    expect(trainer.isComplete()).toBe(false);
+    trainer.seek(99);
+    expect(trainer.plyIndex()).toBe(trainer.plyCount());
+    expect(trainer.isComplete()).toBe(true);
+    trainer.seek(-3);
+    expect(trainer.plyIndex()).toBe(0);
+  });
+
   it('completes a short line then cycles to the next opening', () => {
     const trainer = new OpeningTrainer('C00');
     for (const ply of resolveEcoLine(trainer.opening())) {

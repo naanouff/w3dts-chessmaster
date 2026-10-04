@@ -211,13 +211,17 @@ function BootCover({
 export default function ChessShell({ studioReady }: { studioReady: boolean }): ReactElement {
   const peer = new URLSearchParams(window.location.search).get('chessPeer') === '1';
   const [bootGone, setBootGone] = useState(false);
-  const [shell, setShell] = useState<ShellState>(() => initialShell(peer));
   const [prefs, setPrefs] = useState<ShellPrefs>(loadPrefs);
+  const [shell, setShell] = useState<ShellState>(() => {
+    const base = initialShell(peer);
+    if (peer) return base;
+    return { ...base, mode: loadPrefs().mode };
+  });
   const [hud, setHud] = useState<ChessHudState | null>(null);
-  const [color, setColor] = useState<ChessColor>('white');
-  const [hostColor, setHostColor] = useState<ChessColor>('white');
-  const [level, setLevel] = useState(2);
-  const [eco, setEco] = useState(ECO_OPENINGS[0]?.eco ?? 'C50');
+  const [color, setColor] = useState<ChessColor>(() => (peer ? 'white' : loadPrefs().color));
+  const [hostColor, setHostColor] = useState<ChessColor>(() => (peer ? 'white' : loadPrefs().color));
+  const [level, setLevel] = useState(() => (peer ? 2 : loadPrefs().level));
+  const [eco, setEco] = useState(() => (peer ? (ECO_OPENINGS[0]?.eco ?? 'C50') : loadPrefs().eco));
   const [code, setCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [graphics, setGraphics] = useState<ChessGraphicsSettings>(getChessGraphicsSettings);
@@ -289,9 +293,16 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
     return () => window.clearInterval(id);
   }, [shell.screen, graphics]);
 
+  const rememberColor = (next: ChessColor): void => {
+    setColor(next);
+    setHostColor(next);
+    setPrefs((prev) => ({ ...prev, color: next }));
+  };
+
   const dispatch = (action: ShellAction): void => {
     const next = reduceShell(shell, action);
     setShell(next);
+    if (action.type === 'set-mode') setPrefs((prev) => ({ ...prev, mode: action.mode }));
     const starts =
       (action.type === 'start' && next.screen === 'partie') ||
       action.type === 'create-table' ||
@@ -381,12 +392,20 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
                   { id: 'black', label: copy.black },
                 ]}
                 selected={color}
-                onSelect={(id) => setColor(id === 'black' ? 'black' : 'white')}
+                onSelect={(id) => rememberColor(id === 'black' ? 'black' : 'white')}
               />
               <p className="field">
                 {copy.level} {level}
               </p>
-              <ScaleRange min={1} max={5} value={level} onChange={setLevel} />
+              <ScaleRange
+                min={1}
+                max={5}
+                value={level}
+                onChange={(value) => {
+                  setLevel(value);
+                  setPrefs((prev) => ({ ...prev, level: value }));
+                }}
+              />
             </>
           ) : null}
           {shell.mode === 'learn' ? (
@@ -398,7 +417,10 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
                   label: `${item.eco} ${openingName(copy, item.eco)}`,
                 }))}
                 selected={eco}
-                onSelect={setEco}
+                onSelect={(id) => {
+                  setEco(id);
+                  setPrefs((prev) => ({ ...prev, eco: id }));
+                }}
               />
             </>
           ) : null}
@@ -425,7 +447,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
                   { id: 'black', label: copy.black },
                 ]}
                 selected={hostColor}
-                onSelect={(id) => setHostColor(id === 'black' ? 'black' : 'white')}
+                onSelect={(id) => rememberColor(id === 'black' ? 'black' : 'white')}
               />
               <p className="hint">{copy.colorHint}</p>
               <p className="code">{code || '—'}</p>

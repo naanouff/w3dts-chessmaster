@@ -17,6 +17,7 @@ flowchart LR
   chargement[Chargement]
   accueil[Accueil]
   propos[APropos]
+  sauvegardes[Sauvegardes]
   modes[Modes]
   salon[SalonEnLigne]
   partie[Partie]
@@ -28,6 +29,7 @@ flowchart LR
   chargement --> accueil
   accueil --> modes
   accueil --> propos
+  accueil --> sauvegardes
   accueil --> classements
   accueil --> options
   accueil --> parametres
@@ -37,6 +39,7 @@ flowchart LR
   partie --> assistant
   partie --> pause
   pause --> partie
+  pause --> sauvegardes
   pause --> modes
   pause --> options
   pause --> accueil
@@ -48,7 +51,7 @@ flowchart LR
 
 **Chargement.** Au lancement, fond blanc : le studio n’est pas visible. Seul le blason, grand et centré. Il est en niveaux de gris, puis la couleur remonte du bas vers le haut pendant le chargement. Quand il est coloré, le blanc disparaît en fondu et l’accueil apparaît sur le studio. Pas de carte, pas de bouton. En bas à droite, une ligne discrète : « ChessMaster & W3DTS copyright Cyril TARRIET ». Échap ne fait rien pendant ce temps.
 
-**Accueil.** Blason centré, une ligne « W3DTS ChessMaster », bouton principal Jouer, puis quatre liens : Classements, Options, Paramètres, À propos. Le studio reste visible autour de la carte. Les pièces sont au repos.
+**Accueil.** Blason centré, une ligne « W3DTS ChessMaster », bouton principal Jouer. S’il existe une partie interrompue, un bouton « Reprendre la partie », centré sous Jouer. Puis cinq liens : Sauvegardes, Classements, Options, Paramètres, À propos. La carte est plus large que les autres panneaux, pour que ces liens restent dans le verre. Le studio reste visible autour. Les pièces sont au repos.
 
 **Modes.** Cinq cartes. Les quatre premières existent dans [`ChessModePicker.tsx`](../src/renderer/ui/ChessModePicker.tsx). La cinquième est le salon en ligne, distinct du P2P local.
 
@@ -66,7 +69,9 @@ Le bouton Commencer, hors ligne, correspond au chemin `apply-session` du picker 
 
 **Assistant.** Tiroir à droite du plateau, ouvert depuis la barre, sans quitter la partie. Trois actions de [coach-ia.md](coach-ia.md) : Expliquer la position, Indice, question libre. Un bandeau rappelle que le texte commente : il ne joue pas et ne remplace pas le moteur. L’attente reste dans le tiroir. Sans modèle, le tiroir renvoie vers Paramètres. En mode Apprendre, le coup du livre n’est pas donné tel quel.
 
-**Pause.** Reprendre, Changer de mode, Options, Retour à l’accueil. En ligne, si la liaison est encore ouverte, Reprendre est accompagné de Quitter la table. Retour à l’accueil masque la partie, il ne détruit pas le plateau.
+**Pause.** Reprendre, Sauvegarder, Sauvegardes, Changer de mode, Options, Retour à l’accueil. Sauvegarder confirme en une ligne « Partie sauvegardée ». Reprendre ramène à la table : ce n’est pas le chargement d’une fiche. En ligne, si la liaison est encore ouverte, Reprendre est accompagné de Quitter la table. Retour à l’accueil masque la partie, il ne détruit pas le plateau.
+
+**Sauvegardes.** Feuille du même verre qu’Options. Bandeau « Partie interrompue » en tête (Contre l’ordinateur, Restaurer, Écarter), puis deux sauvegardes demandées : « Sur cet ordinateur » et « En ligne », chacune avec Restaurer et Supprimer. Écarter et Supprimer retirent la ligne. Quand il ne reste rien, l’écran dit « Aucune partie gardée », sans exemple. Fermer ou Échap revient à l’écran précédent. Le contrat est dans [persistance.md](persistance.md).
 
 **Options.** Uniquement le rendu, repris de [`chessGraphicsSettings.ts`](../src/renderer/graphics/chessGraphicsSettings.ts) : préréglages Fluide / Équilibré / Qualité / Natif, résolution, textures 256 / 512 / 1024, ombres, occlusion, reflets, bloom, ligne « Rendu W×H · img/s ». Le réglage s’applique tout de suite.
 

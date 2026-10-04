@@ -26,6 +26,17 @@ export {
   chessDemoQueryToParams,
   replaceChessDemoQueryInLocation,
 } from './play/parseChessDemoQuery';
+export { CHESS_CLOCK_START_S, clocksFromWire, stepChessClock } from './play/chessClock';
+export type { ChessClocks, ClockGate } from './play/chessClock';
+export {
+  VOLUNTARY_SAVE_LIMIT,
+  acceptSavedGame,
+  emptySaveCabinet,
+  parseSaveCabinet,
+  putInterrupt,
+  putVoluntary,
+} from './play/savedGames';
+export type { SaveCabinet, SavedGame, SavedShellMode } from './play/savedGames';
 export type { ChessPlayMode, ChessDemoQuery } from './play/parseChessDemoQuery';
 export {
   CHESS_HUD_STATE_EVENT,

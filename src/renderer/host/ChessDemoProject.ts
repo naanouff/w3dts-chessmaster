@@ -70,6 +70,8 @@ import {
   chessPlayP2pHint,
   chessTableSfxForPly,
   clientPointToNdc,
+  CHESS_CLOCK_START_S,
+  clocksFromWire,
   decodeChessWire,
   decideChessFenSync,
   encodeChessWire,
@@ -84,6 +86,7 @@ import {
   sampleBookMoveSpline,
   samplePieceTravelWorld,
   seatChessPieceUpright,
+  stepChessClock,
   squareToWorld,
   stauntonPieceColliderShapes,
   stripChessSanSuffix,
@@ -183,7 +186,6 @@ const GAME_CAM_FOV = (38 * Math.PI) / 180;
 /** Initial clip only; orbit `updateClipPlanes` owns near/far after RMB zoom. */
 const GAME_CAM_NEAR = 0.002;
 const GAME_CAM_FAR = 20;
-const CHESS_CLOCK_START_S = 600;
 const CHESS_P2P_CHANNEL = 'w3dts-chess-demo';
 
 const CHESS_PIECE_NAME = /^Chess-(white|black)-(pawn|knight|bishop|rook|queen|king)-([a-h][1-8])$/;
@@ -1385,11 +1387,15 @@ export class ChessDemoProject extends LitAbstractProject {
   }
 
   private resetClocks(): void {
-    this.clockWhite = CHESS_CLOCK_START_S;
-    this.clockBlack = CHESS_CLOCK_START_S;
-    this.hudClockWhite = CHESS_CLOCK_START_S;
-    this.hudClockBlack = CHESS_CLOCK_START_S;
-    this.clockFlag = null;
+    this.applyClockState(clocksFromWire('reset'));
+  }
+
+  private applyClockState(clocks: { whiteSeconds: number; blackSeconds: number; flag: ChessColor | null }): void {
+    this.clockWhite = clocks.whiteSeconds;
+    this.clockBlack = clocks.blackSeconds;
+    this.hudClockWhite = Math.ceil(clocks.whiteSeconds);
+    this.hudClockBlack = Math.ceil(clocks.blackSeconds);
+    this.clockFlag = clocks.flag;
   }
 
   private resetMatch(world: World, broadcast: boolean): void {
@@ -1699,15 +1705,19 @@ export class ChessDemoProject extends LitAbstractProject {
   }
 
   private tickClocks(dt: number): void {
-    if (this.playMode === 'learn' || this.gameOver() || dt <= 0) return;
     const before = this.clockFlag;
-    if (this.match.sideToMove() === 'white') {
-      this.clockWhite = Math.max(0, this.clockWhite - dt);
-      if (this.clockWhite <= 0) this.clockFlag = 'white';
-    } else {
-      this.clockBlack = Math.max(0, this.clockBlack - dt);
-      if (this.clockBlack <= 0) this.clockFlag = 'black';
-    }
+    const next = stepChessClock(
+      { whiteSeconds: this.clockWhite, blackSeconds: this.clockBlack, flag: this.clockFlag },
+      this.match.sideToMove(),
+      dt,
+      {
+        covered: this.modePickerOpen || this.playMode === 'learn' || this.gameOver(),
+        awaitingPeer: this.playMode === 'p2p' && this.p2pStatus !== 'connected',
+      }
+    );
+    this.clockWhite = next.whiteSeconds;
+    this.clockBlack = next.blackSeconds;
+    this.clockFlag = next.flag;
     const w = Math.ceil(this.clockWhite);
     const b = Math.ceil(this.clockBlack);
     if (w !== this.hudClockWhite || b !== this.hudClockBlack || this.clockFlag) {
@@ -1847,6 +1857,14 @@ export class ChessDemoProject extends LitAbstractProject {
     if (!msg) return;
     if (msg.t === 'reset') {
       this.resetClocks();
+      this.rebuildFromFen(world, msg.fen);
+      return;
+    }
+    if (msg.t === 'restore') {
+      this.applyClockState(
+        clocksFromWire('restore', { whiteSeconds: msg.whiteSeconds, blackSeconds: msg.blackSeconds })
+      );
+      this.flagSfxPlayed = false;
       this.rebuildFromFen(world, msg.fen);
       return;
     }

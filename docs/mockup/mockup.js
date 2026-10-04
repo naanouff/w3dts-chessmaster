@@ -78,6 +78,8 @@ const state = {
   language: 'fr',
   graphics: { ...PRESETS.fluide, preset: 'fluide' },
   rank: 'local',
+  interrupt: true,
+  voluntary: ['local', 'online'],
 };
 
 const $ = (id) => document.getElementById(id);
@@ -114,6 +116,18 @@ function paint() {
   paintOptions();
   paintSettings();
   paintRanks();
+  paintSaves();
+}
+
+function paintSaves() {
+  const interruptOn = state.interrupt === true;
+  $('save-interrupt').hidden = !interruptOn;
+  $('home-restore').hidden = !interruptOn;
+  $('save-local').hidden = !state.voluntary.includes('local');
+  $('save-online').hidden = !state.voluntary.includes('online');
+  const voluntaryOn = !$('save-local').hidden || !$('save-online').hidden;
+  $('save-voluntary').hidden = !voluntaryOn;
+  $('saves-empty').hidden = interruptOn || voluntaryOn;
 }
 
 function paintModes() {
@@ -573,6 +587,15 @@ document.addEventListener('click', (event) => {
     paintRanks();
     return;
   }
+  if (target.dataset.restore) {
+    show('partie');
+    return;
+  }
+  if (target.dataset.drop) {
+    state.voluntary = state.voluntary.filter((id) => id !== target.dataset.drop);
+    paintSaves();
+    return;
+  }
   const id = target.id;
   if (id === 'start') startMode();
   if (id === 'create-table') createTable();
@@ -594,10 +617,16 @@ document.addEventListener('click', (event) => {
   }
   if (id === 'open-pause') show('pause', 'partie');
   if (id === 'resume') show('partie');
+  if (id === 'save-game') $('save-confirm').hidden = false;
+  if (id === 'home-restore' || id === 'restore-interrupt') show('partie');
+  if (id === 'discard-interrupt') {
+    state.interrupt = false;
+    paintSaves();
+  }
   if (id === 'change-mode') show('modes', 'pause');
   if (id === 'leave-table') leaveTable();
   if (id === 'home') show('accueil');
-  if (id === 'options-back' || id === 'param-back' || id === 'rank-back' || id === 'propos-back') {
+  if (id === 'options-back' || id === 'param-back' || id === 'rank-back' || id === 'propos-back' || id === 'saves-back') {
     show(state.back || 'accueil');
   }
   if (id === 'coach-explain') askCoach('explain');
@@ -685,7 +714,8 @@ document.addEventListener('keydown', (event) => {
     state.screen === 'options' ||
     state.screen === 'parametres' ||
     state.screen === 'classements' ||
-    state.screen === 'propos'
+    state.screen === 'propos' ||
+    state.screen === 'sauvegardes'
   ) {
     show(state.back || 'accueil');
   }

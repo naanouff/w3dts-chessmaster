@@ -146,6 +146,37 @@ describe('shell screen', () => {
     expect(chessMixVolume(0.5, 0)).toBe(0);
   });
 
+  it('reads the last mode, color, level and opening, and drops unknown values', () => {
+    const stored = JSON.stringify({
+      mode: 'learn',
+      color: 'black',
+      level: 5,
+      eco: 'C60',
+      sfx: 10,
+      ambience: 20,
+      language: 'en',
+    });
+    expect(parseShellPrefs(stored)).toMatchObject({
+      mode: 'learn',
+      color: 'black',
+      level: 5,
+      eco: 'C60',
+      sfx: 10,
+      ambience: 20,
+      language: 'en',
+    });
+    expect(parseShellPrefs(JSON.stringify({ mode: 'p2p', color: 'red', level: 9, eco: 'ZZZ' }))).toMatchObject({
+      mode: 'cpu',
+      color: 'white',
+      level: 2,
+      eco: 'C50',
+      sfx: 80,
+      ambience: 40,
+      language: 'fr',
+    });
+    expect(defaultShellPrefs()).toMatchObject({ mode: 'cpu', color: 'white', level: 2, eco: 'C50' });
+  });
+
   it('keeps the eight shell languages and drops an unknown one', () => {
     for (const language of ['de', 'it', 'es', 'ru', 'zh', 'ja', 'en', 'fr'] as const) {
       expect(parseShellPrefs(JSON.stringify({ language })).language).toBe(language);

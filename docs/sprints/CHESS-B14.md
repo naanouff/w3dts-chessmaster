@@ -10,7 +10,7 @@ Fichiers : `docs/mockup/index.html`, `docs/mockup/mockup.css`, `docs/mockup/mock
 
 Fait quand :
 
-- L’accueil a un lien « Sauvegardes » à côté de Classements, et une ligne « Partie interrompue » avec Restaurer.
+- L’accueil a un lien « Sauvegardes » à côté de Classements, et un bouton « Reprendre la partie » centré sous Jouer.
 - L’écran montre le bandeau d’interruption, puis deux volontaires d’exemple : « Sur cet ordinateur » et « En ligne ». Restaurer, Écarter et Supprimer sont cliquables dans la page. L’état vide ne montre pas de fausse partie.
 - Pause a « Sauvegarder », avec une confirmation en une ligne, et « Sauvegardes ». Reprendre ramène à la table.
 - Échap ferme l’écran et revient à l’écran précédent.
