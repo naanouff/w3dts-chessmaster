@@ -5,7 +5,7 @@ dist
 docs/api
 *.log
 .DS_Store
-public/models/chess/
+public/models/chess/**/*.glb
 docs/raw_assets/**/*.blend
 docs/raw_assets/**/*.blend1
 docs/raw_assets/**/*.glb
