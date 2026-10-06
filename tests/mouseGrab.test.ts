@@ -15,7 +15,7 @@ import {
 import { CHESS_MASK_PIECE, CHESS_MASK_PIECE_GRABBED, MouseGrabController } from '../src/chess/index';
 
 describe('MouseGrabController', () => {
-  it('keeps the piece on the board at grab start then springs toward the plane', () => {
+  it('follows the cursor with a spring and does not attach a physics joint', () => {
     const world = new World();
     const entity = world.createEntity();
     const t = new TransformComponent();
@@ -31,14 +31,11 @@ describe('MouseGrabController', () => {
     expect(grab.begin(world, entity, [0, 0.05, 0], 0.08)).toBe(true);
     expect(world.getComponent(entity, RigidBodyComponent)?.isKinematic).toBe(true);
     expect(t.position[1]).toBeCloseTo(0.05);
-    const joint = world.getComponent(entity, JointComponent);
-    expect(joint?.type).toBe('DISTANCE');
-    expect(joint?.frequency).toBeGreaterThan(0);
+    expect(world.getComponent(entity, JointComponent)).toBeUndefined();
     expect(world.getComponent(entity, ColliderComponent)?.collisionMask).toBe(CHESS_MASK_PIECE_GRABBED);
 
     grab.updateWorldAnchor(world, 0.1, -0.05, 1 / 60);
-    expect(joint?.localAnchorB[0]).toBeCloseTo(0.1);
-    expect(joint?.localAnchorB[2]).toBeCloseTo(-0.05);
+    expect(world.getComponent(entity, JointComponent)).toBeUndefined();
     expect(t.position[0]).toBeGreaterThan(0);
     expect(t.position[0]).toBeLessThan(0.1);
     expect(t.position[1]).toBeGreaterThan(0.05);

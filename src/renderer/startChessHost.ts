@@ -9,6 +9,7 @@ import { Logger } from '@naanouff/w3dts-logger';
 import { chessBus } from './bus';
 import { ChessDemoProject } from './host/ChessDemoProject';
 import { applyChessGraphics, attachChessGraphics, getChessGraphicsSettings } from './graphics/chessGraphicsSettings';
+import { isGraphicsBenchSearch, paceBenchFramesToGpu } from './graphics/graphicsBench';
 
 const emptyLoader: IModelLoaderService = {
   async load() {
@@ -66,6 +67,9 @@ async function bootChessHost(): Promise<Engine> {
 
   const logger = new Logger(chessBus);
   await GPUManager.initialize(logger);
+  if (isGraphicsBenchSearch(window.location.search)) {
+    window.requestAnimationFrame = paceBenchFramesToGpu(GPUManager.instance.device);
+  }
   setMsaaSampleCount(1);
 
   const hidden = document.createElement('canvas');

@@ -65,7 +65,7 @@ Le facteur métallique du matériau vaut 1, et la métalité réelle est dans la
 
 | Fichier | Prop | Source Meshy |
 | --- | --- | --- |
-| `table.glb` | Table lin, pieds tube carré | `1004065126` |
+| `table.glb` | Table lin, pieds tube carré | `1006171458` |
 | `plateau-toile.glb` | Plateau du cimetière | `1004065211` |
 | `tabouret.glb` | Tabouret bois, un peu plus chaud que la photo | `1004065135` |
 | `softbox.glb` | Softbox et pied | `1004065155` |
@@ -159,9 +159,21 @@ Cases marbre veiné et ardoise, bord sombre pour ne pas se fondre dans la pierre
 
 ![Banc de pierre](ambiances/terrasse-banc.png)
 
-**Cyprès** — Environ 6 m. On modélise celui de droite, au tronc visible. Le plus étroit, à gauche, est la même essence en variante lointaine. Instancié au-delà de la balustrade, flou.
+**Cyprès** — Environ 6 m. On modélise celui de droite, au tronc visible. Le plus étroit, à gauche, est la même essence en variante lointaine. Instancié au-delà de la balustrade, flou. Pas encore de fichier.
 
 ![Cyprès](ambiances/terrasse-cypres.png)
+
+### Maîtres Meshy
+
+Cinq meshes sont dans `docs/raw_assets/terrasse/`. Même contrat que l’atelier : GLB locaux, hors git, couleur, métal/rugosité et normale en JPEG. Meshy a normé le grand côté à 1. Le facteur métallique vaut 1. Les lanternes restent éteintes : pas d’émission. Le cyprès n’a pas de fichier.
+
+| Fichier | Prop | Échelle | Source Meshy |
+| --- | --- | --- | --- |
+| `table.glb` | Calcaire, pieds fer forgé | Longueur 1,30 m. La profondeur tombe vers 79 cm, la hauteur, pieds compris, vers 68 cm | `1006190031` |
+| `lanterne.glb` | Cuivre vert-de-gris, éteinte | Hauteur 28 cm. Le côté tombe vers 14 cm | `1006190026` |
+| `coupe.glb` | Marbre, vide, peu profonde | Diamètre 16 cm. La hauteur tombe vers 3,3 cm | `1006190017` |
+| `balustrade.glb` | Pierre, une travée. L’épaisseur est en Z | Longueur 1,20 m. La hauteur tombe vers 46 cm, l’épaisseur vers 11 cm | `1006190005` |
+| `banc.glb` | Pierre, dossier bas | Longueur 1,60 m. La hauteur tombe vers 78 cm, la profondeur vers 51 cm | `1006190011` |
 
 ## Club néon
 
@@ -221,7 +233,7 @@ Aucun des sept n’a de texture émissive. Le cyan du rail, le cyan et le magent
 
 ## Jardin suspendu
 
-Pavillon ouvert, fin d’après-midi. Lieu du mode apprentissage. Soleil bas et chaud. Le damier reste à l’ombre plate : pas de zébrures de feuilles. La flaque de soleil tombe sur les dalles au premier plan. Bloom seulement sur cette flaque.
+Pavillon ouvert, soirée en bord de mer. Lieu du mode apprentissage. Soleil bas et chaud, à droite de la table, horizon doré. Le damier reste sous la pergola, sans zébrures de feuilles. La flaque de soleil tombe sur les dalles au premier plan. Bloom seulement sur cette flaque.
 
 ![Jardin suspendu](ambiances/jardin-suspendu.jpg)
 
@@ -235,15 +247,15 @@ Cases terre cuite et vert jardin, cadre vert. Pièces buis clair et bois rouge, 
 
 ![Coupe terre cuite](ambiances/jardin-coupe.png)
 
-**Pergola** — Quatre poteaux, poutres et traverses. Emprise 4 × 3 m, hauteur 2,6 m. Sans feuilles.
+**Pergola** — Quatre poteaux, poutres et traverses. Emprise 4 × 3 m, hauteur 2,6 m. Sans feuilles. Pas de GLB : la revue la construit en cubes, avec une bande de mer à l’horizon.
 
 ![Pergola](ambiances/jardin-pergola.png)
 
-**Grappe de glycine** — Un brin, feuilles et fleurs violettes, répété en plan alpha. Pas un arbre.
+**Grappe de glycine** — Un brin, feuilles et fleurs violettes. Pas un arbre. Le mesh livré est opaque : ce n’est pas un plan alpha.
 
 ![Grappe de glycine](ambiances/jardin-glycine.png)
 
-**Panneau de haie** — 2 × 1,6 m, buis dense. Trois pans, ouverts vers la caméra. Le bac métallique au coin de l’illustration n’est pas modélisé.
+**Panneau de haie** — Buis dense, bac compris. Un pan de 2 m. La hauteur du mesh tombe vers 1,16 m. La revue ne le pose pas.
 
 ![Panneau de haie](ambiances/jardin-haie.jpg)
 
@@ -255,20 +267,46 @@ Cases terre cuite et vert jardin, cadre vert. Pièces buis clair et bois rouge, 
 
 ![Arrosoir](ambiances/jardin-arrosoir.png)
 
-**Dalle terre cuite** — 30 × 30 cm, face usée. L’illustration la montre de chant : au sol, la face usée est à plat.
+**Dalle terre cuite** — 30 × 30 cm, face usée. Meshy l’a livrée de chant. Le nettoyage la couche d’un quart de tour, face usée vers le haut. L’épaisseur tombe à 3,9 cm.
 
 ![Dalle terre cuite](ambiances/jardin-dalle.png)
+
+### Maîtres Meshy
+
+Sept meshes sont dans `docs/raw_assets/jardin/`. Même contrat que l’atelier : GLB locaux, hors git, couleur, métal/rugosité et normale en JPEG. Meshy a normé le grand côté à 1. Le facteur métallique vaut 1. La pergola n’a pas de fichier : elle est procédurale.
+
+| Fichier | Prop | Échelle | Source Meshy |
+| --- | --- | --- | --- |
+| `table.glb` | Pierre, pieds sculptés | Longueur 1,50 m | `1006182835` |
+| `coupe.glb` | Terre cuite, vide | Diamètre 18 cm | `1006182812` |
+| `dalle.glb` | Face usée, couchée au nettoyage | 30 cm de côté, 3,9 cm d’épaisseur | `1006182818` |
+| `haie.glb` | Buis, bac compris | Largeur 2 m. La hauteur tombe vers 1,16 m | `1006182843` |
+| `banc.glb` | Lattes, dossier | Longueur 1,40 m | `1006182805` |
+| `arrosoir.glb` | Zinc, anse, pomme | 40 cm de la pomme à l’anse | `1006182758` |
+| `glycine.glb` | Un brin, opaque | 80 cm de chute | `1006182825` |
 
 ## Props nettoyés
 
 `pnpm clean:set-props` lit les maîtres et écrit `docs/raw_assets/<ambiance>/baked/<taille>/<prop>.glb`. Les tailles sont 256, 512 et 1024, les mêmes paliers que les pièces. Le maître 2048 ne bouge pas. Ces GLB restent hors git.
 
-L’échelle est celle des tableaux ci-dessus. Le facteur métallique reste 1 : la texture commande. Pas de Draco : le plus lourd de ces meshes a moins de 6 000 sommets, le poids est dans les JPEG.
+L’échelle est celle des tableaux ci-dessus. Le facteur métallique reste 1 : la texture commande. Pas de Draco : le plus lourd de l’atelier, du salon et du club a moins de 6 000 sommets, et ceux du jardin restent sous 14 000. Le poids est dans les JPEG.
 
 L’émission est dans le GLB pour le softbox, le projecteur, l’ampoule de la lampe, le rail, le tube et l’enseigne. Le tube est blanc : le cyan et le magenta sont une teinte par instance. La cheminée n’a pas de carte de feu. Sa lueur est une lumière de scène.
 
-La maquette qui pose ces trois décors est [docs/mockup/ambiances.html](mockup/ambiances.html). Elle n’entre pas dans l’application.
+La revue se fait dans le client, avec le moteur du jeu : `pnpm review`. La barre propose Atelier, Salon, Club et Jardin, la caméra de partie, un cadre plus large, et Arrivée, qui rejoue le travelling de la scène affichée. L’image est celle du moteur. Le jardin y pose la table au centre, les deux coupes, le banc face à la caméra, l’arrosoir à sa gauche, et la dalle de 30 cm sur toute la terrasse. Pas de haie. Les glycines pendent des poutres. La pergola est en cubes, 4 × 3 × 2,6 m. Le soleil est bas, chaud, à droite ; c’est lui qui porte l’ombre, sur l’emprise de la terrasse. Le ciel du jardin est un horizon doré. Les trois autres pièces gardent le ciel de midi. Les spots du jardin n’éclairent qu’une flaque au premier plan et un remplissage : ils ne projettent pas. Ce choix de revue n’est pas enregistré comme pièce de partie.
+
+## Intégration
+
+Le choix est dans Options, section « Choix de l’ambiance », au-dessus des préréglages. Trois boutons : Atelier, Salon, Club. Atelier est sélectionné. Il reste le défaut de toutes les parties. Le changement s’applique tout de suite, comme la résolution.
+
+La maquette propose Atelier, Salon, Club et Jardin. Le client reprend Atelier, Salon et Club. Jardin attend la validation de cette maquette. Au démarrage, la pièce enregistrée est déjà posée. Sans préférence, c’est l’Atelier. La partie ne charge pas d’HDRI.
+
+La préférence est `atelier`, `salon` ou `club`, clé `w3dts-chess-ambiance`. Elle est à part du volume d’ambiance et des préréglages graphiques. Une valeur inconnue retombe sur Atelier. Changer Fluide ou Qualité ne change pas la pièce.
+
+La scène jouable et cette revue posent le même décor : mêmes props, même sol, mêmes lumières, même hauteur de plateau. Le plateau fait 24 mm sous la surface de jeu : il est levé de cette épaisseur, plus 1 mm, pour reposer sur la table. Le Salon ajoute les 2 cm de la nappe. La caméra de partie ne change pas. Les props servis sont les GLB nettoyés, au palier 256, 512 ou 1024 déjà décidé par le graphisme, depuis `public/sets/<scène>/<taille>/`. Le cyclorama d’atelier et la table de verre du club restent procéduraux : leurs GLB Meshy ne sont pas chargés. Le rail cyan sous la table du club n’est pas posé. Les lumières sont celles du moteur. Le softbox de l’Atelier est un spot visé comme le panneau : le moteur n’éclaire pas une surface rectangulaire. Le soleil de pièce est trop faible pour porter une ombre, alors la key projette à sa place : le spot de l’Atelier, la lampe du Salon, le plafonnier du Club. Le détail est dans [Ombres](ombres.md). Aucune HDRI n’est chargée. Si un GLB manque, le plan de toile actuel reste et la partie démarre. Le choix affiché reste celui demandé.
+
+Le découpage est [CHESS-B16](sprints/CHESS-B16.md).
 
 ## Hors de ce document
 
-Aucun de ces décors n’est dans la scène jouable. L’atelier, le salon et le club ont leurs maîtres dans `docs/raw_assets/`, et leurs GLB nettoyés à côté. La terrasse et le jardin n’ont encore que leurs illustrations.
+L’Atelier, le Salon et le Club sont dans la scène jouable. La terrasse a ses maîtres, sauf le cyprès, et seulement son illustration : Options et la revue ne la proposent pas. Le jardin a ses maîtres, la pergola est procédurale, et la scène se voit dans la maquette et dans la revue 3D. Options ne le propose pas. Arrivée, dans la revue, rejoue le travelling de la scène affichée. Un clic ou un orbite l’arrête sur la caméra de partie.

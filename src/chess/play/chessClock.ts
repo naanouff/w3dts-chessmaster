@@ -25,6 +25,29 @@ export interface ClockGate {
   clockOff?: boolean;
 }
 
+export interface PeerClockWait {
+  /** The table is a peer game. */
+  peerGame: boolean;
+  /** The table uses the online relay, not the local window. */
+  online: boolean;
+  /** Both seats agreed, so the second player has joined. */
+  seatsReady: boolean;
+  /** The other player is on the link. */
+  linkConnected: boolean;
+}
+
+/**
+ * Online clocks stay still until the second player has joined and the link is up.
+ * A local peer window waits only for that other window.
+ * @param input - Peer game, online table, agreed seats, and link.
+ * @returns True while the clock must stay still.
+ */
+export function peerClockWaiting(input: PeerClockWait): boolean {
+  if (!input.peerGame) return false;
+  if (input.online) return !input.seatsReady || !input.linkConnected;
+  return !input.linkConnected;
+}
+
 /**
  * Advances the side to move. A covered table or a peer still expected leaves the clocks alone.
  * @param clocks - Times before this step.

@@ -15,8 +15,10 @@ export {
   decodeChessWire,
   chessPlyFromFen,
   decideChessFenSync,
+  decideOnlineHello,
 } from './net/chessWire';
-export type { ChessWireMessage, ChessFenSyncDecision } from './net/chessWire';
+export type { ChessWireMessage, ChessFenSyncDecision, OnlineHelloDecision } from './net/chessWire';
+export { CHESS_RELAY_PRODUCTION_URL, ONLINE_GUEST_WAIT_MS, chessRelayUrl, guestWaitExpired } from './net/chessRelayUrl';
 export {
   parseChessDemoQuery,
   cpuSearchDepth,
@@ -26,8 +28,8 @@ export {
   chessDemoQueryToParams,
   replaceChessDemoQueryInLocation,
 } from './play/parseChessDemoQuery';
-export { CHESS_CLOCK_START_S, clocksFromWire, stepChessClock } from './play/chessClock';
-export type { ChessClocks, ClockGate } from './play/chessClock';
+export { CHESS_CLOCK_START_S, clocksFromWire, peerClockWaiting, stepChessClock } from './play/chessClock';
+export type { ChessClocks, ClockGate, PeerClockWait } from './play/chessClock';
 export {
   CHESS_SAVES_EVENT,
   SAVED_GAMES_KEY,
@@ -138,7 +140,11 @@ export {
   isChessLatheRole,
 } from './gproc/chessPieceGraphs';
 export type { ChessLatheRole } from './gproc/chessPieceGraphs';
-export { buildChessBoardBodyMesh, applyChessBoardWorldUvs } from './geometry/boardBody';
+export {
+  buildChessBoardBodyMesh,
+  applyChessBoardWorldUvs,
+  splitChessBoardPlayingSurface,
+} from './geometry/boardBody';
 export { createChessBoardGraph } from './gproc/chessBoardGraph';
 export { executeChessGProcToMesh, bakeChessMeshMaps } from './gproc/executeChessGProc';
 export {

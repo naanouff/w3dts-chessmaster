@@ -158,5 +158,4 @@ export async function applyChessSceneRuntime(engine: IEngineContext): Promise<vo
   patchChessPhotoMaterialsFromCache(eng.resourceManager);
   remapChessSceneMaterialsToPhoto(eng);
   remapChessOverlayMaterialsToGlow(eng);
-  eng.renderer.iblIntensity = Math.max(eng.renderer.iblIntensity, 2);
 }

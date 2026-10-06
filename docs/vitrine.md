@@ -15,8 +15,13 @@ La règle [`.cursor/rules/docs-min.mdc`](../.cursor/rules/docs-min.mdc) renvoie 
 - [Shell](shell-client.md)
 - [Langues](i18n.md)
 - [Assets 3D](assets-3d.md)
+- [Ambiances](ambiances.md)
 - [Version](semver.md)
 - [Persistance](persistance.md)
+- [Multijoueur](multijoueur.md)
+- [Profil graphique](profil-graphismes.md)
+- [Ombres](ombres.md)
+- [Upscale](upscale.md)
 
 Les fichiers de `docs/sprints/` sont des archives. On ne les rallonge pas quand le code bouge.
 
@@ -45,7 +50,8 @@ WebP, grand côté 1280, dans `docs/media/`. Prises dans le client (`pnpm dev`),
 
 - Contre l’ordinateur.
 - À deux, la même souris.
-- Une seconde fenêtre sur ce poste, avec un code de table. Pas une partie entre deux machines.
+- Une seconde fenêtre sur ce poste.
+- Deux machines, avec un code de table. Le relais est [multijoueur.md](multijoueur.md).
 - Apprendre une courte ouverture.
 - Les classements sont des exemples.
 - Langues : Français, English, Deutsch, Italiano, Español, Русский, 中文, 日本語. Le français est celle du départ. Le détail est dans [Langues](i18n.md).

@@ -549,6 +549,12 @@ var final_alpha = mix(alpha, glassAlpha, transmissionAmt);
 if (ALPHA_MODE == 2u) {
     final_alpha = 1.0;
 }
+let emission_peak = max(emission.r, max(emission.g, emission.b));
+// Peak, not luminance: a magenta neon has almost no green, so Rec.709 puts it under the cut
+// while a white specular on a pawn sails over it. The shell keeps this only when it exceeds 1.
+if (emission_peak > 1.0) {
+    final_alpha = emission_peak;
+}
 
 // Export roughness for floor SSR (Kart/Chess). NPR hatch uses toon_master shadow in .a instead.
 var shadow_factor_out = roughnessIbl;

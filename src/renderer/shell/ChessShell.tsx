@@ -39,9 +39,19 @@ import {
   subscribeChessGraphics,
   type ChessGraphicsSettings,
   type ChessResolution,
+  type ChessShadowMode,
   type ChessTextureQuality,
+  type ChessUpscale,
 } from '../graphics/chessGraphicsSettings';
 import { setChessAudioLevels } from '../host/chessTableAudio';
+import {
+  CHESS_AMBIANCES,
+  chessSetLook,
+  getChessAmbiance,
+  setChessAmbiance,
+  subscribeChessAmbiance,
+  type ChessAmbianceId,
+} from '../host/chessAmbiance';
 import { bundledReleaseNote } from './bundledReleaseNotes';
 import {
   isShellLanguage,
@@ -264,6 +274,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
   const [code, setCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [graphics, setGraphics] = useState<ChessGraphicsSettings>(getChessGraphicsSettings);
+  const [ambiance, setAmbiance] = useState<ChessAmbianceId>(getChessAmbiance);
   const [fps, setFps] = useState(0);
   const [surface, setSurface] = useState({ width: 0, height: 0 });
   const [question, setQuestion] = useState('');
@@ -302,6 +313,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
   }, []);
 
   useEffect(() => subscribeChessGraphics(setGraphics), []);
+  useEffect(() => subscribeChessAmbiance(setAmbiance), []);
 
   useEffect(() => {
     const onHud = (raw: unknown): void => {
@@ -521,24 +533,34 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
     const next = reduceShell(shell, action);
     setShell(next);
     if (action.type === 'set-mode') setPrefs((prev) => ({ ...prev, mode: action.mode }));
+    const leavesOnline =
+      shell.mode === 'online' &&
+      (action.type === 'leave-table' ||
+        (action.type === 'go' &&
+          (shell.screen === 'salon' || shell.screen === 'partie' || shell.screen === 'pause')));
+    if (leavesOnline) chessBus.emit(CHESS_HUD_COMMAND_EVENT, { type: 'close-table' });
     const starts =
       (action.type === 'start' && next.screen === 'partie') ||
       action.type === 'create-table' ||
       action.type === 'join-table';
     if (!starts) return;
-    const side =
-      action.type === 'join-table'
-        ? hostColor === 'white'
+    const online = action.type === 'create-table' || action.type === 'join-table';
+    const side = online
+      ? action.type === 'create-table'
+        ? hostColor
+        : hostColor === 'white'
           ? 'black'
           : 'white'
-        : next.mode === 'online' || next.mode === 'local'
-          ? next.mode === 'online'
-            ? hostColor
-            : color
-          : color;
+      : color;
     chessBus.emit(CHESS_HUD_COMMAND_EVENT, {
       type: 'apply-session',
-      session: shellSession(next.mode, side, eco, level),
+      session: shellSession(
+        next.mode,
+        side,
+        eco,
+        level,
+        online ? { room: action.code, seat: action.type === 'create-table' ? 'host' : 'guest' } : undefined
+      ),
       table: next.mode,
     });
   };
@@ -582,6 +604,21 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
 
   const menu = shell.screen !== 'partie';
   const play = hud?.kind === 'play' ? hud : null;
+
+  useEffect(() => {
+    if (shell.mode !== 'online' || !play) return;
+    if (shell.screen === 'salon' && play.onlineRefused && shell.notice !== 'missing') {
+      dispatch({ type: 'miss-table' });
+      return;
+    }
+    if (shell.screen === 'salon' && play.onlineReady) {
+      dispatch({ type: 'peer-ready' });
+      return;
+    }
+    if (shell.screen === 'partie' && play.p2pStatus === 'disconnected') {
+      dispatch({ type: 'leave-table' });
+    }
+  }, [shell.mode, shell.screen, shell.notice, play?.onlineReady, play?.onlineRefused, play?.p2pStatus]);
   const turn =
     play?.sideToMove === 'black' ? copy.blackTurn : copy.whiteTurn;
   const clock = play
@@ -736,8 +773,9 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
                 className="primary"
                 data-primary
                 onClick={() => {
-                  setCode(makeCode());
-                  dispatch({ type: 'create-table' });
+                  const next = makeCode();
+                  setCode(next);
+                  dispatch({ type: 'create-table', code: next });
                 }}
               >
                 {copy.create}
@@ -763,13 +801,16 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
               <button
                 type="button"
                 className="primary"
-                onClick={() =>
-                  dispatch(acceptJoinCode(joinCode) ? { type: 'join-table' } : { type: 'reject-code' })
-                }
+                onClick={() => {
+                  const next = joinCode.trim().toUpperCase();
+                  dispatch(acceptJoinCode(next) ? { type: 'join-table', code: next } : { type: 'reject-code' });
+                }}
               >
                 {copy.join}
               </button>
               {shell.notice === 'refused' ? <p className="notice">{copy.refused}</p> : null}
+              {shell.notice === 'missing' ? <p className="notice">{copy.tableMissing}</p> : null}
+              {play?.p2pStatus ? <p className="hint">{copy.p2p[play.p2pStatus]}</p> : null}
             </div>
           </div>
           <button type="button" className="ghost" onClick={() => dispatch({ type: 'go', screen: 'modes' })}>
@@ -1047,6 +1088,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
         <OptionsSheet
           copy={copy}
           graphics={graphics}
+          ambiance={ambiance}
           fps={fps}
           surface={surface}
           onClose={() => dispatch({ type: 'escape' })}
@@ -1367,15 +1409,43 @@ function AboutSheet({
   );
 }
 
+function SetChoice({
+  copy,
+  selected,
+  onSelect,
+}: {
+  copy: ShellCopy;
+  selected: ChessAmbianceId;
+  onSelect: (id: ChessAmbianceId) => void;
+}): ReactElement {
+  return (
+    <div className="choice set-choice">
+      {CHESS_AMBIANCES.map((id) => (
+        <button
+          key={id}
+          type="button"
+          className={id === selected ? 'is-selected' : ''}
+          onClick={() => onSelect(id)}
+        >
+          <img src={chessSetLook(id).thumb} alt="" />
+          <span>{copy.sets[id]}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function OptionsSheet({
   copy,
   graphics,
+  ambiance,
   fps,
   surface,
   onClose,
 }: {
   copy: ShellCopy;
   graphics: ChessGraphicsSettings;
+  ambiance: ChessAmbianceId;
   fps: number;
   surface: { width: number; height: number };
   onClose: () => void;
@@ -1395,6 +1465,10 @@ function OptionsSheet({
           {copy.close}
         </button>
       </header>
+      <section className="sheet-section">
+        <h2>{copy.setChoice}</h2>
+        <SetChoice copy={copy} selected={ambiance} onSelect={setChessAmbiance} />
+      </section>
       <section className="sheet-section">
       <h2>{copy.preset}</h2>
       <Choice
@@ -1417,6 +1491,16 @@ function OptionsSheet({
         selected={graphics.resolution}
         onSelect={(id) => patch({ resolution: id as ChessResolution })}
       />
+      <p className="field">{copy.upscale}</p>
+      <Choice
+        options={[
+          { id: 'off', label: copy.upscaleOff },
+          { id: 'quality', label: copy.upscaleQuality },
+          { id: 'performance', label: copy.upscalePerformance },
+        ]}
+        selected={graphics.upscale}
+        onSelect={(id) => patch({ upscale: id as ChessUpscale })}
+      />
       <p className="field">{copy.textures}</p>
       <Choice
         options={TEXTURE_QUALITY_OPTIONS.map((item) => ({
@@ -1429,15 +1513,20 @@ function OptionsSheet({
       </section>
       <section className="sheet-section">
       <h2>{copy.effects}</h2>
+      <p className="field">{copy.shadows}</p>
+      <Choice
+        options={[
+          { id: 'off', label: copy.shadowOff },
+          { id: 'hard', label: copy.shadowHard },
+          { id: 'soft', label: copy.shadowSoft },
+        ]}
+        selected={graphics.shadowMode}
+        onSelect={(id) => {
+          const shadowMode = id as ChessShadowMode;
+          patch({ shadowMode, shadows: shadowMode !== 'off' });
+        }}
+      />
       <div className="toggle-grid">
-        <label className="check">
-          <span>{copy.shadows}</span>
-          <input
-            type="checkbox"
-            checked={graphics.shadows}
-            onChange={(event) => patch({ shadows: event.target.checked })}
-          />
-        </label>
         <label className="check">
           <span>{copy.ao}</span>
           <input

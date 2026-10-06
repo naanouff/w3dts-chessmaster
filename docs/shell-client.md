@@ -16,9 +16,9 @@ Un écran plein émet `mode-picker`, déjà lu par [`ChessDemoProject`](../src/r
 
 Jouer et Commencer émettent `apply-session`. Contre l’ordinateur devient `cpu`, à deux sur le même écran `hotseat`, sur cet ordinateur et le salon `p2p`, apprendre `learn`. Le niveau du CPU est une profondeur d’heuristique plafonnée à 3. Les crans 4 et 5 valent 3.
 
-Options appelle `setChessGraphicsSettings`. Paramètres mémorise les volumes comme multiplicateurs des constantes de [`chessTableAudio.ts`](../src/renderer/host/chessTableAudio.ts) et la langue, français par défaut. Les huit langues du shell sont décrites dans [docs/i18n.md](i18n.md) et découpées dans [CHESS-B11](sprints/CHESS-B11.md).
+Options appelle `setChessGraphicsSettings`. Au-dessus des préréglages, le choix d’ambiance écrit `w3dts-chess-ambiance` (Atelier, Salon, Club, Atelier par défaut). La pièce change sans quitter la partie. Il n’y a pas d’HDRI. Au démarrage, la pièce enregistrée est déjà là. Une miniature non choisie est en gris : elle se colore au survol et reste en couleur une fois choisie. Paramètres mémorise les volumes comme multiplicateurs des constantes de [`chessTableAudio.ts`](../src/renderer/host/chessTableAudio.ts) et la langue, français par défaut. Les huit langues du shell sont décrites dans [docs/i18n.md](i18n.md) et découpées dans [CHESS-B11](sprints/CHESS-B11.md).
 
-Le salon ouvre la seconde fenêtre sur le canal `BroadcastChannel` existant et affiche le vrai `p2pStatus`. Le code se copie. Il ne choisit pas un canal. Un code refusé reste sur le salon. Pas de relais entre deux machines. Le contrat prévu est [multijoueur.md](multijoueur.md).
+Sur cet ordinateur ouvre la seconde fenêtre sur le canal `BroadcastChannel`. En ligne, le code est la salle du relais : pas de seconde fenêtre, le salon attend l’autre joueur. Le contrat est [multijoueur.md](multijoueur.md). Un code refusé, ou une table introuvable, reste sur le salon.
 
 Les classements restent des exemples. Pas de compte, pas de serveur de scores.
 

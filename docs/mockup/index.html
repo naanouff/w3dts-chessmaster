@@ -12,7 +12,14 @@
       <div class="studio-board" id="studio-board" aria-hidden="true"></div>
     </div>
 
-    <p class="mock-tag">Maquette CHESS-B8</p>
+    <div class="mock-corner">
+      <p class="mock-tag">Maquette CHESS-B8</p>
+      <nav class="mock-ends" aria-label="Exemples de fin">
+        <button type="button" data-end="won">Gagné</button>
+        <button type="button" data-end="lost">Perdu</button>
+        <button type="button" data-end="draw">Nulle</button>
+      </nav>
+    </div>
 
     <section class="boot is-on" data-screen="chargement" role="status" aria-label="Préparation du studio">
       <div class="boot-crest">
@@ -83,6 +90,7 @@
           <p class="clock" id="clock">10:00</p>
           <p class="link-chip" id="link-chip" hidden></p>
           <button type="button" class="ghost" id="play-move" hidden>Jouer le coup</button>
+          <button type="button" class="ghost" id="reopen-fin" hidden>Résultat</button>
           <button type="button" class="ghost" id="open-assistant">Assistant</button>
           <button type="button" class="primary" id="open-pause" data-primary>Pause</button>
         </header>
@@ -135,6 +143,17 @@
             <button type="button" class="ghost" id="home">Retour à l’accueil</button>
           </section>
         </div>
+        <div class="overlay" id="fin" data-screen="fin" hidden>
+          <section class="panel" aria-labelledby="fin-title">
+            <h1 id="fin-title">Gagné</h1>
+            <p id="fin-line"></p>
+            <p class="hint" id="fin-flag" hidden>Les blancs ont perdu au temps.</p>
+            <button type="button" class="primary" id="see-board" data-primary>Voir le plateau</button>
+            <button type="button" class="ghost" id="replay">Recommencer</button>
+            <button type="button" class="ghost" id="fin-modes">Changer de mode</button>
+            <button type="button" class="ghost" id="fin-home">Retour à l’accueil</button>
+          </section>
+        </div>
       </section>
 
       <section class="panel sheet" data-screen="propos" hidden aria-labelledby="propos-title">
@@ -171,6 +190,10 @@
           <button type="button" class="ghost" id="options-back" data-primary>Fermer</button>
         </header>
         <section class="sheet-section">
+          <h2>Choix de l’ambiance</h2>
+          <div class="choice" id="sets"></div>
+        </section>
+        <section class="sheet-section">
           <h2>Préréglage</h2>
           <div class="choice" id="presets"></div>
         </section>
@@ -178,13 +201,16 @@
           <h2>Image</h2>
           <p class="field">Résolution</p>
           <div class="choice" id="resolutions"></div>
+          <p class="field">Upscale</p>
+          <div class="choice" id="upscale"></div>
           <p class="field">Textures des pièces</p>
           <div class="choice" id="textures"></div>
         </section>
         <section class="sheet-section">
           <h2>Effets</h2>
+          <p class="field">Ombres</p>
+          <div class="choice" id="shadow-mode"></div>
           <div class="toggle-grid">
-            <label class="check"><span>Ombres</span><input type="checkbox" id="opt-shadows" /></label>
             <label class="check"><span>Occlusion ambiante</span><input type="checkbox" id="opt-ao" /></label>
             <label class="check"><span>Reflets du plateau</span><input type="checkbox" id="opt-reflections" /></label>
             <label class="check"><span>Bloom</span><input type="checkbox" id="opt-bloom" /></label>
@@ -293,7 +319,8 @@
 
     <div id="objection" class="objection" hidden>
       <img src="./crest.webp" alt="" />
-      <p>Objection&nbsp;!</p>
+      <p class="objection-word">Objection&nbsp;!</p>
+      <p class="objection-line">Ce n’est pas le coup le plus net.</p>
     </div>
     <script src="./mockup.js"></script>
   </body>

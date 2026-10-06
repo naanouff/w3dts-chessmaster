@@ -29,8 +29,8 @@ export interface ShellState {
   assistant: boolean;
   reopenAssistant: boolean;
   mode: ShellMode;
-  /** `refused` keeps the lobby on screen. */
-  notice: '' | 'refused';
+  /** `refused` is a bad code. `missing` is a table the relay did not open. */
+  notice: '' | 'refused' | 'missing';
 }
 
 export type ShellAction =
@@ -45,8 +45,10 @@ export type ShellAction =
   | { type: 'set-mode'; mode: ShellMode }
   | { type: 'resume' }
   | { type: 'leave-table' }
-  | { type: 'create-table' }
-  | { type: 'join-table' };
+  | { type: 'create-table'; code: string }
+  | { type: 'join-table'; code: string }
+  | { type: 'peer-ready' }
+  | { type: 'miss-table' };
 
 export interface ShellPrefs {
   sfx: number;
@@ -91,7 +93,13 @@ export function reduceShell(state: ShellState, action: ShellAction): ShellState 
         : { ...state, screen: 'partie', back: 'modes', assistant: false, notice: '' };
     case 'create-table':
     case 'join-table':
-      return { ...state, screen: 'partie', mode: 'online', back: 'salon', assistant: false, notice: '' };
+      return { ...state, screen: 'salon', mode: 'online', back: 'modes', assistant: false, notice: '' };
+    case 'peer-ready':
+      return state.screen === 'salon' && state.mode === 'online'
+        ? { ...state, screen: 'partie', mode: 'online', back: 'salon', assistant: false, notice: '' }
+        : state;
+    case 'miss-table':
+      return state.screen === 'salon' ? { ...state, notice: 'missing' } : state;
     case 'leave-table':
       return { ...state, screen: 'salon', back: 'modes', assistant: false, notice: '' };
     case 'resume':
@@ -136,16 +144,19 @@ export function shellBlocksPlay(state: ShellState): boolean {
 
 /**
  * Session emitted as `apply-session`. Local and online both use the peer channel.
+ * Online carries the table code and the seat. The relay room is that code.
  * @param mode - Card chosen on the modes screen.
  * @param localColor - Side for this window.
  * @param eco - Opening code when the mode is learn.
  * @param level - CPU slider step.
+ * @param online - Table code and seat when the mode is online.
  */
 export function shellSession(
   mode: ShellMode,
   localColor: ChessColor,
   eco: string,
-  level: number
+  level: number,
+  online?: { room: string; seat: 'host' | 'guest' }
 ): ChessDemoQuery {
   const play: ChessPlayMode = mode === 'local' || mode === 'online' ? 'p2p' : mode;
   return {
@@ -154,7 +165,16 @@ export function shellSession(
     quiz: mode === 'learn',
     ...(mode === 'learn' ? { eco } : {}),
     ...(mode === 'cpu' || mode === 'training' ? { cpuDepth: cpuSearchDepth(level) } : {}),
+    ...(mode === 'online' && online ? { room: online.room, seat: online.seat } : {}),
   };
+}
+
+/**
+ * The second window is the same-machine table. An online table meets on the relay.
+ * @param table - Shell mode stored on the session, when the command carried one.
+ */
+export function opensLocalPeerWindow(table: string | undefined): boolean {
+  return table !== 'online';
 }
 
 /**

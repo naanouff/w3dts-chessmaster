@@ -43,7 +43,7 @@ Le message `{ v: 1, t: 'restore', fen, whiteSeconds, blackSeconds }` force la po
 
 **Sur cet ordinateur.** Restaurer charge la fiche dans cette fenêtre et rouvre la seconde via `open-peer-window`, couleur opposée, avec un drapeau de reprise. Les deux fenêtres lisent la même fiche. La pendule reste gelée tant que l’autre fenêtre n’est pas connectée.
 
-**En ligne.** Restaurer charge la fiche ici et ouvre le salon. Le joueur crée un nouveau code. L’adversaire rejoint. À la connexion, l’hôte envoie `restore`. L’invité n’a pas le fichier : il reçoit la position et les pendules. La pendule reste gelée tant que personne n’est connecté. L’ancien code de table n’est pas réutilisé.
+**En ligne.** Restaurer charge la fiche ici et ouvre le salon. Le joueur crée un nouveau code. L’adversaire rejoint. À la connexion, l’hôte envoie `restore`. L’invité n’a pas le fichier : il reçoit la position et les pendules. La pendule reste gelée tant que le second joueur n’a pas rejoint. L’ancien code de table n’est pas réutilisé. Le relais est [multijoueur.md](multijoueur.md).
 
 ## Pendule et leçon
 

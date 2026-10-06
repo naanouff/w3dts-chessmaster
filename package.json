@@ -9,6 +9,7 @@
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
+    "review": "electron-vite dev -- --review",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "dist": "electron-vite build && electron-builder --win nsis --publish never",
@@ -16,12 +17,13 @@
     "docs": "typedoc",
     "bake:piece-textures": "node scripts/bake-piece-textures.mjs",
     "clean:set-props": "node scripts/clean-set-props.mjs",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "bench:graphics": "node scripts/profile-graphics.mjs"
   },
   "dependencies": {
     "@naanouff/w3dts-animation": "0.0.14",
     "@naanouff/w3dts-audio": "0.0.19",
-    "@naanouff/w3dts-core": "0.0.36",
+    "@naanouff/w3dts-core": "0.0.37",
     "@naanouff/w3dts-gproc": "0.2.8",
     "@naanouff/w3dts-input": "0.0.21",
     "@naanouff/w3dts-loader-hdr": "0.0.18",
@@ -50,6 +52,9 @@
     "vitest": "^3.2.7"
   },
   "pnpm": {
+    "overrides": {
+      "@naanouff/w3dts-core": "0.0.37"
+    },
     "onlyBuiltDependencies": [
       "electron",
       "electron-winstaller",

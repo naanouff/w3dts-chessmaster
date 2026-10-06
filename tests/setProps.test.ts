@@ -9,6 +9,7 @@ import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 
 import { pieceTextureSize } from '../src/renderer/graphics/chessGraphicsSettings';
+import { CHESS_SET_REVIEW_TEXTURE_SIZE } from '../src/renderer/host/chessSetReview';
 import { cleanGlb } from '../scripts/clean-set-props.mjs';
 import {
   DRACO_VERTEX_THRESHOLD,
@@ -120,12 +121,14 @@ function parseGlb(file: Buffer): { json: any; bin: Buffer } {
 }
 
 describe('set prop cleanup', () => {
-  it('uses the piece texture ladder and skips Draco below 20000 vertices', () => {
+  it('uses the piece texture ladder plus the review master, and skips Draco below 20000 vertices', () => {
     expect(SET_TEXTURE_SIZES).toEqual([
       pieceTextureSize('low'),
       pieceTextureSize('medium'),
       pieceTextureSize('high'),
+      CHESS_SET_REVIEW_TEXTURE_SIZE,
     ]);
+    expect(CHESS_SET_REVIEW_TEXTURE_SIZE).toBe(2048);
     expect(DRACO_VERTEX_THRESHOLD).toBe(20000);
     expect(needsDraco(5894)).toBe(false);
     expect(needsDraco(20000)).toBe(true);
@@ -162,6 +165,18 @@ describe('set prop cleanup', () => {
     expect(setProp('club', 'tube').emissive).toMatchObject({ mode: 'factor', color: [1, 1, 1] });
     expect(setProp('club', 'enseigne')).toMatchObject({ axis: 0, metres: 0.6, emissive: { mode: 'mask' } });
     expect(setProp('club', 'bouteilles')).toMatchObject({ axis: 1, metres: 0.3 });
+    expect(setProp('jardin', 'table')).toMatchObject({ axis: 0, metres: 1.5, emissive: { mode: 'none' } });
+    expect(setProp('jardin', 'coupe')).toMatchObject({ axis: 0, metres: 0.18 });
+    expect(setProp('jardin', 'dalle')).toMatchObject({ axis: 0, metres: 0.3, pitch: -Math.PI / 2 });
+    expect(setProp('jardin', 'haie')).toMatchObject({ axis: 0, metres: 2 });
+    expect(setProp('jardin', 'banc')).toMatchObject({ axis: 0, metres: 1.4 });
+    expect(setProp('jardin', 'arrosoir')).toMatchObject({ axis: 0, metres: 0.4 });
+    expect(setProp('jardin', 'glycine')).toMatchObject({ axis: 1, metres: 0.8 });
+    expect(setProp('terrasse', 'table')).toMatchObject({ axis: 0, metres: 1.3, emissive: { mode: 'none' } });
+    expect(setProp('terrasse', 'lanterne')).toMatchObject({ axis: 1, metres: 0.28, emissive: { mode: 'none' } });
+    expect(setProp('terrasse', 'coupe')).toMatchObject({ axis: 0, metres: 0.16 });
+    expect(setProp('terrasse', 'balustrade')).toMatchObject({ axis: 0, metres: 1.2 });
+    expect(setProp('terrasse', 'banc')).toMatchObject({ axis: 0, metres: 1.6 });
     for (const prop of SET_PROPS) {
       expect(prop.metres).toBeGreaterThan(0);
       if (prop.emissive.mode !== 'none') expect(prop.emissive.strength).toBeGreaterThan(0);
@@ -191,6 +206,20 @@ describe('set prop cleanup', () => {
     const meta = await sharp(jpeg).metadata();
     expect(meta.width).toBe(8);
     expect(meta.height).toBe(8);
+  });
+
+  it('lays the garden tile on its worn face', async () => {
+    const cleaned = await cleanGlb(await sampleGlb(), setProp('jardin', 'dalle'), 8);
+    const { json, bin } = parseGlb(cleaned);
+    const position = json.accessors[json.meshes[0].primitives[0].attributes.POSITION];
+    const span = position.max.map((value: number, index: number) => value - position.min[index]);
+    expect(span[1]).toBeLessThan(span[0]);
+    expect(span[1]).toBeLessThan(span[2]);
+    const view = json.bufferViews[json.accessors[json.meshes[0].primitives[0].attributes.NORMAL].bufferView];
+    const normalY = bin.readFloatLE((view.byteOffset ?? 0) + 4);
+    const normalZ = bin.readFloatLE((view.byteOffset ?? 0) + 8);
+    expect(normalY).toBeCloseTo(0);
+    expect(normalZ).toBeCloseTo(-1);
   });
 
   it('paints the rail cyan and leaves the fireplace dark', async () => {

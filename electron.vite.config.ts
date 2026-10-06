@@ -25,6 +25,9 @@ export default defineConfig({
       fs: {
         allow: [resolve('.')],
       },
+      watch: {
+        ignored: ['**/tmp/**'],
+      },
     },
   },
 });

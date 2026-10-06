@@ -10,7 +10,7 @@ import type { CoachChatMessage } from './coachTurn';
 
 const SYSTEM = [
   'You are a chess teacher beside the student.',
-  'Teach what is happening, in plain words.',
+  'Teach what is happening. Use simple words a student can follow, and give the reason.',
   'Mention only moves from the search line and the legal list.',
   'This is a short search, not a tablebase. Do not invent a move.',
   'Write at most two short sentences.',
@@ -74,9 +74,15 @@ function sideClause(student: ChessColor | null): string {
   return `The student plays ${student}. Suggest only ${student} moves. Never tell the student to move an opponent piece.`;
 }
 
-function messages(user: string, language = 'en', student: ChessColor | null = null): CoachChatMessage[] {
+function tongueClause(language: string): string {
   const name = LANGUAGE_NAMES[language] ?? 'English';
   const tongue = `Write every word in ${name}.`;
+  if (language !== 'fr') return tongue;
+  return `${tongue} Write correct, almost formal French. Address the student with vous. Explain the idea in a teacher's voice. No slang, no abbreviations, and no familiar tone.`;
+}
+
+function messages(user: string, language = 'en', student: ChessColor | null = null): CoachChatMessage[] {
+  const tongue = tongueClause(language);
   const side = sideClause(student);
   return [
     { role: 'system', content: `${tongue} ${SYSTEM} ${side}` },

@@ -4,4 +4,4 @@ Binaires locaux, non versionnés. Le contrat de dossier, le pipeline et ce qui r
 
 Le sprint qui pose les liens durs et branche les scripts est [CHESS-B9](../sprints/CHESS-B9.md).
 
-`atelier/`, `salon/` et `club/` contiennent les props Meshy de ces ambiances. Le nom de chaque fichier et l’échelle à leur rendre sont dans [Ambiances](../ambiances.md). `baked/` à côté de chaque maître est la sortie de `pnpm clean:set-props`.
+`atelier/`, `salon/`, `club/`, `jardin/` et `terrasse/` contiennent les props Meshy de ces ambiances. Le nom de chaque fichier et l’échelle à leur rendre sont dans [Ambiances](../ambiances.md). `baked/` à côté de chaque maître est la sortie de `pnpm clean:set-props`.

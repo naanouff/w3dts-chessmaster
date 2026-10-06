@@ -8,17 +8,36 @@ import { DirectionalLightComponent, type Engine } from '@naanouff/w3dts-core';
 
 export type ChessResolution = '1080' | '1440' | '2160' | 'native';
 
+/** Spatial upscale: render under the canvas, then magnify and sharpen back to it. */
+export type ChessUpscale = 'off' | 'quality' | 'performance';
+
 /** Baked piece maps: basse 256, normale 512, haute 1024. */
 export type ChessTextureQuality = 'low' | 'medium' | 'high';
+
+/** Off, one hard compare, or the same map with the soft filter. */
+export type ChessShadowMode = 'off' | 'hard' | 'soft';
+
+/**
+ * Fallback split distances in metres. Extent fit ignores them while the board
+ * AABB is set. Without it the engine's first plane is 15 m, which smears the table.
+ */
+const BOARD_SHADOW_SPLITS: [number, number, number, number] = [1.2, 1.2, 1.2, 24];
 
 export interface ChessGraphicsSettings {
   resolution: ChessResolution;
   textureQuality: ChessTextureQuality;
+  /** Pass list and the sun flag. Off only; hard and soft both keep the pass. */
   shadows: boolean;
+  /** Which shadow path the options apply. */
+  shadowMode: ChessShadowMode;
+  /** Internal render scale. The canvas keeps the size `resolution` allows. */
+  upscale: ChessUpscale;
   ambientOcclusion: boolean;
   reflections: boolean;
   bloom: boolean;
-  /** Silhouette cutout for the coach. Off on Fluide. */
+  /** FXAA. On everywhere: it is the pass that writes the final image. */
+  antialiasing: boolean;
+  /** Silhouette cutout for the coach. On for every preset: it marks the piece. */
   coachOutline: boolean;
 }
 
@@ -40,7 +59,6 @@ const CORE_PASSES = [
   '04_Transparents',
   'Tone Mapping & Output',
   'Debug Lines Pass',
-  '07_FXAA',
 ];
 
 const TEXTURE_SIZE: Record<ChessTextureQuality, number> = {
@@ -59,14 +77,130 @@ export function pieceTextureSize(quality: ChessTextureQuality): number {
   return TEXTURE_SIZE[quality];
 }
 
+export const SHADOW_MODE_OPTIONS: ChessShadowMode[] = ['off', 'hard', 'soft'];
+
+/**
+ * Edge of one shadow-atlas layer. Hard stays at 1024. Soft doubles it.
+ * @param mode - Active shadow choice.
+ * @returns Texels per edge.
+ */
+export function shadowMapSize(mode: ChessShadowMode): number {
+  return mode === 'hard' ? 1024 : 2048;
+}
+
+/**
+ * Reads a stored shadow choice. `cascade` was the frustum mode and comes back as soft.
+ * @param parsed - Partial settings read from storage.
+ * @returns Mode the options apply.
+ */
+const UPSCALE_SCALE: Record<ChessUpscale, number> = {
+  off: 1,
+  quality: 2 / 3,
+  performance: 0.5,
+};
+
+/** Relative targets stay under 1 so the engine does not rebuild them at the canvas size. */
+const RELATIVE_LIMIT = 1 - 1e-4;
+
+/**
+ * Fraction of the canvas the scene renders at.
+ * @param mode - Upscale choice.
+ * @returns 1, two thirds, or one half.
+ */
+export function upscaleRenderScale(mode: ChessUpscale): number {
+  return UPSCALE_SCALE[mode];
+}
+
+/**
+ * Sharpening applied after the magnify. A one-to-one image stays unsharpened.
+ * @param mode - Upscale choice.
+ * @returns Weight of the contrast-adaptive sharpen.
+ */
+export function upscaleSharpness(mode: ChessUpscale): number {
+  return mode === 'off' ? 0 : 0.25;
+}
+
+/**
+ * Reads a stored upscale choice. A profile saved before the option comes back as off.
+ * @param parsed - Partial settings read from storage.
+ * @returns Mode the options apply.
+ */
+export function upscaleFromStored(parsed: { upscale?: unknown }): ChessUpscale {
+  if (parsed.upscale === 'quality' || parsed.upscale === 'performance') return parsed.upscale;
+  return 'off';
+}
+
+/**
+ * Multiplies relative graph targets by the render scale.
+ * Absolute targets keep their texel count. A scaled size stays under 1.
+ * @param resources - Texture definitions from the chess graph.
+ * @param scale - Fraction from {@link upscaleRenderScale}.
+ * @returns The same list, with relative sizes multiplied.
+ */
+export function scaleChessGraphResources<
+  T extends { name: string; sizeType: string; width: number; height: number },
+>(resources: readonly T[], scale: number): T[] {
+  if (scale === 1) return [...resources];
+  return resources.map((resource) => {
+    if (resource.sizeType !== 'relative') return { ...resource };
+    return {
+      ...resource,
+      width: Math.min(resource.width * scale, RELATIVE_LIMIT),
+      height: Math.min(resource.height * scale, RELATIVE_LIMIT),
+    };
+  });
+}
+
+export function shadowModeFromStored(parsed: {
+  shadowMode?: unknown;
+  shadows?: unknown;
+}): ChessShadowMode {
+  if (parsed.shadowMode === 'soft' || parsed.shadowMode === 'cascade') return 'soft';
+  if (parsed.shadowMode === 'hard') return 'hard';
+  if (parsed.shadowMode === 'off' || parsed.shadows === false) return 'off';
+  return 'hard';
+}
+
+/**
+ * Renderer fields the shadow choice writes.
+ * Extent fit only engages once the scene has set `csmIncludeAabb`.
+ */
+export interface ChessShadowRenderer {
+  shadowsEnabled: boolean;
+  shadowFilter: 'hard' | 'soft';
+  csmCascadeCount: number;
+  csmFit: 'frustum' | 'extent';
+  csmCascadeSplits: [number, number, number, number] | null;
+}
+
+/**
+ * Applies the options' shadow choice. Both filters use one map fitted to the board.
+ * @param renderer - Engine renderer.
+ * @param value - Active graphics settings.
+ */
+export function applyChessShadowMode(renderer: ChessShadowRenderer, value: ChessGraphicsSettings): void {
+  if (value.shadowMode === 'off') {
+    renderer.shadowsEnabled = false;
+    return;
+  }
+  renderer.shadowsEnabled = true;
+  renderer.shadowFilter = value.shadowMode === 'hard' ? 'hard' : 'soft';
+  renderer.csmCascadeCount = 1;
+  renderer.csmFit = 'extent';
+  renderer.csmCascadeSplits = BOARD_SHADOW_SPLITS;
+}
+
 export const FLUID_GRAPHICS: ChessGraphicsSettings = {
   resolution: '1080',
   textureQuality: 'low',
   shadows: true,
+  shadowMode: 'hard',
+  upscale: 'off',
   ambientOcclusion: false,
   reflections: false,
   bloom: false,
-  coachOutline: false,
+  antialiasing: true,
+  coachOutline: true,
 };
 
 export const GRAPHICS_PRESETS: {
@@ -89,37 +223,50 @@ export const GRAPHICS_PRESETS: {
       resolution: '1440',
       textureQuality: 'medium',
       shadows: true,
+      shadowMode: 'soft',
+      upscale: 'off',
       ambientOcclusion: false,
       reflections: false,
       bloom: true,
+      antialiasing: true,
+
+
       coachOutline: true,
     },
   },
   {
     id: 'qualite',
     title: 'Qualité',
-    blurb: '4K, textures 1024',
-    settings: {
+      blurb: '4K upscalé, textures 1024',
+      settings: {
       resolution: '2160',
       textureQuality: 'high',
       shadows: true,
+      shadowMode: 'soft',
+      upscale: 'quality',
       ambientOcclusion: true,
       reflections: true,
       bloom: true,
+      antialiasing: true,
       coachOutline: true,
     },
   },
   {
     id: 'natif',
     title: 'Natif',
-    blurb: 'Écran natif, textures 1024',
-    settings: {
+      blurb: 'Écran natif upscalé, textures 1024',
+      settings: {
       resolution: 'native',
       textureQuality: 'high',
       shadows: true,
+      shadowMode: 'soft',
+      upscale: 'quality',
       ambientOcclusion: true,
       reflections: true,
       bloom: true,
+      antialiasing: true,
+
+
       coachOutline: true,
     },
   },
@@ -135,6 +282,7 @@ export const RESOLUTION_OPTIONS: { id: ChessResolution; label: string }[] = [
 let settings: ChessGraphicsSettings = readStoredSettings();
 let target: { engine: Engine; canvas: HTMLCanvasElement } | null = null;
 let reloadPieceTextures: ((quality: ChessTextureQuality) => void) | null = null;
+let appliedUpscale: ChessUpscale = settings.upscale;
 const listeners = new Set<(value: ChessGraphicsSettings) => void>();
 
 function isResolution(value: unknown): value is ChessResolution {
@@ -152,18 +300,21 @@ function textureQualityForResolution(resolution: ChessResolution): ChessTextureQ
 }
 
 /**
- * Older saves omit the flag. The ring stays off only for the fluid look.
+ * The ring marks the piece that moves, so every look keeps it.
+ * A saved fluid profile stored `false` when that preset used to omit the passes.
  * @param parsed - Partial settings read from storage.
  */
 export function coachOutlineFromStored(parsed: Partial<ChessGraphicsSettings>): boolean {
   if (parsed.coachOutline === true) return true;
-  if (parsed.coachOutline === false) return false;
-  return (
-    parsed.resolution !== '1080' ||
-    parsed.ambientOcclusion === true ||
-    parsed.reflections === true ||
-    parsed.bloom === true
-  );
+  if (parsed.coachOutline === false) {
+    return (
+      parsed.resolution === '1080' &&
+      parsed.ambientOcclusion !== true &&
+      parsed.reflections !== true &&
+      parsed.bloom !== true
+    );
+  }
+  return true;
 }
 
 function readStoredSettings(): ChessGraphicsSettings {
@@ -172,15 +323,19 @@ function readStoredSettings(): ChessGraphicsSettings {
     if (!raw) return { ...FLUID_GRAPHICS };
     const parsed = JSON.parse(raw) as Partial<ChessGraphicsSettings>;
     if (!isResolution(parsed.resolution)) return { ...FLUID_GRAPHICS };
+    const shadowMode = shadowModeFromStored(parsed);
     return {
       resolution: parsed.resolution,
       textureQuality: isTextureQuality(parsed.textureQuality)
         ? parsed.textureQuality
         : textureQualityForResolution(parsed.resolution),
-      shadows: parsed.shadows !== false,
+      shadows: shadowMode !== 'off',
+      shadowMode,
+      upscale: upscaleFromStored(parsed),
       ambientOcclusion: parsed.ambientOcclusion === true,
       reflections: parsed.reflections === true,
       bloom: parsed.bloom === true,
+      antialiasing: parsed.antialiasing !== false,
       coachOutline: coachOutlineFromStored(parsed),
     };
   } catch {
@@ -209,9 +364,12 @@ function sameSettings(a: ChessGraphicsSettings, b: ChessGraphicsSettings): boole
     a.resolution === b.resolution &&
     a.textureQuality === b.textureQuality &&
     a.shadows === b.shadows &&
+    a.shadowMode === b.shadowMode &&
+    a.upscale === b.upscale &&
     a.ambientOcclusion === b.ambientOcclusion &&
     a.reflections === b.reflections &&
     a.bloom === b.bloom &&
+    a.antialiasing === b.antialiasing &&
     a.coachOutline === b.coachOutline
   );
 }
@@ -243,8 +401,20 @@ export function gamePassNames(value: ChessGraphicsSettings): string[] {
   if (value.ambientOcclusion) names.push('04b_HBAO', '04c_HBAO_Blur', '04d_HBAO_Apply');
   if (value.reflections) names.push('05_SSR_Floor', '05b_SSR_Composite');
   if (value.bloom) names.push('06_Bright', '06b_BlurH', '06c_BlurV', '06d_BloomAdd');
+  if (value.antialiasing) names.push('07_FXAA');
   if (value.coachOutline) names.push('04e_CoachMask', '04f_CoachCutout');
+  names.push('08_Upscale');
   return names;
+}
+
+function bindChessPasses(engine: Engine, value: ChessGraphicsSettings): void {
+  engine.setGameActivePasses(gamePassNames(value));
+  engine.renderer.setShadowMapSize(shadowMapSize(value.shadowMode));
+  applyChessShadowMode(engine.renderer, value);
+  for (const row of engine.ecsWorld.query([DirectionalLightComponent]).iter()) {
+    const light = row[1][0] as DirectionalLightComponent;
+    light.shadowsEnabled = value.shadowMode !== 'off';
+  }
 }
 
 export function applyChessGraphics(
@@ -261,11 +431,12 @@ export function applyChessGraphics(
   if (canvas.clientWidth > 0 && canvas.clientHeight > 0) {
     engine.setGameViewSurfaceSize(pixels.width, pixels.height);
   }
-  engine.setGameActivePasses(gamePassNames(value));
-  for (const row of engine.ecsWorld.query([DirectionalLightComponent]).iter()) {
-    const light = row[1][0] as DirectionalLightComponent;
-    light.shadowsEnabled = value.shadows;
-  }
+  bindChessPasses(engine, value);
+  if (value.upscale === appliedUpscale) return;
+  appliedUpscale = value.upscale;
+  void engine.reloadGameRenderGraph().then(() => {
+    bindChessPasses(engine, value);
+  });
 }
 
 export function attachChessGraphics(engine: Engine, canvas: HTMLCanvasElement): void {
@@ -277,17 +448,26 @@ export function registerPieceTextureReloader(reload: (quality: ChessTextureQuali
   reloadPieceTextures = reload;
 }
 
-export function setChessGraphicsSettings(next: ChessGraphicsSettings): void {
+/**
+ * Uses a profile for this window only. Nothing is written, so the stored game profile
+ * is untouched. The ambiance review judges a room this way.
+ * @param next - Profile to render with.
+ */
+export function useChessGraphicsSettings(next: ChessGraphicsSettings): void {
   const texturesChanged = next.textureQuality !== settings.textureQuality;
   settings = next;
+  if (target) applyChessGraphics(target.engine, target.canvas, settings);
+  if (texturesChanged) reloadPieceTextures?.(settings.textureQuality);
+  for (const listener of listeners) listener(settings);
+}
+
+export function setChessGraphicsSettings(next: ChessGraphicsSettings): void {
   try {
     globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch {
     /* private mode */
   }
-  if (target) applyChessGraphics(target.engine, target.canvas, settings);
-  if (texturesChanged) reloadPieceTextures?.(settings.textureQuality);
-  for (const listener of listeners) listener(settings);
+  useChessGraphicsSettings(next);
 }
 
 export function currentGameSurfaceSize(canvas: HTMLCanvasElement | null): {

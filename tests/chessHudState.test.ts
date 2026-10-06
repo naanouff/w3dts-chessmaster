@@ -49,6 +49,8 @@ describe('parseChessHudState', () => {
       p2pStatus: null,
       clocks: { whiteSeconds: 600, blackSeconds: 599.2 },
       flag: null,
+      onlineReady: false,
+      onlineRefused: false,
       session: { mode: 'cpu', localColor: 'white', quiz: false },
     });
   });

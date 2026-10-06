@@ -3,6 +3,7 @@
  * @description CHESS-B10: shell navigation without a DOM or a GPU.
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { cpuSearchDepth } from '../src/chess/index';
 import { chessMixVolume } from '../src/renderer/host/chessTableAudio';
@@ -15,6 +16,7 @@ import {
   parseShellPrefs,
   rangeThumbRatio,
   reduceShell,
+  opensLocalPeerWindow,
   peerResumeSearch,
   shellBlocksPlay,
   shellSession,
@@ -24,6 +26,48 @@ import {
 function game(): ShellState {
   return reduceShell(reduceShell(initialShell(false), { type: 'play' }), { type: 'start' });
 }
+
+describe('shell glass', () => {
+  it('whitens the liquid glass so dark ink stays readable', () => {
+    const css = readFileSync(new URL('../src/renderer/shell/shell.css', import.meta.url), 'utf8');
+    const match = css.match(/--glass:\s*rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*([0-9.]+)\s*\)/);
+    expect(match).not.toBeNull();
+    expect(Number(match?.[1])).toBe(0.25);
+  });
+
+  it('paints shell text black', () => {
+    const css = readFileSync(new URL('../src/renderer/shell/shell.css', import.meta.url), 'utf8');
+    expect(css).toMatch(/--ink:\s*#000\b/);
+    expect(css).toMatch(/--muted:\s*rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\.62\s*\)/);
+  });
+});
+
+describe('shell shadow choice', () => {
+  const catalogs = ['fr', 'en', 'de', 'it', 'es', 'ru', 'zh', 'ja'];
+
+  it('names soft shadows in every catalog and drops the cascade count', () => {
+    for (const id of catalogs) {
+      const source = readFileSync(
+        new URL(`../src/renderer/shell/copy/${id}.ts`, import.meta.url),
+        'utf8'
+      );
+      expect(source).toContain('shadowSoft:');
+      expect(source).not.toContain('shadowCascade');
+    }
+    const shell = readFileSync(
+      new URL('../src/renderer/shell/ChessShell.tsx', import.meta.url),
+      'utf8'
+    );
+    expect(shell).toContain("id: 'soft'");
+    expect(shell).not.toContain('shadowCascades');
+    const menu = readFileSync(
+      new URL('../src/renderer/ui/ChessGraphicsMenu.tsx', import.meta.url),
+      'utf8'
+    );
+    expect(menu).toContain("['soft', 'Douce']");
+    expect(menu).not.toContain('SHADOW_CASCADE_OPTIONS');
+  });
+});
 
 describe('shell screen', () => {
   it('starts on the welcome screen', () => {
@@ -116,10 +160,30 @@ describe('shell screen', () => {
     expect(shellBlocksPlay(reduceShell(playing, { type: 'escape' }))).toBe(true);
   });
 
+  it('keeps an online table in the lobby until the seats agree', () => {
+    let state = reduceShell(initialShell(false), { type: 'play' });
+    state = reduceShell(state, { type: 'set-mode', mode: 'online' });
+    state = reduceShell(state, { type: 'start' });
+    state = reduceShell(state, { type: 'create-table', code: 'AB12' });
+    expect(state.screen).toBe('salon');
+    expect(reduceShell(state, { type: 'peer-ready' }).screen).toBe('partie');
+    expect(reduceShell(game(), { type: 'peer-ready' }).screen).toBe('partie');
+  });
+
+  it('opens a second window for the same machine and not for an online table', () => {
+    expect(opensLocalPeerWindow('local')).toBe(true);
+    expect(opensLocalPeerWindow(undefined)).toBe(true);
+    expect(opensLocalPeerWindow('online')).toBe(false);
+  });
+
   it('maps local and online play onto the existing peer session', () => {
     const color = 'white' as const;
     expect(shellSession('local', color, 'C50', 2).mode).toBe('p2p');
-    expect(shellSession('online', color, 'C50', 2).mode).toBe('p2p');
+    expect(shellSession('online', color, 'C50', 2, { room: 'AB12', seat: 'host' })).toMatchObject({
+      mode: 'p2p',
+      room: 'AB12',
+      seat: 'host',
+    });
     expect(shellSession('hotseat', color, 'C50', 2).mode).toBe('hotseat');
     expect(shellSession('learn', color, 'C50', 2).quiz).toBe(true);
   });

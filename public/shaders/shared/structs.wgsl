@@ -21,7 +21,8 @@ struct FrameUniforms {
     ambientLightIntensity: f32,
     debugViewMode: u32,
     totalTime: f32,
-    _padding1: f32,
+    // 0 = soft (PCSS), 1 = hard (one compare). Occupies the former padding slot.
+    shadowFilter: f32,
     cascadeSplits: vec4<f32>, 
 };
 
@@ -100,6 +101,8 @@ struct LightData {
     dirAndIntensity: vec4<f32>,  
     colorAndType: vec4<f32>,
     params: vec4<f32>,
+    // Area-light tangent and shape. Keeps the 20-float stride of core 0.0.37.
+    tangentAndShape: vec4<f32>,
 };
 
 struct SceneLights {

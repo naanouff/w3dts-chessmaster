@@ -35,6 +35,7 @@ export interface ChessMasterBridge {
     messages: CoachBridgeMessage[]
   ) => Promise<{ ok: true; text: string } | { ok: false; error: string }>;
   coachCancel: () => Promise<void>;
+  benchReport: (json: string) => Promise<void>;
 }
 
 declare global {

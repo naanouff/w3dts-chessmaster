@@ -11,4 +11,5 @@ contextBridge.exposeInMainWorld('chessMaster', {
   coachModels: (): Promise<unknown> => ipcRenderer.invoke('coach-models'),
   coachChat: (messages: unknown): Promise<unknown> => ipcRenderer.invoke('coach-chat', messages),
   coachCancel: (): Promise<unknown> => ipcRenderer.invoke('coach-cancel'),
+  benchReport: (json: string): Promise<void> => ipcRenderer.invoke('bench-report', json),
 });

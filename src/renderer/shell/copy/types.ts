@@ -82,6 +82,7 @@ export interface ShellCopy {
   join: string;
   copy: string;
   refused: string;
+  tableMissing: string;
   whiteTurn: string;
   blackTurn: string;
   thinking: string;
@@ -151,6 +152,12 @@ export interface ShellCopy {
   localTab: string;
   onlineTab: string;
   optionsHint: string;
+  setChoice: string;
+  sets: {
+    atelier: string;
+    salon: string;
+    club: string;
+  };
   preset: string;
   presets: {
     fluide: string;
@@ -169,6 +176,13 @@ export interface ShellCopy {
   };
   effects: string;
   shadows: string;
+  shadowOff: string;
+  shadowHard: string;
+  shadowSoft: string;
+  upscale: string;
+  upscaleOff: string;
+  upscaleQuality: string;
+  upscalePerformance: string;
   ao: string;
   reflections: string;
   bloom: string;

@@ -1,0 +1,13 @@
+---
+description: Commit seulement sur demande, message en anglais
+alwaysApply: true
+---
+
+# Commit
+
+Ne committer que sur demande explicite. Message en anglais, centré sur le pourquoi. Préfixe `feat:`, `fix:` ou `docs:`.
+
+```text
+❌ update chess clock
+✅ fix: keep the clock format identical for the HUD and the coach
+```

@@ -278,6 +278,11 @@ fn fetchShadow(
     let depthBias = max(0.00028 * (1.0 - NdotL), 0.0001);
     let currentDepth = shadowNDC.z - depthBias;
 
+    // Hard: one hardware compare. The 2×2 filter is the comparison sampler.
+    if (frame.shadowFilter > 0.5) {
+        return textureSampleCompareLevel(shadowMap, shadowSampler, uv, finalShadowIndex, currentDepth);
+    }
+
     // PCSS: blocker search (textureLoad) then a 5×5 compare whose radius grows with
     // the receiver–blocker gap. Constants match packages/core/src/rendering/pcss.ts.
     let dims = vec2<f32>(textureDimensions(shadowMap));

@@ -45,16 +45,16 @@
       "name": "hbaoRaw",
       "format": "r8unorm",
       "sizeType": "relative",
-      "width": 1.0,
-      "height": 1.0,
+      "width": 0.5,
+      "height": 0.5,
       "usage": 22
     },
     {
       "name": "hbaoBlurred",
       "format": "r8unorm",
       "sizeType": "relative",
-      "width": 1.0,
-      "height": 1.0,
+      "width": 0.5,
+      "height": 0.5,
       "usage": 22
     },
     {
@@ -69,8 +69,8 @@
       "name": "ssrBuffer",
       "format": "rgba16float",
       "sizeType": "relative",
-      "width": 1.0,
-      "height": 1.0,
+      "width": 0.5,
+      "height": 0.5,
       "usage": 22
     },
     {
@@ -114,6 +114,22 @@
       "usage": 22
     },
     {
+      "name": "coachMaskNormal",
+      "format": "rgba8unorm",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
+      "name": "coachMaskDepth",
+      "format": "depth24plus",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
       "name": "coachScene",
       "format": "rgba16float",
       "sizeType": "relative",
@@ -123,6 +139,14 @@
     },
     {
       "name": "ldrBuffer",
+      "format": "rgba8unorm",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
+      "name": "ldrAntialiased",
       "format": "rgba8unorm",
       "sizeType": "relative",
       "width": 1.0,
@@ -200,11 +224,12 @@
     {
       "name": "04e_CoachMask",
       "type": "raster",
-      "inputs": ["sceneDepth"],
-      "outputs": ["coachMask"],
+      "inputs": [],
+      "outputs": ["coachMask", "coachMaskNormal", "coachMaskDepth"],
       "viewType": "main",
       "queueTags": ["coach_mask"],
       "colorLoadOp": "clear",
+      "depthLoadOp": "clear",
       "clearColor": { "r": 0.0, "g": 0.0, "b": 0.0, "a": 0.0 }
     },
     {
@@ -236,7 +261,7 @@
       "shaderPath": "/shaders/post-processing/hbao_blur.frag.wgsl",
       "useFrameUniforms": true,
       "uniforms": {
-        "blurParams": { "type": "struct", "value": [12.0, 0.0, 0.0, 0.0] }
+        "blurParams": { "type": "struct", "value": [6.0, 0.0, 0.0, 0.0] }
       }
     },
     {
@@ -268,10 +293,10 @@
     {
       "name": "06_Bright",
       "type": "fullscreen",
-      "inputs": ["sceneColorSsr"],
+      "inputs": ["sceneColor"],
       "outputs": ["bloomTexture"],
       "shaderPath": "/shaders/post-processing/bright.frag.wgsl",
-      "uniforms": { "threshold": { "type": "f32", "value": 8.0 } }
+      "uniforms": { "threshold": { "type": "f32", "value": 1.0 } }
     },
     {
       "name": "06b_BlurH",
@@ -280,7 +305,7 @@
       "outputs": ["bloomPing"],
       "shaderPath": "/shaders/post-processing/blur_h.frag.wgsl",
       "uniforms": {
-        "radius": { "type": "f32", "value": 1.15 },
+        "radius": { "type": "f32", "value": 3.0 },
         "resolution": { "type": "vec2f", "value": [960, 540] }
       }
     },
@@ -291,7 +316,7 @@
       "outputs": ["bloomTexture"],
       "shaderPath": "/shaders/post-processing/blur_v.frag.wgsl",
       "uniforms": {
-        "radius": { "type": "f32", "value": 1.15 },
+        "radius": { "type": "f32", "value": 3.0 },
         "resolution": { "type": "vec2f", "value": [960, 540] }
       }
     },
@@ -301,7 +326,7 @@
       "inputs": ["sceneColorSsr", "bloomTexture"],
       "outputs": ["bloomScene"],
       "shaderPath": "/shaders/post-processing/bloom_add.frag.wgsl",
-      "uniforms": { "intensity": { "type": "f32", "value": 0.55 } }
+      "uniforms": { "intensity": { "type": "f32", "value": 1.0 } }
     },
     {
       "name": "Tone Mapping & Output",
@@ -326,8 +351,17 @@
       "name": "07_FXAA",
       "type": "fullscreen",
       "inputs": ["ldrBuffer"],
-      "outputs": ["FINAL_OUTPUT"],
+      "outputs": ["ldrAntialiased"],
+      "outputFormat": "rgba8unorm",
       "shaderPath": "/shaders/post-processing/fxaa.frag.wgsl"
+    },
+    {
+      "name": "08_Upscale",
+      "type": "fullscreen",
+      "inputs": ["ldrAntialiased"],
+      "outputs": ["FINAL_OUTPUT"],
+      "shaderPath": "/shaders/post-processing/spatial_upscale.frag.wgsl",
+      "uniforms": { "sharpness": { "type": "f32", "value": 0.0 } }
     }
   ]
 }

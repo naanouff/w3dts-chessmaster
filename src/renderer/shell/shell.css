@@ -6,10 +6,10 @@
 .shell {
   --accent: #e8b86d;
   --accent-ink: #1a140c;
-  --ink: #2c261f;
-  --muted: rgba(44, 38, 31, 0.62);
+  --ink: #000;
+  --muted: rgba(0, 0, 0, 0.62);
   --danger: #9a3d3d;
-  --glass: rgba(255, 255, 255, 0.07);
+  --glass: rgba(255, 255, 255, 0.25);
   --glass-highlight:
     inset 1px 1px 0 rgba(255, 255, 255, 0.75),
     inset -1px -1px 0 rgba(255, 255, 255, 0.18),
@@ -431,6 +431,65 @@
   background-image: none;
   box-shadow: none;
   animation: none;
+}
+
+.shell .set-choice {
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
+  gap: 0.55rem;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+}
+
+.shell .set-choice button {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  gap: 0.35rem;
+  padding: 0.35rem 0.35rem 0.45rem;
+  background: var(--control-well);
+  box-shadow: var(--glass-highlight);
+}
+
+.shell .set-choice button:hover,
+.shell .set-choice button.is-selected {
+  background-color: var(--control-well);
+  background-image: none;
+  animation: none;
+}
+
+.shell .set-choice button.is-selected {
+  box-shadow: var(--glass-highlight), 0 0 0 2px var(--accent);
+}
+
+.shell .set-choice img {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 4.75rem;
+  object-fit: cover;
+  object-position: center 58%;
+  border-radius: calc(var(--radius-control) - 6px);
+  filter: grayscale(1);
+  pointer-events: none;
+  transition: filter 420ms ease;
+}
+
+.shell .set-choice button:hover img,
+.shell .set-choice button.is-selected img {
+  filter: grayscale(0);
+}
+
+.shell .set-choice span {
+  font-size: 0.82rem;
+  text-align: center;
 }
 
 .shell .cards {
@@ -1051,6 +1110,7 @@ body.is-shaken {
   .shell .scale-thumb,
   .shell .scale-mark.is-catch,
   .shell .boot,
+  .shell .set-choice img,
   .shell .objection img,
   .shell .objection p,
   body.is-shaken {

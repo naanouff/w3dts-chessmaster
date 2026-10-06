@@ -20,12 +20,14 @@ import {
   OrbitalCameraController,
   getGameViewSurfacePixelSize,
   PrimitiveFactory,
+  RenderGraph,
   RenderableComponent,
   SceneNode,
   TransformComponent,
   createDecalSystem,
   type DecalSystemOutput,
   type Entity,
+  type FullscreenPassConfig,
   type IEngineContext,
   type InputManager,
   type PbrKhrExtensionCompileFlags,
@@ -64,7 +66,9 @@ import {
   assignCemeterySlot,
   boardColliderShape,
   buildChessBoardBodyMesh,
+  splitChessBoardPlayingSurface,
   buildStauntonPieceMesh,
+  stauntonPieceHeight,
   buildChessHudLearnPlies,
   chessBoardLabelPoses,
   chessBoardLabelQuat,
@@ -73,6 +77,8 @@ import {
   chessTableSfxForPly,
   clientPointToNdc,
   CHESS_CLOCK_START_S,
+  ONLINE_GUEST_WAIT_MS,
+  guestWaitExpired,
   CHESS_SAVES_EVENT,
   SAVED_GAMES_KEY,
   acceptSavedGame,
@@ -85,7 +91,9 @@ import {
   noteInterrupt,
   parseSaveCabinet,
   putVoluntary,
+  chessRelayUrl,
   decideChessFenSync,
+  decideOnlineHello,
   encodeChessWire,
   fillBoardAlbedo,
   fillChessGlyphAlbedo,
@@ -98,6 +106,7 @@ import {
   sampleBookMoveSpline,
   samplePieceTravelWorld,
   seatChessPieceUpright,
+  peerClockWaiting,
   stepChessClock,
   squareToWorld,
   stauntonPieceColliderShapes,
@@ -128,26 +137,28 @@ import {
   shouldCpuReply,
   undoMyMove,
 } from '../../chess';
-import { BroadcastChannelTransport } from '@naanouff/w3dts-multiplayer-p2p';
+import {
+  BroadcastChannelTransport,
+  WebSocketRelayTransport,
+  type ITransport,
+} from '@naanouff/w3dts-multiplayer-p2p';
 import { mat4, quat, vec3 } from 'gl-matrix';
 import { chessBus as uiBus } from '../bus';
-import {
-  arrayBufferLooksLikeGitLfsPointer,
-  arrayBufferLooksLikeHtml,
-  fetchPublicAssetPreferSameOrigin,
-  fetchSceneDdGraphJson,
-} from './assetFetch';
+import { fetchSceneDdGraphJson } from './assetFetch';
 import {
   createBrushedSteelMaterial,
   createMarbleMaterial,
   CHESS_BOARD_CLEARCOAT_FACTOR,
   CHESS_BOARD_CLEARCOAT_ROUGHNESS,
+  chessBoardCheckerPlacement,
+  chessBoardSurfaceMaterials,
   loadChessBoardPhotoMaterials,
   loadChessPhotoPbrMaterials,
   loadChessPieceShaderGraphs,
   loadChessMoveGlowTexture,
   createChessCutoutMaterial,
   createChessGhostMaterial,
+  chessMoveGlowRecipe,
   createChessMoveGlowMaterial,
   patchChessPhotoMaterialsFromCache,
 } from './chessLook';
@@ -158,29 +169,42 @@ import {
 } from './chessSceneRuntime';
 import { createWoodMaterial, loadWoodShaderGraph } from './woodLook';
 import { chessAmbienceGain, chessSfxGain, installChessTableClips } from './chessTableAudio';
+import { getGraphicsBenchMotion, noteGraphicsBenchPose } from '../graphics/graphicsBenchMotion';
+import { isGraphicsBenchSearch } from '../graphics/graphicsBench';
+import {
+  CHESS_STUDIO_SUN_COLOR,
+  chessSetAmbient,
+  chessSetBoardY,
+  chessSetLook,
+  chessSetSunIntensity,
+  getChessAmbiance,
+  subscribeChessAmbiance,
+} from './chessAmbiance';
+import { applyRoomSky, gardenShadowBox } from './gardenStage';
+import {
+  CHESS_REVIEW_POSES,
+  CHESS_SET_REVIEW_TEXTURE_SIZE,
+  chessReviewFrame,
+  isChessSetReview,
+  setChessReviewFrame,
+  subscribeChessCameraArrival,
+  subscribeChessReviewFrame,
+  type ChessReviewFrame,
+} from './chessSetReview';
+import { chessCameraArrival, chessCameraArrivalPose } from './chessCameraArrival';
+import {
+  applyChessShadowMode,
+  getChessGraphicsSettings,
+  pieceTextureSize,
+  scaleChessGraphResources,
+  shadowMapSize,
+  upscaleRenderScale,
+  upscaleSharpness,
+} from '../graphics/chessGraphicsSettings';
+import { loadChessSet } from './spawnChessSet';
 
-/** Kontrast studio first; neon, then monochrome, if that file is missing. */
-const CHESS_HDR_CANDIDATES: { url: string; name: string; gain: number }[] = [
-  { url: '/hdri/studio_kontrast_04_2k.hdr', name: 'studio_kontrast_04_2k', gain: 1 },
-  { url: '/hdri/neon_photostudio_2k.hdr', name: 'neon_photostudio_2k', gain: 0.9 },
-  { url: '/hdri/monochrome_studio_04_2k.hdr', name: 'monochrome_studio_04_2k', gain: 1.45 },
-];
-/** Tight CSM for a ~0.55 m table (engine default first split is 15 m → mushy contact). */
-const CHESS_CSM_CASCADE_SPLITS: [number, number, number, number] = [1.2, 3.5, 9, 24];
 /** Studio cloth plane size (must match the mesh in onInit). */
 const CHESS_STUDIO_TABLE_EXTENT = 4.2;
-/** Keep far pieces in every cascade so their shadows stay on the near floor when orbiting. */
-const CHESS_CSM_INCLUDE_AABB = {
-  min: [
-    -CHESS_STUDIO_TABLE_EXTENT / 2,
-    -CHESS_BOARD_BODY_HEIGHT - 0.02,
-    -CHESS_STUDIO_TABLE_EXTENT / 2,
-  ],
-  max: [CHESS_STUDIO_TABLE_EXTENT / 2, 0.14, CHESS_STUDIO_TABLE_EXTENT / 2],
-} as const;
-/** Used when no HDR loads (procedural IBL). */
-const CHESS_STUDIO_IBL_GAIN = 2;
-
 const LEGAL_OVERLAY_Y = 0.0012;
 const DROP_HOVER_Y = 0.0024;
 const LEGAL_OVERLAY_COUNT = 32;
@@ -198,7 +222,7 @@ type PieceFlight = {
 };
 const BOARD_HALF_Y = CHESS_BOARD_BODY_HEIGHT / 2;
 
-/** Clearcoat varnish on the checker; other KHR paths stay stripped (non-glTF material). */
+/** Clearcoat varnish on the painted checker, used only when the photo maps fail. */
 const CHESS_BOARD_VARNISH_KHR: PbrKhrExtensionCompileFlags = {
   ...CORE_PBR_KHR_FLAGS,
   khrMaterialsClearcoat: true,
@@ -210,8 +234,6 @@ type EngineWithInput = IEngineContext & {
   getGameViewCanvas?: () => HTMLCanvasElement | null;
 };
 
-const GAME_CAM_EYE: [number, number, number] = [0, 0.55, -0.72];
-const GAME_CAM_TARGET: [number, number, number] = [0, 0.02, 0];
 const GAME_CAM_FOV = (38 * Math.PI) / 180;
 /** Initial clip only; orbit `updateClipPlanes` owns near/far after RMB zoom. */
 const GAME_CAM_NEAR = 0.002;
@@ -252,6 +274,64 @@ export class ChessDemoProject extends LitAbstractProject {
     return '/graphs/StandardLitGraphChess.json';
   }
 
+  public override async configureRenderGraph(
+    graph: RenderGraph,
+    engine: Engine,
+    view: 'scene' | 'game'
+  ): Promise<void> {
+    engine.renderer.setShadowMapSize(shadowMapSize(getChessGraphicsSettings().shadowMode));
+    await super.configureRenderGraph(graph, engine, view);
+    if (view !== 'game') return;
+    const mode = getChessGraphicsSettings().upscale;
+    const scale = upscaleRenderScale(mode);
+    if (scale !== 1) {
+      const response = await fetch('/graphs/StandardLitGraphChess.json');
+      const definition = (await response.json()) as {
+        resources: {
+          name: string;
+          format: GPUTextureFormat;
+          sizeType: 'absolute' | 'relative';
+          width: number;
+          height: number;
+          usage: GPUTextureUsageFlags;
+        }[];
+      };
+      for (const resource of scaleChessGraphResources(definition.resources, scale)) {
+        if (resource.sizeType !== 'relative') continue;
+        graph.registerResource({
+          type: 'texture',
+          name: resource.name,
+          format: resource.format,
+          sizeType: 'relative',
+          width: resource.width,
+          height: resource.height,
+          usage: resource.usage,
+        });
+      }
+    }
+    const upscale = graph.getPasses().find((pass) => pass.name === '08_Upscale');
+    if (upscale?.type === 'fullscreen') {
+      const sharpness = (upscale as FullscreenPassConfig).uniforms?.sharpness;
+      if (sharpness) sharpness.value = upscaleSharpness(mode);
+    }
+  }
+
+  /** Board footprint in XZ, piece height in Y, including the salon lift. */
+  private chessShadowAabb(): { min: [number, number, number]; max: [number, number, number] } {
+    if (getChessAmbiance() === 'jardin') return gardenShadowBox();
+    const half = CHESS_BOARD_MESH_EXTENT / 2;
+    const lift = this.boardLift;
+    return {
+      min: [-half, -CHESS_BOARD_BODY_HEIGHT - 0.02 + lift, -half],
+      max: [half, stauntonPieceHeight('king') + CHESS_GRAB_LIFT_M + lift, half],
+    };
+  }
+
+  private applyChessShadow(renderer: Engine['renderer']): void {
+    renderer.csmIncludeAabb = this.chessShadowAabb();
+    applyChessShadowMode(renderer, getChessGraphicsSettings());
+  }
+
   private world: World | null = null;
   private chessEngine: EngineWithInput | null = null;
   private match = ChessMatch.starting();
@@ -289,8 +369,13 @@ export class ChessDemoProject extends LitAbstractProject {
   private hudClockBlack = CHESS_CLOCK_START_S;
   /** Side that ran out of time; independent of chessops (clocks are local). */
   private clockFlag: ChessColor | null = null;
-  private p2p: BroadcastChannelTransport | null = null;
+  private p2p: ITransport | null = null;
   private p2pStatus: ChessHudP2pStatus = 'waiting';
+  private roomId = '';
+  private onlineSeat: 'host' | 'guest' | null = null;
+  private onlineReady = false;
+  private onlineRefused = false;
+  private guestTimer: ReturnType<typeof setTimeout> | null = null;
   private trainer: OpeningTrainer | null = null;
   private learnQuiz = false;
   private learnEco = 'C50';
@@ -324,6 +409,13 @@ export class ChessDemoProject extends LitAbstractProject {
   private cemeteryCount: Record<ChessColor, number> = { white: 0, black: 0 };
   private flights: PieceFlight[] = [];
   private motionBusy = false;
+  private readonly graphicsBench = isGraphicsBenchSearch(
+    typeof location === 'undefined' ? '' : location.search
+  );
+  private benchPawn: Entity | null = null;
+  private benchTowardE4 = true;
+  private benchMoved = false;
+  private benchDrag = 0;
   private pendingFen: string | null = null;
   private pendingSfx: ChessTableSfxId[] | null = null;
   private pendingPromotion: {
@@ -338,12 +430,31 @@ export class ChessDemoProject extends LitAbstractProject {
     dPol: number;
     elapsed: number;
   } | null = null;
+  /** Opening fly-in. Null once the game camera is reached, and never set in the review. */
+  private cameraArrival: { elapsed: number } | null = null;
   private audio: WebAudioService | null = null;
   private ambience: { stop(): void } | null = null;
   private audioArmed = false;
   private flagSfxPlayed = false;
   /** Pieces/meshes exist; P2P must not apply FEN until this is true. */
   private boardReady = false;
+  private stopAmbiance: (() => void) | null = null;
+  private stopReview: (() => void) | null = null;
+  private readonly reviewing = isChessSetReview(
+    typeof location === 'undefined' ? '' : location.search
+  );
+  private sunEntity: number | null = null;
+  private clothNode: SceneNode | null = null;
+  private boardBody: SceneNode | null = null;
+  private boardTop: SceneNode | null = null;
+  /** Salon review puts the board on the cloth. Atelier and Club stay at 0. */
+  private boardLift = 0;
+  private setNodes: SceneNode[] = [];
+  private setGen = 0;
+  private setDevice: GPUDevice | null = null;
+  private setResources: ProjectLoadParams['resourceManager'] | null = null;
+  private setGraph: ShaderGraph | null = null;
+  private setLogger: ProjectLoadParams['logger'] | null = null;
   private pendingP2pBytes: Uint8Array | null = null;
   private playSimWasAllowed = false;
 
@@ -366,6 +477,10 @@ export class ChessDemoProject extends LitAbstractProject {
     }
     if (cmd.type === 'request-state') {
       this.emitHud();
+      return;
+    }
+    if (cmd.type === 'close-table') {
+      this.closeOnlineTable();
       return;
     }
     if (cmd.type === 'save-voluntary') {
@@ -409,8 +524,10 @@ export class ChessDemoProject extends LitAbstractProject {
       if (this.world) this.showCoachGhosts(this.world, cmd.steps);
       return;
     }
-    this.modePickerOpen = false;
+    const waitingOnline = cmd.table === 'online';
+    if (!waitingOnline) this.modePickerOpen = false;
     this.applySession(cmd.session, cmd.table);
+    if (waitingOnline) this.modePickerOpen = true;
   };
 
   constructor() {
@@ -519,6 +636,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.pendingSfx = null;
     this.pendingPromotion = null;
     this.camJuice = null;
+    this.cameraArrival = null;
     this.cemeteryEntities = [];
     this.cemeteryCount = { white: 0, black: 0 };
     this.nodeByEntity.clear();
@@ -548,7 +666,7 @@ export class ChessDemoProject extends LitAbstractProject {
       remapChessSceneMaterialsToPhoto(this.chessEngine);
       remapChessOverlayMaterialsToGlow(this.chessEngine);
       this.rebindChessMaterials(this.chessEngine.resourceManager);
-      this.aimGameCamera(world, this.chessEngine);
+      this.aimActiveCamera(world, this.chessEngine);
       this.sceneRef = this.chessEngine.scene;
     }
     this.spawnMatchPieces(world);
@@ -704,6 +822,10 @@ export class ChessDemoProject extends LitAbstractProject {
     }
 
     const device = engine.webGPUContext.device;
+    this.setDevice = device;
+    this.setResources = resourceManager;
+    this.setGraph = pbrGraph;
+    this.setLogger = logger;
     let photoPieces = false;
     try {
       this.hdPieces = await loadHdChessPieces(device, resourceManager, pbrGraph);
@@ -745,23 +867,25 @@ export class ChessDemoProject extends LitAbstractProject {
       }
     }
 
-    let boardMat: Material;
-    let edgeMat: Material;
+    let photoBoard: { top: Material; gold: Material } | null = null;
     try {
-      const photoBoard = await loadChessBoardPhotoMaterials(device, resourceManager, pbrGraph);
-      boardMat = photoBoard.top;
-      edgeMat = photoBoard.gold;
+      photoBoard = await loadChessBoardPhotoMaterials(device, resourceManager, pbrGraph);
     } catch (e) {
       logger.warn(
         LogChannel.DataLifecycle,
         'ChessDemoProject: photo wood/gold board maps skipped; using canvas + wood graph.',
         e as Error
       );
+    }
+
+    let fallbackTop: Material | null = null;
+    let fallbackRim: Material | null = null;
+    if (!photoBoard) {
       const boardPixels = new Uint8ClampedArray(1024 * 1024 * 4);
       fillBoardAlbedo(boardPixels, 1024);
       const boardTex = uploadRgbaTexture(device, 'chess-board-albedo', boardPixels, 1024);
       resourceManager.registerTexture('chess/board/canvas-albedo', boardTex);
-      boardMat = new Material({
+      fallbackTop = new Material({
         name: 'ChessBoard',
         shadingModel: 'pbr',
         shaderGraph: pbrGraph,
@@ -775,21 +899,21 @@ export class ChessDemoProject extends LitAbstractProject {
           pbrKhrExtensionFlags: CHESS_BOARD_VARNISH_KHR,
         },
       });
-      resourceManager.uploadMaterial(boardMat);
+      resourceManager.uploadMaterial(fallbackTop);
       try {
         const woodGraph = await loadWoodShaderGraph();
-        edgeMat = createWoodMaterial(resourceManager, woodGraph);
-        edgeMat.properties.set('normalDetailScale', 0);
-        edgeMat.properties.set('triplanarScale', 0.58);
-        edgeMat.properties.set('knotAmount', 0);
-        edgeMat.properties.set('anisotropy', 0);
-        edgeMat.properties.set('cavityAmount', 0.15);
-        edgeMat.properties.set('heightInfluence', 0);
-        edgeMat.properties.set('roughness', 0.62);
-        edgeMat.properties.set('woodColor', [0.24, 0.17, 0.14]);
-        edgeMat.properties.set('grainColor', [0.15, 0.1, 0.08]);
+        fallbackRim = createWoodMaterial(resourceManager, woodGraph);
+        fallbackRim.properties.set('normalDetailScale', 0);
+        fallbackRim.properties.set('triplanarScale', 0.58);
+        fallbackRim.properties.set('knotAmount', 0);
+        fallbackRim.properties.set('anisotropy', 0);
+        fallbackRim.properties.set('cavityAmount', 0.15);
+        fallbackRim.properties.set('heightInfluence', 0);
+        fallbackRim.properties.set('roughness', 0.62);
+        fallbackRim.properties.set('woodColor', [0.24, 0.17, 0.14]);
+        fallbackRim.properties.set('grainColor', [0.15, 0.1, 0.08]);
       } catch {
-        edgeMat = new Material({
+        fallbackRim = new Material({
           name: 'ChessBoardEdge',
           shadingModel: 'pbr',
           shaderGraph: pbrGraph,
@@ -799,9 +923,16 @@ export class ChessDemoProject extends LitAbstractProject {
             metallic: 0,
           },
         });
-        resourceManager.uploadMaterial(edgeMat);
+        resourceManager.uploadMaterial(fallbackRim);
       }
     }
+
+    const surfaces = chessBoardSurfaceMaterials(
+      photoBoard,
+      { top: fallbackTop!, rim: fallbackRim! }
+    );
+    const boardMat = surfaces.top;
+    const edgeMat = surfaces.rim;
 
     if (!this.hdPieces) {
       const roles: ChessPieceRole[] = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'];
@@ -814,7 +945,11 @@ export class ChessDemoProject extends LitAbstractProject {
       }
     }
 
-    const boardBodyMesh = buildChessBoardBodyMesh(CHESS_BOARD_MESH_EXTENT, BOARD_HALF_Y * 2);
+    const boardSlab = buildChessBoardBodyMesh(CHESS_BOARD_MESH_EXTENT, BOARD_HALF_Y * 2);
+    const { rim: boardBodyMesh } = splitChessBoardPlayingSurface(
+      boardSlab,
+      CHESS_BOARD_MESH_EXTENT
+    );
     resourceManager.uploadMesh(boardBodyMesh);
     const board = new SceneNode('ChessBoard', world, boardBodyMesh, edgeMat);
     const boardT = world.getComponent(board.entityId, TransformComponent);
@@ -835,41 +970,25 @@ export class ChessDemoProject extends LitAbstractProject {
       })
     );
     scene.add(board);
+    this.boardBody = board;
 
-    const tableMesh = PrimitiveFactory.createPlane(CHESS_STUDIO_TABLE_EXTENT);
-    resourceManager.uploadMesh(tableMesh);
-    const tableMat = new Material({
-      name: 'ChessStudioCloth',
-      shadingModel: 'pbr',
-      shaderGraph: pbrGraph,
-      properties: {
-        baseColor: [0.93, 0.88, 0.78],
-        roughness: 0.9,
-        metallic: 0,
-      },
-    });
-    resourceManager.uploadMaterial(tableMat);
-    const table = new SceneNode('ChessStudioCloth', world, tableMesh, tableMat);
-    const tableT = world.getComponent(table.entityId, TransformComponent);
-    if (tableT) {
-      vec3.set(tableT.position, 0, -CHESS_BOARD_BODY_HEIGHT - 0.001, 0);
-      tableT.updateLocalTransform();
-    }
-    const tableRenderable = world.getComponent(table.entityId, RenderableComponent);
-    if (tableRenderable) tableRenderable.castShadow = false;
-    scene.add(table);
+    this.showStudioCloth(world, scene, resourceManager, pbrGraph);
 
+    const checker = chessBoardCheckerPlacement();
+    boardMat.doubleSided = checker.doubleSided;
     const topMesh = PrimitiveFactory.createPlane(CHESS_BOARD_MESH_EXTENT);
+    topMesh.name = 'ChessBoardChecker';
     resourceManager.uploadMesh(topMesh);
     const top = new SceneNode('ChessBoardTop', world, topMesh, boardMat);
     const topT = world.getComponent(top.entityId, TransformComponent);
     if (topT) {
-      vec3.set(topT.position, 0, 0.0004, 0);
+      vec3.set(topT.position, 0, checker.y, 0);
       topT.updateLocalTransform();
     }
     const topRenderable = world.getComponent(top.entityId, RenderableComponent);
-    if (topRenderable) topRenderable.castShadow = false;
+    if (topRenderable) topRenderable.castShadow = checker.castShadow;
     scene.add(top);
+    this.boardTop = top;
 
     for (const piece of this.match.pieces()) {
       this.spawnPiece(world, scene, piece.square, piece.role, piece.color);
@@ -893,6 +1012,7 @@ export class ChessDemoProject extends LitAbstractProject {
     });
 
     const sun = new SceneNode('ChessSun', world);
+    this.sunEntity = sun.entityId;
     const sunRot = quat.create();
     quat.fromEuler(sunRot, -58, -18, 0);
     const sunT = world.getComponent(sun.entityId, TransformComponent);
@@ -909,6 +1029,7 @@ export class ChessDemoProject extends LitAbstractProject {
       })
     );
     scene.add(sun);
+    await this.replaceChessSet();
 
     if (!engine.scheduler.hasSystemWithName('physicsSystem')) {
       engine.scheduler.prependSystem(
@@ -920,7 +1041,24 @@ export class ChessDemoProject extends LitAbstractProject {
     cameraControllerManager.setController('orbital');
     const controller = cameraControllerManager.getActiveController();
     controller?.frameBoundingBox({ min: [-half, 0, -half], max: [half, 0.2, half] });
-    this.aimGameCamera(world, engine);
+    this.stopReview?.();
+    this.stopReview = null;
+    this.aimActiveCamera(world, engine);
+    if (this.reviewing) {
+      const stopFrame = subscribeChessReviewFrame(() => {
+        this.cameraArrival = null;
+        const live = this.world;
+        if (!live) return;
+        this.aimActiveCamera(live, engine);
+      });
+      const stopArrival = subscribeChessCameraArrival(() => {
+        this.beginCameraArrival(true);
+      });
+      this.stopReview = () => {
+        stopFrame();
+        stopArrival();
+      };
+    }
     this.emitHud();
     this.boardReady = true;
     if (!this.tryResumeFromLocation(query)) {
@@ -936,52 +1074,189 @@ export class ChessDemoProject extends LitAbstractProject {
 
   protected override async initializeEnvironment(engine: Engine): Promise<void> {
     await super.initializeEnvironment(engine);
-    const { logger, renderer } = engine;
-    for (const hdr of CHESS_HDR_CANDIDATES) {
-      try {
-        const hdrRes = await fetchPublicAssetPreferSameOrigin(hdr.url);
-        if (!hdrRes.ok) throw new Error(`HTTP ${hdrRes.status}`);
-        const hdrBuffer = await hdrRes.arrayBuffer();
-        if (arrayBufferLooksLikeGitLfsPointer(hdrBuffer)) {
-          throw new Error('Git LFS pointer instead of HDR');
-        }
-        if (arrayBufferLooksLikeHtml(hdrBuffer)) {
-          throw new Error('HTML instead of HDR');
-        }
-        await this.loadEnvironmentFromHdrBuffer(engine, hdrBuffer);
-        renderer.iblIntensity = hdr.gain;
-        renderer.csmCascadeSplits = CHESS_CSM_CASCADE_SPLITS;
-        renderer.csmIncludeAabb = {
-          min: [...CHESS_CSM_INCLUDE_AABB.min],
-          max: [...CHESS_CSM_INCLUDE_AABB.max],
-        };
-        logger.info(
-          LogChannel.EngineLifecycle,
-          `ChessDemoProject studio HDR (${hdr.name}) applied, ibl×${hdr.gain}.`
-        );
-        return;
-      } catch (e) {
-        logger.warn(
-          LogChannel.DataLifecycle,
-          `ChessDemoProject: skip HDR ${hdr.name}.`,
-          e as Error
-        );
+    this.stopAmbiance?.();
+    this.stopAmbiance = subscribeChessAmbiance(() => {
+      void this.applyAmbianceEnvironment(engine);
+      void this.replaceChessSet();
+    });
+    await this.applyAmbianceEnvironment(engine);
+  }
+
+  /**
+   * Keeps the room lights and its environment fill. The match does not load an HDRI.
+   * @param engine - Running engine.
+   */
+  private async applyAmbianceEnvironment(engine: Engine): Promise<void> {
+    const { renderer } = engine;
+    // The procedural sky is a daylight gradient, and its irradiance feeds the diffuse IBL
+    // at full energy, outside iblIntensity. Dropping the maps is the only way a night room
+    // reads as night; the fill then comes from the shader's flat ambient, which iblIntensity scales.
+    renderer.setIBLMaps(null);
+    renderer.iblIntensity = chessSetAmbient(getChessAmbiance());
+    const id = getChessAmbiance();
+    applyRoomSky(engine.renderGraph.getPasses(), id);
+    applyRoomSky(engine.gameRenderGraph.getPasses(), id);
+    this.applyChessShadow(renderer);
+    this.applyAmbianceSun();
+  }
+
+  /** Studio sun while the cloth is the floor. A loaded set uses the review intensity and direction. */
+  private applyAmbianceSun(): void {
+    const world = this.world;
+    if (!world || this.sunEntity === null) return;
+    const light = world.getComponent(this.sunEntity, DirectionalLightComponent);
+    const transform = world.getComponent(this.sunEntity, TransformComponent);
+    if (!light || !transform) return;
+    const cloth = this.setNodes.length === 0;
+    const id = getChessAmbiance();
+    const color = cloth ? CHESS_STUDIO_SUN_COLOR : (chessSetLook(id).sunColor ?? CHESS_STUDIO_SUN_COLOR);
+    light.color[0] = color[0];
+    light.color[1] = color[1];
+    light.color[2] = color[2];
+    light.intensity = chessSetSunIntensity(id, cloth);
+    if (cloth) {
+      quat.fromEuler(transform.rotation, -58, -18, 0);
+    } else {
+      const pos = chessSetLook(id).sunPos;
+      if (pos) {
+        const dx = -pos[0];
+        const dy = -pos[1];
+        const dz = -pos[2];
+        const length = Math.hypot(dx, dy, dz) || 1;
+        quat.rotationTo(transform.rotation, [0, -1, 0], [dx / length, dy / length, dz / length]);
       }
     }
-    renderer.iblIntensity = CHESS_STUDIO_IBL_GAIN;
-    renderer.csmCascadeSplits = CHESS_CSM_CASCADE_SPLITS;
-    renderer.csmIncludeAabb = {
-      min: [...CHESS_CSM_INCLUDE_AABB.min],
-      max: [...CHESS_CSM_INCLUDE_AABB.max],
-    };
-    logger.error(
-      LogChannel.DataLifecycle,
-      'ChessDemoProject: failed to load studio HDR; keeping procedural IBL.'
+    transform.updateLocalTransform();
+  }
+
+  /** Playing-surface height, including the salon cloth lift. */
+  private playingY(y: number): number {
+    return y + this.boardLift;
+  }
+
+  /**
+   * Moves the board and the pieces that stand on it. Captured pieces stay on the trays.
+   * @param next - Metres above the default surface. Zero while the studio cloth is the floor.
+   */
+  private setBoardLift(next: number): void {
+    const delta = next - this.boardLift;
+    if (Math.abs(delta) < 1e-6) return;
+    this.boardLift = next;
+    const world = this.world;
+    if (!world) return;
+    this.shiftEntityY(world, this.boardBody?.entityId, delta);
+    this.shiftEntityY(world, this.boardTop?.entityId, delta);
+    const onBoard = new Set(this.entityBySquare.values());
+    for (const entity of onBoard) this.shiftEntityY(world, entity, delta);
+    for (const flight of this.flights) {
+      if (!onBoard.has(flight.entity)) continue;
+      flight.from[1] += delta;
+      flight.to[1] += delta;
+    }
+    this.syncFileRankLabels(world);
+    if (this.chessEngine) this.applyChessShadow(this.chessEngine.renderer);
+  }
+
+  private shiftEntityY(world: World, entity: Entity | undefined, delta: number): void {
+    if (entity === undefined) return;
+    const transform = world.getComponent(entity, TransformComponent);
+    if (!transform) return;
+    transform.position[1] += delta;
+    transform.updateLocalTransform();
+  }
+
+  /**
+   * Replaces the room around the board. A missing GLB puts the cloth back and leaves the stored choice.
+   */
+  private async replaceChessSet(): Promise<void> {
+    const scene = this.sceneRef;
+    const world = this.world;
+    const device = this.setDevice;
+    const resourceManager = this.setResources;
+    const pbrGraph = this.setGraph;
+    if (!scene || !world || !device || !resourceManager || !pbrGraph) return;
+    const gen = ++this.setGen;
+    const id = getChessAmbiance();
+    let nodes: SceneNode[] | null = null;
+    try {
+      nodes = await loadChessSet(
+        { device, world, resourceManager, pbrGraph },
+        id,
+        this.reviewing
+          ? CHESS_SET_REVIEW_TEXTURE_SIZE
+          : pieceTextureSize(getChessGraphicsSettings().textureQuality)
+      );
+    } catch (e) {
+      nodes = null;
+      this.setLogger?.warn(LogChannel.DataLifecycle, 'ChessDemoProject: set props skipped.', e as Error);
+    }
+    if (gen !== this.setGen) return;
+    this.clearSetNodes();
+    if (!nodes) {
+      this.showStudioCloth(world, scene, resourceManager, pbrGraph);
+      this.setBoardLift(0);
+      this.applyAmbianceSun();
+      return;
+    }
+    this.hideStudioCloth();
+    for (const node of nodes) scene.add(node);
+    this.setNodes = nodes;
+    this.setBoardLift(chessSetBoardY(id));
+    this.applyAmbianceSun();
+    this.setLogger?.info(
+      LogChannel.EngineLifecycle,
+      `ChessDemoProject: ${id} set applied (${nodes.length} nodes).`
     );
   }
 
+  private clearSetNodes(): void {
+    const scene = this.sceneRef;
+    if (!scene) return;
+    for (const node of this.setNodes) scene.remove(node);
+    this.setNodes = [];
+  }
+
+  private showStudioCloth(
+    world: World,
+    scene: SceneNode,
+    resourceManager: ProjectLoadParams['resourceManager'],
+    pbrGraph: ShaderGraph
+  ): void {
+    if (this.clothNode) return;
+    const tableMesh = PrimitiveFactory.createPlane(CHESS_STUDIO_TABLE_EXTENT);
+    resourceManager.uploadMesh(tableMesh);
+    const tableMat = new Material({
+      name: 'ChessStudioCloth',
+      shadingModel: 'pbr',
+      shaderGraph: pbrGraph,
+      properties: {
+        baseColor: [0.93, 0.88, 0.78],
+        roughness: 0.9,
+        metallic: 0,
+      },
+    });
+    resourceManager.uploadMaterial(tableMat);
+    const table = new SceneNode('ChessStudioCloth', world, tableMesh, tableMat);
+    const tableT = world.getComponent(table.entityId, TransformComponent);
+    if (tableT) {
+      vec3.set(tableT.position, 0, -CHESS_BOARD_BODY_HEIGHT - 0.001, 0);
+      tableT.updateLocalTransform();
+    }
+    const tableRenderable = world.getComponent(table.entityId, RenderableComponent);
+    if (tableRenderable) tableRenderable.castShadow = false;
+    scene.add(table);
+    this.clothNode = table;
+  }
+
+  private hideStudioCloth(): void {
+    const scene = this.sceneRef;
+    if (!scene || !this.clothNode) return;
+    scene.remove(this.clothNode);
+    this.clothNode = null;
+  }
+
   public override updateTime(_h: number): void {
-    // Keep ChessSun + HDR cubemap; Lit ToD would overwrite both.
+    // Keep ChessSun. Lit ToD would overwrite it.
   }
 
   public override update(_deltaTime: number, _totalTime: number): void {
@@ -989,6 +1264,7 @@ export class ChessDemoProject extends LitAbstractProject {
     const engine = this.chessEngine;
     if (!world || !engine) return;
     this.tuneGameCamera(world, engine);
+    this.syncCoachCutouts(world);
 
     if (!isEditorPlaySimulationAllowed()) {
       this.cancelActiveGrab(world);
@@ -1003,8 +1279,10 @@ export class ChessDemoProject extends LitAbstractProject {
 
     this.keepPiecesUpright(world);
     this.stepFlights(world, _deltaTime);
+    if (this.graphicsBench) this.tickGraphicsBench(world, _deltaTime);
     this.tickBookSpline(world, _totalTime);
     this.tickCameraJuice(_deltaTime, engine);
+    this.tickCameraArrival(_deltaTime, engine);
     this.tickClocks(_deltaTime);
     if (this.modePickerOpen) return;
     this.pumpCpu();
@@ -1044,7 +1322,31 @@ export class ChessDemoProject extends LitAbstractProject {
     }
   }
 
-  private aimGameCamera(world: World, engine: IEngineContext): void {
+ /** Game camera during a match. The review keeps whichever frame the bar last chose. */
+  private aimActiveCamera(world: World, engine: IEngineContext): void {
+    this.aimChessCamera(world, engine, this.reviewing ? chessReviewFrame() : 'game');
+  }
+
+  /**
+   * Places the game camera on a review pose and keeps the orbit controller there.
+   * @param frame - Game camera or the wider room frame.
+   */
+  private aimChessCamera(world: World, engine: IEngineContext, frame: ChessReviewFrame): void {
+    const pose = CHESS_REVIEW_POSES[frame];
+    this.placeChessCamera(world, engine, pose.eye, pose.target);
+  }
+
+  /**
+   * Puts the orbit camera on an eye and a look-at.
+   * @param eye - Camera position in metres.
+   * @param look - Point the camera looks at, in metres.
+   */
+  private placeChessCamera(
+    world: World,
+    engine: IEngineContext,
+    eye: readonly [number, number, number],
+    look: readonly [number, number, number]
+  ): void {
     const id = engine.getGameCameraEntityId();
     if (id === null) return;
     const transform = world.getComponent(id, TransformComponent);
@@ -1060,15 +1362,63 @@ export class ChessDemoProject extends LitAbstractProject {
     if (surface.width > 0 && surface.height > 0) {
       camera.aspect = surface.width / surface.height;
     }
+    const eyeVec = vec3.fromValues(eye[0], eye[1], eye[2]);
+    const target = vec3.fromValues(look[0], look[1], look[2]);
     const view = mat4.create();
     const worldMat = mat4.create();
-    mat4.lookAt(view, GAME_CAM_EYE, GAME_CAM_TARGET, [0, 1, 0]);
+    mat4.lookAt(view, eyeVec, target, [0, 1, 0]);
     mat4.invert(worldMat, view);
-    vec3.copy(transform.position, GAME_CAM_EYE);
+    vec3.copy(transform.position, eyeVec);
     mat4.getRotation(transform.rotation, worldMat);
     transform.updateLocalTransform();
     mat4.copy(transform.worldTransform, transform.localTransform);
     mat4.copy(camera.viewMatrix, view);
+    const orbit = this.cameraControllers?.getActiveController();
+    if (orbit instanceof OrbitalCameraController) {
+      orbit.setTarget(target);
+      orbit.setPosition(eyeVec);
+    }
+  }
+
+  /**
+   * Starts the room's fly-in.
+   * @param fromReview - True when the review bar asks to replay it. A match start stays put in the review.
+   */
+  private beginCameraArrival(fromReview = false): void {
+    if (this.reviewing && !fromReview) return;
+    const world = this.world;
+    const engine = this.chessEngine;
+    if (!world || !engine) return;
+    this.cameraArrival = { elapsed: 0 };
+    this.camJuice = null;
+    const pose = chessCameraArrivalPose(getChessAmbiance(), 0);
+    this.placeChessCamera(world, engine, pose.eye, pose.look);
+  }
+
+  private tickCameraArrival(dt: number, engine: EngineWithInput): void {
+    const arrival = this.cameraArrival;
+    const world = this.world;
+    if (!arrival || !world) return;
+    const input = engine.inputManager;
+    const skipped =
+      input?.isActionPressed('cameraRotate') ||
+      input?.isActionPressed('cameraPan') ||
+      (input?.getAxis('cameraZoom') ?? 0) !== 0 ||
+      input?.isActionJustPressed('select');
+    if (skipped) {
+      this.cameraArrival = null;
+      this.aimChessCamera(world, engine, 'game');
+      return;
+    }
+    const move = chessCameraArrival(getChessAmbiance());
+    arrival.elapsed += dt;
+    const unit = Math.min(1, arrival.elapsed / move.duration);
+    const pose = chessCameraArrivalPose(getChessAmbiance(), unit);
+    this.placeChessCamera(world, engine, pose.eye, pose.look);
+    if (unit >= 1) {
+      this.cameraArrival = null;
+      if (this.reviewing) setChessReviewFrame('game');
+    }
   }
 
   private spawnPiece(
@@ -1083,7 +1433,7 @@ export class ChessDemoProject extends LitAbstractProject {
     const mat = hd?.material ?? (color === 'white' ? this.marbleMat : this.steelMat);
     if (!mesh || !mat) return null;
     const node = new SceneNode(`Chess-${color}-${role}-${square}`, world, mesh, mat);
-    const pos = squareToWorld(square, CHESS_BOARD_SURFACE_Y);
+    const pos = squareToWorld(square, this.playingY(CHESS_BOARD_SURFACE_Y));
     const t = world.getComponent(node.entityId, TransformComponent);
     if (t) {
       vec3.copy(t.position, pos);
@@ -1134,13 +1484,14 @@ export class ChessDemoProject extends LitAbstractProject {
     this.errorCutoutMat = createChessCutoutMaterial(resourceManager, 'ChessCutout-error', coachErrorColor());
     const mesh = PrimitiveFactory.createPlane(CHESS_SQUARE_SIZE * 1.02);
     resourceManager.uploadMesh(mesh);
+    const legalGlow = chessMoveGlowRecipe('ChessLegalSquare');
     const mat = createChessMoveGlowMaterial(
       resourceManager,
       pbrGraph,
       neon,
-      'ChessLegalSquare',
-      [0.28, 1, 0.42],
-      [2.2, 22, 4]
+      legalGlow.name,
+      legalGlow.tint,
+      legalGlow.emissive
     );
     this.overlayNodes = [];
     for (let i = 0; i < LEGAL_OVERLAY_COUNT; i++) {
@@ -1156,29 +1507,32 @@ export class ChessDemoProject extends LitAbstractProject {
 
     const hoverMesh = PrimitiveFactory.createPlane(CHESS_SQUARE_SIZE * 1.02);
     resourceManager.uploadMesh(hoverMesh);
+    const hoverLegal = chessMoveGlowRecipe('ChessDropHoverLegal');
     this.hoverLegalMat = createChessMoveGlowMaterial(
       resourceManager,
       pbrGraph,
       neon,
-      'ChessDropHoverLegal',
-      [1, 0.86, 0.22],
-      [18, 14, 1.8]
+      hoverLegal.name,
+      hoverLegal.tint,
+      hoverLegal.emissive
     );
+    const hoverHome = chessMoveGlowRecipe('ChessDropHoverHome');
     this.hoverHomeMat = createChessMoveGlowMaterial(
       resourceManager,
       pbrGraph,
       neon,
-      'ChessDropHoverHome',
-      [0.72, 0.88, 1],
-      [5, 10, 24]
+      hoverHome.name,
+      hoverHome.tint,
+      hoverHome.emissive
     );
+    const hoverIllegal = chessMoveGlowRecipe('ChessDropHoverIllegal');
     this.hoverIllegalMat = createChessMoveGlowMaterial(
       resourceManager,
       pbrGraph,
       neon,
-      'ChessDropHoverIllegal',
-      [1, 0.22, 0.18],
-      [32, 4.5, 2]
+      hoverIllegal.name,
+      hoverIllegal.tint,
+      hoverIllegal.emissive
     );
     this.hoverNode = new SceneNode('ChessDropHover', world, hoverMesh, this.hoverLegalMat);
     const hoverRenderable = world.getComponent(this.hoverNode.entityId, RenderableComponent);
@@ -1200,13 +1554,14 @@ export class ChessDemoProject extends LitAbstractProject {
       const neon = await loadChessMoveGlowTexture(device, resourceManager);
       const mesh = PrimitiveFactory.createPlane(CHESS_SQUARE_SIZE * 0.28);
       resourceManager.uploadMesh(mesh);
+      const splineGlow = chessMoveGlowRecipe('ChessBookSpline');
       const mat = createChessMoveGlowMaterial(
         resourceManager,
         pbrGraph,
         neon,
-        'ChessBookSpline',
-        [0.35, 0.92, 1],
-        [4, 16, 22]
+        splineGlow.name,
+        splineGlow.tint,
+        splineGlow.emissive
       );
       this.splineNodes = [];
       for (let i = 0; i < SPLINE_OVERLAY_COUNT; i++) {
@@ -1221,13 +1576,14 @@ export class ChessDemoProject extends LitAbstractProject {
       }
       const headMesh = PrimitiveFactory.createPlane(CHESS_SQUARE_SIZE * 0.38);
       resourceManager.uploadMesh(headMesh);
+      const headGlow = chessMoveGlowRecipe('ChessBookSplineHead');
       const headMat = createChessMoveGlowMaterial(
         resourceManager,
         pbrGraph,
         neon,
-        'ChessBookSplineHead',
-        [1, 0.95, 0.55],
-        [22, 18, 4]
+        headGlow.name,
+        headGlow.tint,
+        headGlow.emissive
       );
       this.splineHead = new SceneNode('ChessBookSplineHead', world, headMesh, headMat);
       const headR = world.getComponent(this.splineHead.entityId, RenderableComponent);
@@ -1276,7 +1632,7 @@ export class ChessDemoProject extends LitAbstractProject {
       const t = world.getComponent(node.entityId, TransformComponent);
       const decal = world.getComponent(node.entityId, DecalComponent);
       if (!t || !decal || !pose) continue;
-      vec3.set(t.position, pose.x, pose.y, pose.z);
+      vec3.set(t.position, pose.x, pose.y + this.boardLift, pose.z);
       chessBoardLabelQuat(pose, t.rotation);
       t.updateLocalTransform();
       mat4.copy(t.worldTransform, t.localTransform);
@@ -1306,7 +1662,7 @@ export class ChessDemoProject extends LitAbstractProject {
         renderable.visible = false;
         continue;
       }
-      const p = squareToWorld(square, LEGAL_OVERLAY_Y);
+      const p = squareToWorld(square, this.playingY(LEGAL_OVERLAY_Y));
       vec3.copy(t.position, p);
       this.bakeOverlayTransform(t);
       renderable.visible = true;
@@ -1330,7 +1686,7 @@ export class ChessDemoProject extends LitAbstractProject {
     } else if (this.hoverIllegalMat) {
       renderable.material = this.hoverIllegalMat;
     }
-    const p = squareToWorld(square, DROP_HOVER_Y);
+    const p = squareToWorld(square, this.playingY(DROP_HOVER_Y));
     vec3.copy(t.position, p);
     this.bakeOverlayTransform(t);
     renderable.visible = true;
@@ -1384,6 +1740,8 @@ export class ChessDemoProject extends LitAbstractProject {
       sideToMove: side,
       cpuThinking: (mode === 'cpu' || mode === 'training') && this.cpuBusy,
       p2pStatus: mode === 'p2p' ? this.p2pStatus : null,
+      onlineReady: this.onlineReady,
+      onlineRefused: this.onlineRefused,
       clocks: { whiteSeconds: this.clockWhite, blackSeconds: this.clockBlack },
       flag: this.clockFlag,
       session: this.currentSession(),
@@ -1447,6 +1805,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.pendingSfx = null;
     this.pendingPromotion = null;
     this.camJuice = null;
+    this.cameraArrival = null;
     this.setLegalOverlays(world, []);
     this.setDropHover(world, null);
     this.hideBookSpline(world);
@@ -1602,12 +1961,18 @@ export class ChessDemoProject extends LitAbstractProject {
       localColor: this.localColor,
       eco: this.learnEco,
       quiz: this.learnQuiz,
+      ...(this.roomId ? { room: this.roomId } : {}),
+      ...(this.onlineSeat ? { seat: this.onlineSeat } : {}),
     };
   }
 
   private applySession(query: ChessDemoQuery, table?: SavedShellMode): void {
     const world = this.world;
     if (!world) return;
+    this.roomId = query.room ?? '';
+    this.onlineSeat = query.seat ?? null;
+    this.onlineReady = false;
+    this.onlineRefused = false;
     if (table) this.tableKind = table;
     else if (query.mode === 'cpu' || query.mode === 'hotseat' || query.mode === 'learn') {
       this.tableKind = query.mode;
@@ -1650,6 +2015,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.spawnMatchPieces(world);
     this.syncFileRankLabels(world);
     this.boardReady = true;
+    this.beginCameraArrival();
     this.bindP2p();
     this.pendingP2pBytes = null;
     this.emitHud();
@@ -1686,6 +2052,7 @@ export class ChessDemoProject extends LitAbstractProject {
     }
     this.spawnMatchPieces(world);
     this.syncFileRankLabels(world);
+    this.beginCameraArrival();
     this.emitHud();
     if (broadcast && this.playMode === 'p2p') {
       this.broadcastWire({ v: 1, t: 'reset', fen: this.match.fen() });
@@ -1799,7 +2166,7 @@ export class ChessDemoProject extends LitAbstractProject {
         }
         const transform = world.getComponent(node.entityId, TransformComponent);
         if (transform) {
-          const pos = squareToWorld(step.to, CHESS_BOARD_SURFACE_Y + 0.012);
+          const pos = squareToWorld(step.to, this.playingY(CHESS_BOARD_SURFACE_Y + 0.012));
           vec3.copy(transform.position, pos);
           quat.identity(transform.rotation);
           vec3.set(transform.scale, 1, 1, 1);
@@ -1840,6 +2207,20 @@ export class ChessDemoProject extends LitAbstractProject {
     }
   }
 
+  /**
+   * Eye of the camera that is looking. The orbit writes it on the camera entity.
+   * Falls back to the game pose before that entity exists.
+   */
+  private coachViewEye(world: World): readonly [number, number, number] {
+    const id = this.chessEngine?.getGameCameraEntityId() ?? null;
+    if (id === null) return CHESS_REVIEW_POSES.game.eye;
+    const transform = world.getComponent(id, TransformComponent);
+    if (!transform) return CHESS_REVIEW_POSES.game.eye;
+    const eye = transform.position;
+    if (eye[0] === 0 && eye[1] === 0 && eye[2] === 0) return CHESS_REVIEW_POSES.game.eye;
+    return [eye[0], eye[1], eye[2]];
+  }
+
   private placeCoachCutout(
     world: World,
     scene: SceneNode,
@@ -1875,7 +2256,7 @@ export class ChessDemoProject extends LitAbstractProject {
     if (!transform) return;
     const biased = coachMaskPosition(
       [hostTransform.position[0], hostTransform.position[1], hostTransform.position[2]],
-      GAME_CAM_EYE
+      this.coachViewEye(world)
     );
     vec3.set(transform.position, biased[0], biased[1], biased[2]);
     quat.copy(transform.rotation, hostTransform.rotation);
@@ -1990,7 +2371,7 @@ export class ChessDemoProject extends LitAbstractProject {
     if (!piece || piece.color !== this.match.sideToMove()) return;
     if (this.cpuBusy || this.motionBusy) return;
     if (this.playMode !== 'hotseat' && piece.color !== this.localColor) return;
-    const grabY = CHESS_BOARD_SURFACE_Y + CHESS_GRAB_LIFT_M + 0.04;
+    const grabY = this.playingY(CHESS_BOARD_SURFACE_Y + CHESS_GRAB_LIFT_M + 0.04);
     if (!this.grab.begin(world, hit.entity, hit.point, grabY)) return;
     this.grabFrom = from;
     void this.armAudio();
@@ -2008,7 +2389,7 @@ export class ChessDemoProject extends LitAbstractProject {
       world,
       engine,
       input,
-      this.grab.grabbed?.grabHeightY ?? CHESS_BOARD_SURFACE_Y + CHESS_GRAB_LIFT_M
+      this.grab.grabbed?.grabHeightY ?? this.playingY(CHESS_BOARD_SURFACE_Y + CHESS_GRAB_LIFT_M)
     );
     if (!p) return;
     this.grab.updateWorldAnchor(world, p[0]!, p[2]!, dt);
@@ -2081,7 +2462,13 @@ export class ChessDemoProject extends LitAbstractProject {
       const slot = assignCemeterySlot(capturedColor, this.cemeteryCount[capturedColor]++);
       const fromPos = this.entityWorldPos(world, capturedEntity);
       this.disablePieceGrab(world, capturedEntity);
-      this.queueFlight(capturedEntity, fromPos, [slot.x, slot.y, slot.z], 0.16, CEMETERY_TRAVEL_S);
+      this.queueFlight(
+        capturedEntity,
+        fromPos,
+        [slot.x, this.playingY(slot.y), slot.z],
+        0.16,
+        CEMETERY_TRAVEL_S
+      );
     } else if (capturedSquare) {
       this.removePieceAt(world, capturedSquare);
     }
@@ -2090,7 +2477,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.squareByEntity.set(entity, to);
     if (animateMover) {
       const fromPos = this.entityWorldPos(world, entity);
-      const dest = squareToWorld(to, CHESS_BOARD_SURFACE_Y);
+      const dest = squareToWorld(to, this.playingY(CHESS_BOARD_SURFACE_Y));
       this.queueFlight(entity, fromPos, [dest[0]!, dest[1]!, dest[2]!], 0, PIECE_TRAVEL_S);
     } else {
       this.snapEntityToSquare(world, entity, to);
@@ -2103,7 +2490,7 @@ export class ChessDemoProject extends LitAbstractProject {
         this.squareByEntity.set(rook, castle.rookTo);
         if (animateMover) {
           const fromPos = this.entityWorldPos(world, rook);
-          const dest = squareToWorld(castle.rookTo, CHESS_BOARD_SURFACE_Y);
+          const dest = squareToWorld(castle.rookTo, this.playingY(CHESS_BOARD_SURFACE_Y));
           this.queueFlight(rook, fromPos, [dest[0]!, dest[1]!, dest[2]!], 0, PIECE_TRAVEL_S);
         } else {
           this.snapEntityToSquare(world, rook, castle.rookTo);
@@ -2120,7 +2507,15 @@ export class ChessDemoProject extends LitAbstractProject {
       }
     }
     if (broadcast && this.playMode === 'p2p') {
-      this.broadcastWire({ v: 1, t: 'move', from, to, fen: this.match.fen() });
+      this.broadcastWire({
+        v: 1,
+        t: 'move',
+        from,
+        to,
+        fen: this.match.fen(),
+        whiteSeconds: this.clockWhite,
+        blackSeconds: this.clockBlack,
+      });
     }
     const cue = chessTableSfxForPly({
       captured: Boolean(capturedSquare),
@@ -2142,7 +2537,7 @@ export class ChessDemoProject extends LitAbstractProject {
     const body = world.getComponent(entity, RigidBodyComponent);
     const piece = world.getComponent(entity, ChessPieceComponent);
     if (!t) return;
-    const p = squareToWorld(square, CHESS_BOARD_SURFACE_Y);
+    const p = squareToWorld(square, this.playingY(CHESS_BOARD_SURFACE_Y));
     vec3.copy(t.position, p);
     quat.identity(t.rotation);
     t.updateLocalTransform();
@@ -2191,7 +2586,12 @@ export class ChessDemoProject extends LitAbstractProject {
       dt,
       {
         covered: this.modePickerOpen || this.playMode === 'learn' || this.trainingHeld || this.gameOver(),
-        awaitingPeer: this.playMode === 'p2p' && this.p2pStatus !== 'connected',
+        awaitingPeer: peerClockWaiting({
+          peerGame: this.playMode === 'p2p',
+          online: this.tableKind === 'online',
+          seatsReady: this.onlineReady,
+          linkConnected: this.p2pStatus === 'connected',
+        }),
         clockOff: this.playMode === 'training' && !this.trainingClock,
       }
     );
@@ -2302,21 +2702,33 @@ export class ChessDemoProject extends LitAbstractProject {
   }
 
   private bindP2p(): void {
+    this.clearGuestWait();
     this.p2p?.closeAll();
     this.p2p = null;
     this.p2pStatus = 'waiting';
-    if (this.playMode !== 'p2p' || typeof BroadcastChannel === 'undefined') return;
+    if (this.playMode !== 'p2p') return;
     const localPeerId =
       typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID()
         : `chess-${Math.random().toString(36).slice(2, 10)}`;
-    const transport = new BroadcastChannelTransport({
-      localPeerId,
-      channelName: CHESS_P2P_CHANNEL,
-    });
+    const online = this.tableKind === 'online';
+    if (online && !this.roomId) return;
+    if (!online && typeof BroadcastChannel === 'undefined') return;
+    const transport = online
+      ? new WebSocketRelayTransport({
+          localPeerId,
+          serverUrl: chessRelayUrl(import.meta.env.VITE_CHESS_RELAY_URL),
+          roomId: this.roomId,
+        })
+      : new BroadcastChannelTransport({
+          localPeerId,
+          channelName: CHESS_P2P_CHANNEL,
+        });
     transport.setStateHandler((_peer, state) => {
       this.p2pStatus = normalizeChessHudP2pStatus(state);
+      if (state === 'disconnected') this.onlineReady = false;
       if (state === 'connected' && this.boardReady) {
+        if (online) this.sendOnlineHello();
         if (this.pendingRestore) {
           this.broadcastWire({
             v: 1,
@@ -2325,14 +2737,73 @@ export class ChessDemoProject extends LitAbstractProject {
             whiteSeconds: this.clockWhite,
             blackSeconds: this.clockBlack,
           });
-        } else {
-          this.broadcastWire({ v: 1, t: 'sync', fen: this.match.fen() });
+        } else if (!online) {
+          this.broadcastWire({
+            v: 1,
+            t: 'sync',
+            fen: this.match.fen(),
+            whiteSeconds: this.clockWhite,
+            blackSeconds: this.clockBlack,
+          });
         }
       }
       this.emitHud();
     });
     transport.setMessageHandler((_peer, bytes) => this.onP2pBytes(bytes));
     this.p2p = transport;
+    if (online && this.onlineSeat === 'guest') this.armGuestWait();
+  }
+
+  private sendOnlineHello(): void {
+    if (this.onlineSeat !== 'host' && this.onlineSeat !== 'guest') return;
+    this.broadcastWire({
+      v: 1,
+      t: 'hello',
+      host: this.onlineSeat === 'host',
+      color: this.localColor,
+      fen: this.match.fen(),
+      whiteSeconds: this.clockWhite,
+      blackSeconds: this.clockBlack,
+    });
+  }
+
+  private armGuestWait(): void {
+    this.clearGuestWait();
+    const started = Date.now();
+    this.guestTimer = setTimeout(() => {
+      this.guestTimer = null;
+      if (this.onlineReady || this.onlineRefused) return;
+      if (!guestWaitExpired(started, Date.now())) return;
+      this.refuseOnlineTable();
+    }, ONLINE_GUEST_WAIT_MS);
+  }
+
+  private clearGuestWait(): void {
+    if (this.guestTimer === null) return;
+    clearTimeout(this.guestTimer);
+    this.guestTimer = null;
+  }
+
+  private refuseOnlineTable(): void {
+    this.clearGuestWait();
+    this.onlineReady = false;
+    this.onlineRefused = true;
+    this.p2p?.closeAll();
+    this.p2p = null;
+    this.p2pStatus = 'disconnected';
+    this.emitHud();
+  }
+
+  private closeOnlineTable(): void {
+    this.clearGuestWait();
+    this.onlineReady = false;
+    this.onlineRefused = false;
+    this.roomId = '';
+    this.onlineSeat = null;
+    this.p2p?.closeAll();
+    this.p2p = null;
+    this.p2pStatus = 'waiting';
+    this.emitHud();
   }
 
   private broadcastWire(message: Parameters<typeof encodeChessWire>[0]): void {
@@ -2373,28 +2844,129 @@ export class ChessDemoProject extends LitAbstractProject {
       this.rebuildFromFen(world, msg.fen);
       return;
     }
+    if (msg.t === 'hello') {
+      this.onOnlineHello(world, msg);
+      return;
+    }
     if (msg.t === 'sync') {
       const decision = decideChessFenSync(this.match.fen(), msg.fen);
       if (decision === 'ignore') return;
       if (decision === 'reply') {
-        this.broadcastWire({ v: 1, t: 'sync', fen: this.match.fen() });
+        this.broadcastWire({
+          v: 1,
+          t: 'sync',
+          fen: this.match.fen(),
+          whiteSeconds: this.clockWhite,
+          blackSeconds: this.clockBlack,
+        });
         return;
       }
+      this.applyWireClocks(msg);
       if (this.motionBusy) this.pendingFen = msg.fen;
       else this.rebuildFromFen(world, msg.fen);
       return;
     }
+    if (msg.t !== 'move') return;
     this.playProgrammaticMove(world, msg.from, msg.to);
+    this.applyWireClocks(msg);
     if (this.match.fen() !== msg.fen) {
       if (this.motionBusy) this.pendingFen = msg.fen;
       else this.rebuildFromFen(world, msg.fen);
     }
+    this.emitHud();
+  }
+
+  private onOnlineHello(
+    world: World,
+    msg: { host: boolean; color: ChessColor; fen: string; whiteSeconds: number; blackSeconds: number }
+  ): void {
+    if (this.tableKind !== 'online' || !this.onlineSeat) return;
+    const decision = decideOnlineHello(this.onlineSeat, msg.host, msg.color);
+    if (decision.kind === 'ignore') return;
+    if (decision.kind === 'refuse') {
+      this.refuseOnlineTable();
+      return;
+    }
+    if (decision.kind === 'adopt') {
+      this.localColor = decision.localColor;
+      this.applyClockState(
+        clocksFromWire('restore', { whiteSeconds: msg.whiteSeconds, blackSeconds: msg.blackSeconds })
+      );
+      if (this.match.fen() !== msg.fen) this.rebuildFromFen(world, msg.fen);
+      this.syncFileRankLabels(world);
+    }
+    this.clearGuestWait();
+    this.onlineReady = true;
+    this.onlineRefused = false;
+    this.emitHud();
+  }
+
+  private applyWireClocks(msg: { whiteSeconds?: number; blackSeconds?: number }): void {
+    if (typeof msg.whiteSeconds !== 'number' || typeof msg.blackSeconds !== 'number') return;
+    this.applyClockState(
+      clocksFromWire('restore', { whiteSeconds: msg.whiteSeconds, blackSeconds: msg.blackSeconds })
+    );
   }
 
   private entityWorldPos(world: World, entity: Entity): [number, number, number] {
     const t = world.getComponent(entity, TransformComponent);
     if (!t) return [0, CHESS_BOARD_SURFACE_Y, 0];
     return [t.position[0]!, t.position[1]!, t.position[2]!];
+  }
+
+  /** Loops a pawn on e2–e4, or holds it, while the graphics bench samples. */
+  private tickGraphicsBench(world: World, dt: number): void {
+    const mode = getGraphicsBenchMotion();
+    if (mode === 'idle') {
+      if (!this.benchMoved) return;
+      if (this.grab.grabbed) this.grab.end(world);
+      this.flights = [];
+      this.motionBusy = false;
+      if (this.benchPawn !== null) this.snapEntityToSquare(world, this.benchPawn, 'e2');
+      this.benchMoved = false;
+      this.benchTowardE4 = true;
+      this.benchDrag = 0;
+      return;
+    }
+    this.benchMoved = true;
+    if (this.benchPawn === null) this.benchPawn = this.entityBySquare.get('e2') ?? null;
+    const entity = this.benchPawn;
+    if (entity === null) return;
+    if (mode === 'flight') {
+      if (this.grab.grabbed) this.grab.end(world);
+      if (this.flights.length === 0) {
+        const to = this.benchTowardE4 ? 'e4' : 'e2';
+        this.benchTowardE4 = !this.benchTowardE4;
+        const dest = squareToWorld(to, this.playingY(CHESS_BOARD_SURFACE_Y));
+        this.queueFlight(
+          entity,
+          this.entityWorldPos(world, entity),
+          [dest[0]!, dest[1]!, dest[2]!],
+          0,
+          PIECE_TRAVEL_S
+        );
+      }
+      this.noteBenchPose(world, entity);
+      return;
+    }
+    this.flights = [];
+    this.motionBusy = false;
+    const y = this.playingY(CHESS_BOARD_SURFACE_Y) + CHESS_GRAB_LIFT_M;
+    if (!this.grab.grabbed) {
+      this.grab.begin(world, entity, this.entityWorldPos(world, entity), y);
+    }
+    this.benchDrag += dt;
+    this.grab.updateWorldAnchor(world, Math.sin(this.benchDrag * 0.7) * 0.18, 0, dt);
+    this.noteBenchPose(world, entity);
+  }
+
+  private noteBenchPose(world: World, entity: Entity): void {
+    const transform = world.getComponent(entity, TransformComponent);
+    if (!transform) return;
+    noteGraphicsBenchPose(
+      [transform.position[0]!, transform.position[1]!, transform.position[2]!],
+      [transform.rotation[0]!, transform.rotation[1]!, transform.rotation[2]!, transform.rotation[3]!]
+    );
   }
 
   private queueFlight(
@@ -2503,7 +3075,7 @@ export class ChessDemoProject extends LitAbstractProject {
         r.visible = false;
         continue;
       }
-      vec3.set(t.position, p[0], p[1], p[2]);
+      vec3.set(t.position, p[0], p[1] + this.boardLift, p[2]);
       this.bakeOverlayTransform(t);
       r.visible = true;
     }
@@ -2520,7 +3092,7 @@ export class ChessDemoProject extends LitAbstractProject {
     const ht = world.getComponent(head.entityId, TransformComponent);
     const hr = world.getComponent(head.entityId, RenderableComponent);
     if (ht && hr) {
-      vec3.set(ht.position, hx, hy + 0.001, hz);
+      vec3.set(ht.position, hx, hy + this.boardLift + 0.001, hz);
       this.bakeOverlayTransform(ht);
       hr.visible = true;
     }
@@ -2589,6 +3161,8 @@ export class ChessDemoProject extends LitAbstractProject {
     this.boardReady = false;
     this.pendingP2pBytes = null;
     this.world = null;
+    this.stopReview?.();
+    this.stopReview = null;
     this.ambience?.stop();
     this.ambience = null;
     this.audio?.dispose();
@@ -2598,6 +3172,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.p2p = null;
     this.p2pStatus = 'waiting';
     this.camJuice = null;
+    this.cameraArrival = null;
     uiBus.off(CHESS_HUD_COMMAND_EVENT, this.onHudCommand);
     if (typeof window !== 'undefined') window.removeEventListener('beforeunload', this.onPageHide);
   }

@@ -33,7 +33,8 @@ export type ChessHudCommand =
   | { type: 'training-resume' }
   | { type: 'training-undo' }
   | { type: 'training-clock'; on: boolean }
-  | { type: 'coach-ghosts'; steps: CoachGhostStep[]; horizon: number };
+  | { type: 'coach-ghosts'; steps: CoachGhostStep[]; horizon: number }
+  | { type: 'close-table' };
 
 export type ChessHudP2pStatus = 'waiting' | 'connecting' | 'connected' | 'disconnected';
 
@@ -58,6 +59,10 @@ export interface ChessHudPlayState {
   sideToMove: ChessColor;
   cpuThinking: boolean;
   p2pStatus: ChessHudP2pStatus | null;
+  /** Online seats agreed. The lobby may enter the game. */
+  onlineReady: boolean;
+  /** Online table refused: missing, full, or two hosts. */
+  onlineRefused: boolean;
   clocks: { whiteSeconds: number; blackSeconds: number };
   flag: ChessColor | null;
   session: ChessDemoQuery;
@@ -174,6 +179,8 @@ function parsePlay(raw: Record<string, unknown>): ChessHudPlayState | null {
     sideToMove,
     cpuThinking: raw.cpuThinking === true,
     p2pStatus: mode === 'p2p' ? parseP2pStatus(raw.p2pStatus) : null,
+    onlineReady: raw.onlineReady === true,
+    onlineRefused: raw.onlineRefused === true,
     clocks: {
       whiteSeconds: Math.max(0, parseFiniteNumber(clocksRaw.whiteSeconds)),
       blackSeconds: Math.max(0, parseFiniteNumber(clocksRaw.blackSeconds)),
@@ -260,6 +267,7 @@ export function parseChessHudCommand(raw: unknown): ChessHudCommand | null {
     const horizon = typeof raw.horizon === 'number' ? Math.min(5, Math.max(1, Math.floor(raw.horizon))) : 3;
     return { type: 'coach-ghosts', steps: steps.slice(0, 5), horizon };
   }
+  if (raw.type === 'close-table') return { type: 'close-table' };
   return null;
 }
 
