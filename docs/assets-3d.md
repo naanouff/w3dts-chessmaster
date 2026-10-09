@@ -86,4 +86,4 @@ La preuve que l’échelle, le yaw des noirs et les cartes des pièces n’ont p
 
 Les cinq ambiances et les props à modéliser sont dans [ambiances.md](ambiances.md). L’atelier, le salon, le club, le jardin et la terrasse ont leurs GLB Meshy dans `docs/raw_assets/`, hors git. Les cinq ambiances sont dans la scène jouable, dans Options et dans la revue (`pnpm review`).
 
-`pnpm clean:set-props` remet l’échelle de la fiche, réduit les cartes en JPEG 256, 512, 1024 et 2048, et ajoute l’émission des sources. Le résultat est `docs/raw_assets/<ambiance>/baked/<taille>/`. Pas de Draco : l’atelier, le salon et le club sont sous 6 000 sommets, le jardin et la terrasse sous 14 000.
+`pnpm clean:set-props` remet l’échelle de la fiche, réduit les cartes en JPEG 256, 512, 1024 et 2048, lisse les normales sous 60° (`MESHY_NORMAL_CREASE`) et ajoute l’émission des sources. Le résultat est `docs/raw_assets/<ambiance>/baked/<taille>/`. Pas de Draco : l’atelier, le salon et le club sont sous 6 000 sommets, le jardin et la terrasse sous 14 000.
