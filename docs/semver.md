@@ -1,8 +1,8 @@
 # Version
 
-Une seule version : le champ `version` de [`package.json`](../package.json). Elle vaut aujourd’hui `0.1.0`. Electron l’affiche avec `app.getVersion()`. L’installateur NSIS porte le même numéro dans son nom de fichier. Pas de second fichier. electron-builder ne publie pas : un publish pendant le build a déjà fait échouer l’envoi de l’exe.
+Une seule version : le champ `version` de [`package.json`](../package.json). Elle vaut aujourd’hui `0.2.0`. Electron l’affiche avec `app.getVersion()`. L’installateur NSIS porte le même numéro dans son nom de fichier. Pas de second fichier. electron-builder ne publie pas : un publish pendant le build a déjà fait échouer l’envoi de l’exe.
 
-La livraison `0.1.0` est taguée `v0.1.0` sur `main`. `develop` reste.
+La livraison `0.2.0` est taguée `v0.2.0` sur `main`, avec la note [docs/releases/0.2.0.md](releases/0.2.0.md). `develop` reste.
 
 ## Numéro
 
