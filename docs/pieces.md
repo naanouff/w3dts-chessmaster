@@ -6,7 +6,7 @@ Blancs en marbre veiné, noirs en bois sombre. Or jaune, feutre vert sous le soc
 
 Les douze pièces chargées viennent des maîtres `Print/Models/Echecs` (même GLB pour le maillage et l’atlas). Les normales sous 60° sont lissées. Le pipeline est dans [assets-3d.md](assets-3d.md).
 
-Dans la revue (`pnpm review`), Pion, Tour, Cavalier, Fou, Reine et Roi isolent ce rôle. Blanc et Noir choisissent le camp. Jeu ramène le jeu complet.
+Dans la revue (`pnpm review`), Pion, Tour, Cavalier, Fou, Reine et Roi isolent ce rôle. Sous Caméra, Blanc et Noir placent la vue et le décor de ce côté ; une pièce isolée suit le même camp. Jeu ramène le jeu complet.
 
 ## Blancs
 

@@ -134,8 +134,22 @@ export interface ReviewGrade {
   saturation: number;
 }
 
-/** Starting look of every room: exposure, contrast around mid grey, then saturation. */
-const SCENE_GRADE: ReviewGrade = { brightness: 1.25, contrast: 1.4, saturation: 0.6 };
+/** Indoor rooms: exposure, contrast around mid grey, then saturation. */
+const INDOOR_GRADE: ReviewGrade = { brightness: 1.25, contrast: 1.4, saturation: 0.6 };
+
+/**
+ * Winter terrace: brighter, flatter grade so dark pieces stay readable under the moon.
+ * Tuned in review (brightness 1.7, contrast 1.2, saturation 0.65).
+ */
+const TERRACE_GRADE: ReviewGrade = { brightness: 1.7, contrast: 1.2, saturation: 0.65 };
+
+const DEFAULT_GRADE: Record<ChessAmbianceId, ReviewGrade> = {
+  atelier: INDOOR_GRADE,
+  salon: INDOOR_GRADE,
+  club: INDOOR_GRADE,
+  jardin: INDOOR_GRADE,
+  terrasse: TERRACE_GRADE,
+};
 
 const grades = new Map<ChessAmbianceId, ReviewGrade>();
 const gradeListeners = new Set<() => void>();
@@ -146,12 +160,12 @@ function clampGrade(value: number): number {
 }
 
 /**
- * Grade stored for one room. An untouched room uses the shared scene grade.
+ * Grade stored for one room. An untouched room uses that room's default.
  * @param id - Room on screen.
  * @returns Brightness, contrast and saturation.
  */
 export function reviewGrade(id: ChessAmbianceId): ReviewGrade {
-  return grades.get(id) ?? SCENE_GRADE;
+  return grades.get(id) ?? DEFAULT_GRADE[id];
 }
 
 /**
