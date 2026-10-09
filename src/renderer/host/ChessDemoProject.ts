@@ -224,6 +224,13 @@ import {
 import { chessCameraArrival, chessCameraArrivalPose } from './chessCameraArrival';
 import { chessGameCameraPose } from './chessGameCamera';
 import {
+  configureChessOrbitDistances,
+  enforceChessOrbitLimits,
+  chessOrbitLimitsActive,
+  chessOrbitRestFromEyeLook,
+  type ChessOrbitRest,
+} from './chessOrbitLimits';
+import {
   applyChessShadowMode,
   getChessGraphicsSettings,
   subscribeChessGraphics,
@@ -240,7 +247,7 @@ import {
   sceneLifeWanted,
   subscribeSceneLife,
 } from './chessSceneLife';
-import { loadChessSet } from './spawnChessSet';
+import { applyChessSetView, loadChessSet } from './spawnChessSet';
 import { sceneLifeFloorY, spawnSceneLife } from './spawnSceneLife';
 
 /** Studio cloth plane size (must match the mesh in onInit). */
@@ -479,6 +486,8 @@ export class ChessDemoProject extends LitAbstractProject {
   } | null = null;
   /** Opening fly-in. Null once the game camera is reached, and never set in the review. */
   private cameraArrival: { elapsed: number } | null = null;
+  /** Rest pose for the player orbit (±30°, zoom band, pinned focus). */
+  private orbitRest: ChessOrbitRest | null = null;
   private audio: WebAudioService | null = null;
   private ambienceBeds = new ChessAmbienceBeds();
   private audioArmed = false;
@@ -1123,6 +1132,9 @@ export class ChessDemoProject extends LitAbstractProject {
     cameraControllerManager.setController('orbital');
     const controller = cameraControllerManager.getActiveController();
     controller?.frameBoundingBox({ min: [-half, 0, -half], max: [half, 0.2, half] });
+    if (controller instanceof OrbitalCameraController) {
+      configureChessOrbitDistances(controller);
+    }
     this.stopReview?.();
     this.stopReview = null;
     this.aimActiveCamera(world, engine);
@@ -1140,8 +1152,16 @@ export class ChessDemoProject extends LitAbstractProject {
         this.applyReviewPiece(live);
         this.aimActiveCamera(live, engine);
       };
+      const onColor = (): void => {
+        this.cameraArrival = null;
+        const live = this.world;
+        if (!live) return;
+        this.syncSetView();
+        this.applyReviewPiece(live);
+        this.aimActiveCamera(live, engine);
+      };
       const stopPiece = subscribeChessReviewPiece(onPiece);
-      const stopColor = subscribeChessReviewColor(onPiece);
+      const stopColor = subscribeChessReviewColor(onColor);
       const stopArrival = subscribeChessCameraArrival(() => {
         this.beginCameraArrival(true);
       });
@@ -1305,7 +1325,8 @@ export class ChessDemoProject extends LitAbstractProject {
       nodes = await loadChessSet(
         { device, world, resourceManager, pbrGraph },
         id,
-        getChessGraphicsSettings().textureQuality
+        getChessGraphicsSettings().textureQuality,
+        this.matchCameraColor()
       );
     } catch (e) {
       nodes = null;
@@ -1562,6 +1583,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.tickBookSpline(world, _totalTime);
     this.tickCameraJuice(_deltaTime, engine);
     this.tickCameraArrival(_deltaTime, engine);
+    this.tickOrbitLimits();
     this.tickClocks(_deltaTime);
     if (this.modePickerOpen) return;
     this.pumpCpu();
@@ -1630,18 +1652,24 @@ export class ChessDemoProject extends LitAbstractProject {
 
   /**
    * Places the game camera on a review pose and keeps the orbit controller there.
-   * Match view follows {@link localColor}; authoring review stays white-side.
+   * Match view follows {@link localColor}; authoring review follows {@link chessReviewColor}.
    * @param frame - Game camera or the wider room frame.
    */
   private aimChessCamera(world: World, engine: IEngineContext, frame: ChessReviewFrame): void {
-    const side = this.reviewing ? 'white' : this.localColor;
-    const pose = chessGameCameraPose(frame, side);
+    const pose = chessGameCameraPose(frame, this.matchCameraColor());
     this.placeChessCamera(world, engine, pose.eye, pose.target);
   }
 
-  /** Side used for match fly-ins and game framing. Review stays white. */
+  /** Side used for match fly-ins, game framing, and set culling. Review uses the bar. */
   private matchCameraColor(): ChessColor {
-    return this.reviewing ? 'white' : this.localColor;
+    return this.reviewing ? chessReviewColor() : this.localColor;
+  }
+
+  /** Shows the far set dressing and hides the band behind the game camera. */
+  private syncSetView(): void {
+    const world = this.world;
+    if (!world || this.setNodes.length === 0) return;
+    applyChessSetView(this.setNodes, world, this.matchCameraColor());
   }
 
   /**
@@ -1683,9 +1711,29 @@ export class ChessDemoProject extends LitAbstractProject {
     mat4.copy(camera.viewMatrix, view);
     const orbit = this.cameraControllers?.getActiveController();
     if (orbit instanceof OrbitalCameraController) {
+      this.orbitRest = chessOrbitRestFromEyeLook(eye, look);
       orbit.setTarget(target);
       orbit.setPosition(eyeVec);
+      configureChessOrbitDistances(orbit);
+      orbit.setOrbitAngles(this.orbitRest.azimuth, this.orbitRest.polar, true);
     }
+  }
+
+  /** Pins focus (no pan) and clamps yaw/pitch/zoom for the game framing. */
+  private tickOrbitLimits(): void {
+    const rest = this.orbitRest;
+    const orbit = this.cameraControllers?.getActiveController();
+    if (!rest || !(orbit instanceof OrbitalCameraController)) return;
+    if (
+      !chessOrbitLimitsActive({
+        arriving: this.cameraArrival !== null,
+        piece: this.reviewing ? chessReviewPiece() : null,
+        frame: this.reviewing ? chessReviewFrame() : 'game',
+      })
+    ) {
+      return;
+    }
+    enforceChessOrbitLimits(orbit, rest);
   }
 
   /**
@@ -2395,6 +2443,7 @@ export class ChessDemoProject extends LitAbstractProject {
     );
     this.spawnMatchPieces(world);
     this.syncFileRankLabels(world);
+    this.syncSetView();
     this.boardReady = true;
     if (game.shellMode === 'online') {
       this.modePickerOpen = true;
@@ -2472,6 +2521,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.flagSfxPlayed = false;
     this.spawnMatchPieces(world);
     this.syncFileRankLabels(world);
+    this.syncSetView();
     this.boardReady = true;
     this.beginCameraArrival();
     this.bindP2p();
@@ -3373,6 +3423,7 @@ export class ChessDemoProject extends LitAbstractProject {
       );
       if (this.match.fen() !== msg.fen) this.rebuildFromFen(world, msg.fen);
       this.syncFileRankLabels(world);
+      this.syncSetView();
       if (this.chessEngine) this.aimChessCamera(world, this.chessEngine, 'game');
     }
     this.clearGuestWait();

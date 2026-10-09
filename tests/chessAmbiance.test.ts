@@ -206,25 +206,31 @@ describe('chess ambiance', () => {
 
   it('copies the review lights', () => {
     const atelier = chessSetPunctualLights('atelier');
-    expect(atelier.map((light) => light.kind)).toEqual(['spot', 'spot']);
-    expect(atelier[0]?.outerAngle).toBeGreaterThan(0.25);
+    // Softbox + camera fills only — no overhead key or sun on the atelier.
+    expect(atelier.map((light) => light.kind)).toEqual(['spot', 'spot', 'spot']);
+    expect(atelier[0]?.outerAngle).toBeGreaterThan(0.2);
     expect(atelier[0]?.outerAngle).toBeLessThan(0.4);
+    expect(atelier[1]?.position[2]).toBeCloseTo(-1.15);
+    expect(atelier[2]?.position[2]).toBeCloseTo(1.25);
+    expect(atelier[0]?.position[2]).toBeGreaterThan(1.4);
+    expect(atelier[0]?.intensity ?? 99).toBeLessThan(2.2);
+    expect(atelier[2]?.intensity ?? 99).toBeLessThan(atelier[1]?.intensity ?? 0);
+    expect(atelier[2]?.intensity ?? 99).toBeLessThan(0.5);
     const salon = chessSetPunctualLights('salon');
     expect(salon.map((light) => light.kind)).toEqual(['spot', 'spot', 'point']);
     expect(salon.find((light) => light.kind === 'point')?.fromFloor).toBe(0.42);
     const club = chessSetPunctualLights('club');
     expect(club.map((light) => light.kind)).toEqual(['spot', 'point', 'point', 'spot']);
-    expect(chessSetSunIntensity('atelier', false)).toBe(0.36);
+    expect(chessSetSunIntensity('atelier', false)).toBe(0);
     expect(chessSetSunIntensity('salon', false)).toBe(0.04);
     expect(chessSetSunIntensity('club', false)).toBe(0);
-    expect(chessSetLook('atelier').sunPos).toEqual([1.6, 6.5, -0.4]);
+    expect(chessSetLook('atelier').sunPos).toBeNull();
     expect(chessSetLook('club').sunPos).toBeNull();
   });
 
   it('lets each room key cast the contact shadow', () => {
     const atelier = chessSetPunctualLights('atelier');
-    expect(atelier[0]?.cast).toBe(false);
-    expect(atelier[1]?.cast).toBe(true);
+    expect(atelier.every((light) => light.cast === false)).toBe(true);
     const salon = chessSetPunctualLights('salon');
     expect(salon[0]?.cast).toBe(true);
     expect(salon[1]?.cast).toBe(false);
@@ -247,7 +253,9 @@ describe('chess ambiance', () => {
     const floorY: Record<string, number> = { atelier: -0.8, salon: -0.67, club: -0.95 };
     for (const id of CHESS_AMBIANCES) {
       const exposure = chessBoardExposure(id, floorY[id] ?? -0.8);
-      expect(exposure).toBeGreaterThan(0.3);
+      // Atelier has no sun or overhead key; ambient carries the room, spots stay soft.
+      const floor = id === 'atelier' ? 0.1 : 0.3;
+      expect(exposure).toBeGreaterThan(floor);
       expect(exposure).toBeLessThan(0.9);
     }
   });
@@ -288,7 +296,9 @@ describe('chess ambiance', () => {
   it('dims the sun with the room only after the cloth is gone', () => {
     expect(chessSetSunIntensity('salon', true)).toBe(chessSetSunIntensity('atelier', true));
     expect(chessSetSunIntensity('club', false)).toBeLessThan(chessSetSunIntensity('salon', false));
-    expect(chessSetSunIntensity('salon', false)).toBeLessThan(chessSetSunIntensity('atelier', false));
+    // Atelier has no directional sun; salon keeps a dim one after the cloth leaves.
+    expect(chessSetSunIntensity('atelier', false)).toBe(0);
+    expect(chessSetSunIntensity('salon', false)).toBeGreaterThan(0);
   });
 });
 
@@ -441,7 +451,8 @@ describe('garden review', () => {
     expect(Math.max(...tiles.map((tile) => tile.z ?? 0))).toBeGreaterThan(4);
     expect(chessSetShell('terrasse').pergola).toBe(false);
     expect(chessSetShell('terrasse').floorWidth).toBeLessThan(8);
-    expect(chessSetLook('terrasse').ambient).toBeGreaterThan(0.7);
+    expect(chessSetLook('terrasse').ambient).toBeGreaterThan(1);
+    expect(chessSetLook('terrasse').ambient).toBeLessThan(1.4);
     const shadow = terraceShadowBox();
     expect(shadow.max[0]).toBeGreaterThan(2.6);
     expect(shadow.max[0]).toBeLessThan(4);

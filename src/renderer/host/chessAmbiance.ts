@@ -9,6 +9,7 @@ import {
   CHESS_BOARD_BEVEL_M,
   CHESS_BOARD_BODY_HEIGHT,
 } from '../../chess/board/chessBoard';
+import type { ChessColor } from '../../chess/rules/chessTypes';
 import { gardenStagePlacements } from './gardenStage';
 import { terraceStagePlacements, skyMoonDirection, TERRACE_SKY_HOUR } from './terraceStage';
 
@@ -52,8 +53,8 @@ export interface ChessSetLook {
 const LOOKS: Record<ChessAmbianceId, ChessSetLook> = {
   atelier: {
     id: 'atelier',
-    sun: 0.36,
-    sunPos: [1.6, 6.5, -0.4],
+    sun: 0,
+    sunPos: null,
     ambient: 3.5,
     thumb: '/ambiances/atelier-kontrast.png',
   },
@@ -88,7 +89,7 @@ const LOOKS: Record<ChessAmbianceId, ChessSetLook> = {
       terraceMoon[2] * TERRACE_MOON_REACH,
     ],
     sunColor: [0.42, 0.55, 0.98],
-    ambient: 0.9,
+    ambient: 1.15,
     thumb: '/ambiances/terrasse-hiver.jpg',
   },
 };
@@ -279,21 +280,37 @@ const LIGHTS: Record<ChessAmbianceId, readonly ChessSetLight[]> = {
     {
       type: 'rect',
       color: 0xfff7f0,
-      intensity: 5,
+      intensity: 1.9,
       width: 0.7,
       height: 1.05,
-      position: [1.35, 0.85, 0.4],
-      target: [0, 0.15, 0],
+      // Off to +Z and dim: black-side game camera looks toward this softbox.
+      position: [1.45, 1.05, 1.55],
+      target: [0, 0.1, 0.2],
     },
     {
       type: 'spot',
       color: 0xfff4ea,
-      intensity: 7.2,
-      distance: 6,
-      angle: 0.45,
-      penumbra: 0.65,
-      position: [-1.15, 1.4, 0.05],
-      target: [0.1, 0.05, 0],
+      intensity: 1.6,
+      distance: 4,
+      angle: 0.95,
+      penumbra: 0.7,
+      // Behind the white-side game camera (faces the player sees when playing white).
+      position: [0, 0.95, -1.15],
+      target: [0, 0.05, 0],
+      cast: false,
+    },
+    {
+      type: 'spot',
+      color: 0xfff4ea,
+      intensity: 0.35,
+      distance: 4,
+      angle: 0.95,
+      penumbra: 0.7,
+      // Behind the black-side game camera after the Z mirror. Kept very soft: the softbox
+      // already sits on +Z and would otherwise bleach the near ranks and specular board.
+      position: [0, 0.95, 1.25],
+      target: [0, 0.05, 0],
+      cast: false,
     },
   ],
   salon: [
@@ -514,12 +531,103 @@ export function chessSetPlacements(id: ChessAmbianceId): readonly ChessSetPlacem
 }
 
 /**
+ * Which camera band a prop dresses. Shared stays for white and black.
+ * Backdrop beyond {@link VIEW_BACKDROP_Z} on +Z is mirrored to −Z for black.
+ */
+export type ChessSetViewSide = 'shared' | 'plusZ' | 'minusZ';
+
+/** |z| at or above this is a one-sided backdrop (metres). */
+const VIEW_BACKDROP_Z = 1;
+
+/**
+ * Classifies a placement for white (+Z far) or black (−Z far) game cameras.
+ * Lateral props (|x| > |z|) and near-board props stay shared.
+ */
+export function chessSetPlacementViewSide(spec: ChessSetPlacement): ChessSetViewSide {
+  const z = spec.z ?? 0;
+  const x = spec.x ?? 0;
+  if (Math.abs(z) < VIEW_BACKDROP_Z) return 'shared';
+  if (Math.abs(x) > Math.abs(z)) return 'shared';
+  return z > 0 ? 'plusZ' : 'minusZ';
+}
+
+/**
+ * Z-mirror of a placement, yaw turned to face the other way.
+ */
+export function mirrorChessSetPlacement(spec: ChessSetPlacement): ChessSetPlacement {
+  return {
+    ...spec,
+    z: -(spec.z ?? 0),
+    yaw: (spec.yaw ?? 0) + Math.PI,
+  };
+}
+
+/**
+ * Authoring placements plus a Z-mirror of each +Z backdrop prop.
+ * Floor tiles are not doubled.
+ */
+export function chessSetPlacementsBothSides(id: ChessAmbianceId): readonly ChessSetPlacement[] {
+  const out: ChessSetPlacement[] = [];
+  for (const spec of chessSetPlacements(id)) {
+    out.push(spec);
+    if (spec.file === 'dalle') continue;
+    if (chessSetPlacementViewSide(spec) === 'plusZ') out.push(mirrorChessSetPlacement(spec));
+  }
+  return out;
+}
+
+/**
+ * Whether a view band is drawn for the local player.
+ * White looks toward +Z; black toward −Z — the band behind the camera is hidden.
+ */
+export function chessSetViewSideVisible(side: ChessSetViewSide, localColor: ChessColor): boolean {
+  if (side === 'shared') return true;
+  return localColor === 'white' ? side === 'plusZ' : side === 'minusZ';
+}
+
+/** Tags a set node name with its view band for later visibility. */
+export function tagChessSetNodeName(base: string, side: ChessSetViewSide): string {
+  return `${base}@${side}`;
+}
+
+/** Reads the view band suffix from a set node name. Missing suffix means shared. */
+export function chessSetViewSideFromNodeName(name: string): ChessSetViewSide {
+  if (name.endsWith('@plusZ')) return 'plusZ';
+  if (name.endsWith('@minusZ')) return 'minusZ';
+  return 'shared';
+}
+
+/** View band from a world Z (coves, procedural cubes). */
+export function chessSetViewSideFromZ(z: number): ChessSetViewSide {
+  if (Math.abs(z) < VIEW_BACKDROP_Z) return 'shared';
+  return z > 0 ? 'plusZ' : 'minusZ';
+}
+
+/**
  * Floor, room, cove, and whether the glass table is drawn in code.
  * @param id - Room id.
  * @returns The procedural shell around the props.
  */
 export function chessSetShell(id: ChessAmbianceId): ChessSetShell {
   return SHELLS[id];
+}
+
+/** World Z and yaw for one procedural cove instance. */
+export type ChessSetCovePose = { z: number; yaw: number };
+
+/**
+ * Cove instances so both game cameras (white −Z, black +Z) have a backdrop.
+ * Empty when the room has no cove.
+ * @param cove - Shell cove, or null.
+ */
+export function chessSetCovePoses(
+  cove: ChessSetShell['cove']
+): readonly ChessSetCovePose[] {
+  if (!cove) return [];
+  return [
+    { z: cove.zFront, yaw: 0 },
+    { z: -cove.zFront, yaw: Math.PI },
+  ];
 }
 
 /** One local cubemap. The box is its influence. `radius` is unused while the box is set. */

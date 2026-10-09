@@ -25,13 +25,20 @@ import { quat, vec3 } from 'gl-matrix';
 import type { ChessTextureQuality } from '../graphics/chessGraphicsSettings';
 import {
   chessGlassTop,
-  chessSetPlacements,
+  chessSetCovePoses,
+  chessSetPlacementViewSide,
+  chessSetPlacementsBothSides,
   chessSetPunctualLights,
   chessSetShell,
+  chessSetViewSideFromNodeName,
+  chessSetViewSideFromZ,
+  chessSetViewSideVisible,
+  tagChessSetNodeName,
   type ChessAmbianceId,
   type ChessPunctualLight,
   type ChessSetPlacement,
 } from './chessAmbiance';
+import type { ChessColor } from '../../chess/rules/chessTypes';
 import { gardenPergolaPieces } from './gardenStage';
 import {
   cycloramaMesh,
@@ -59,12 +66,14 @@ export interface ChessSetHost {
  * @param host - Device, world, and the PBR graph.
  * @param id - Room to build.
  * @param quality - Options texture tier. Props resolve their bake size from scene density.
+ * @param localColor - Which backdrop band stays visible (white → +Z, black → −Z).
  * @returns Nodes, or null when a required GLB is missing.
  */
 export async function loadChessSet(
   host: ChessSetHost,
   id: ChessAmbianceId,
-  quality: ChessTextureQuality
+  quality: ChessTextureQuality,
+  localColor: ChessColor = 'white'
 ): Promise<SceneNode[] | null> {
   const buffers = await fetchChessSetBuffers(id, quality, async (url) => {
     const response = await fetch(url);
@@ -72,7 +81,23 @@ export async function loadChessSet(
     return response.arrayBuffer();
   });
   if (!buffers) return null;
-  return buildChessSet(host, id, buffers);
+  const nodes = await buildChessSet(host, id, buffers);
+  applyChessSetView(nodes, host.world, localColor);
+  return nodes;
+}
+
+/**
+ * Shows the far backdrop for the local player and hides the band behind the camera.
+ * @param nodes - Set nodes tagged with `@plusZ` / `@minusZ` / shared.
+ * @param world - World that owns the renderables.
+ * @param localColor - Side the local client plays.
+ */
+export function applyChessSetView(nodes: readonly SceneNode[], world: World, localColor: ChessColor): void {
+  for (const node of nodes) {
+    const side = chessSetViewSideFromNodeName(node.name);
+    const renderable = world.getComponent(node.entityId, RenderableComponent);
+    if (renderable) renderable.visible = chessSetViewSideVisible(side, localColor);
+  }
 }
 
 async function buildChessSet(
@@ -91,7 +116,8 @@ async function buildChessSet(
   }
 
   const materials = new Map<string, Material>();
-  for (const spec of chessSetPlacements(id)) {
+  const placements = chessSetPlacementsBothSides(id);
+  for (const spec of placements) {
     const data = parsed.get(spec.file);
     if (!data) continue;
     await sharedMaterial(host, materials, spec, data);
@@ -119,14 +145,25 @@ async function buildChessSet(
     const cove = cycloramaMesh(shell.cove.floorRun);
     const mesh = new Mesh(cove.vertices, cove.indices, 'ChessSetCove');
     host.resourceManager.uploadMesh(mesh);
-    nodes.push(solidNode(host, 'ChessSetCove', mesh, {
-      color: [0.55, 0.55, 0.52],
-      roughness: 0.96,
-      metallic: 0,
-      doubleSided: true,
-      shadow: false,
-      position: [0, floorY, shell.cove.zFront],
-    }));
+    for (const [index, poseCove] of chessSetCovePoses(shell.cove).entries()) {
+      const side = chessSetViewSideFromZ(poseCove.z);
+      nodes.push(
+        solidNode(
+          host,
+          tagChessSetNodeName(index === 0 ? 'ChessSetCove' : 'ChessSetCoveMirror', side),
+          mesh,
+          {
+            color: [0.55, 0.55, 0.52],
+            roughness: 0.96,
+            metallic: 0,
+            doubleSided: true,
+            shadow: false,
+            position: [0, floorY, poseCove.z],
+            yaw: poseCove.yaw,
+          }
+        )
+      );
+    }
   }
 
   if (shell.room) {
@@ -147,12 +184,18 @@ async function buildChessSet(
   nodes.push(...setLights(host, id, floorY));
 
   let copy = 0;
-  for (const spec of chessSetPlacements(id)) {
+  for (const spec of placements) {
     const mesh = meshes.get(spec.file);
     const data = parsed.get(spec.file);
     if (!mesh || !data) continue;
     const material = await sharedMaterial(host, materials, spec, data);
-    const node = new SceneNode(`ChessSet-${spec.file}-${copy}`, host.world, mesh, material);
+    const side = chessSetPlacementViewSide(spec);
+    const node = new SceneNode(
+      tagChessSetNodeName(`ChessSet-${spec.file}-${copy}`, side),
+      host.world,
+      mesh,
+      material
+    );
     copy += 1;
     const placed = placeSetProp(
       [mesh.aabb.min[0], mesh.aabb.min[1], mesh.aabb.min[2]],
@@ -388,8 +431,9 @@ function glassTopNode(host: ChessSetHost, scale: [number, number, number]): Scen
 }
 
 function gardenStructure(host: ChessSetHost, floorY: number): SceneNode[] {
-  return gardenPergolaPieces().map((piece) =>
-    solidNode(host, `ChessGarden-${piece.name}`, PrimitiveFactory.createCube(1), {
+  // Whole pergola stays shared: culling half of it by Z left a broken frame.
+  return gardenPergolaPieces().map((piece, index) =>
+    solidNode(host, `ChessGarden-${piece.name}-${index}`, PrimitiveFactory.createCube(1), {
       color: piece.color,
       roughness: piece.roughness,
       metallic: piece.metal,
@@ -413,6 +457,7 @@ function solidNode(
     shadow: boolean;
     position: [number, number, number];
     scale?: [number, number, number];
+    yaw?: number;
   }
 ): SceneNode {
   host.resourceManager.uploadMesh(mesh);
@@ -429,7 +474,16 @@ function solidNode(
   });
   host.resourceManager.uploadMaterial(material);
   const node = new SceneNode(name, host.world, mesh, material);
-  pose(host.world, node, spec.position[0], spec.position[1], spec.position[2], 0, 0, spec.scale);
+  pose(
+    host.world,
+    node,
+    spec.position[0],
+    spec.position[1],
+    spec.position[2],
+    spec.yaw ?? 0,
+    0,
+    spec.scale
+  );
   const renderable = host.world.getComponent(node.entityId, RenderableComponent);
   if (renderable) renderable.castShadow = spec.shadow;
   return node;

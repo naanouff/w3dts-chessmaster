@@ -23,13 +23,13 @@ Même plateau, mêmes pièces, même caméra. Le preset de niveau échange la ta
 
 ## Atelier Kontrast
 
-Prise de vue produit. Défaut, toutes les parties. HDRI [studio_kontrast_04_2k.hdr](../public/hdri/studio_kontrast_04_2k.hdr) en fill. La softbox est une surface émissive, elle ne remplace pas le soleil.
+Prise de vue produit. Défaut, toutes les parties. HDRI [studio_kontrast_04_2k.hdr](../public/hdri/studio_kontrast_04_2k.hdr) en fill. Pas de soleil ni de spot projecteur : seulement la softbox latérale et les deux fills derrière chaque caméra.
 
 ![Atelier Kontrast](ambiances/atelier-kontrast.png)
 
 Cases ivoire et wengé, cadre foncé. Blancs marbre ou ivoire mat, noirs acier brossé, déjà dans [chessLook.ts](../src/renderer/host/chessLook.ts). La prise fait un clic sec. L’échec ajoute un filet de bloom sur la pièce seule.
 
-La caméra de partie reste basse et proche. Le cyclo et la softbox entrent quand on orbite.
+La caméra de partie reste basse et proche : ±30° en yaw et pitch, zoom 30 cm–1 m, sans pan. Deux cyclos se font face (+Z et −Z). Les props de fond (tabouret, cheminée, bar, banc…) sont mirroirés sur Z ; on n’affiche que la bande loin de la caméra selon blanc ou noir ([CHESS-B27](sprints/CHESS-B27.md)). Softbox et pied de projecteur restent des props latéraux (partagés) ; seules la softbox et les fills éclairent. Le fill derrière la caméra noire est plus doux que celui des blancs.
 
 **Table studio** — 180 × 100 cm, toile lin beige, retombée de 4 cm, pieds en tube d’acier carré, entretoise basse.
 
@@ -39,7 +39,7 @@ La caméra de partie reste basse et proche. Le cyclo et la softbox entrent quand
 
 ![Plateau toile](ambiances/atelier-plateau-toile.png)
 
-**Cyclorama** — 6 m de large, 3 m de haut, plâtre gris mat. Le sol du cyclo remonte en quart de cercle, rayon 80 cm. Le béton sous la table est un autre plan. Le GLB Meshy est à l’envers : la maquette le dessine en procédural, elle ne charge pas `cyclorama.glb`.
+**Cyclorama** — 6 m de large, 3 m de haut, plâtre gris mat. Le sol du cyclo remonte en quart de cercle, rayon 80 cm. Deux instances procédurales : une à +Z (fond côté noirs pour la caméra blanche), une à −Z (fond côté blancs pour la caméra noire). Le béton sous la table est un autre plan. Le GLB Meshy est à l’envers : on ne charge pas `cyclorama.glb`.
 
 ![Cyclorama](ambiances/atelier-cyclorama.png)
 
@@ -57,7 +57,7 @@ La caméra de partie reste basse et proche. Le cyclo et la softbox entrent quand
 
 ### Maîtres Meshy
 
-Les six meshes texturés sont dans `docs/raw_assets/atelier/`. Ce sont des GLB locaux, ignorés par git, comme les pièces. Chacun porte une couleur, une carte métal/rugosité et une normale en JPEG 2048. Le nombre de sommets va de 2 300 à 5 300.
+Les six meshes texturés sont dans `docs/raw_assets/atelier/`. Ce sont des GLB locaux, ignorés par git, comme les pièces. Chacun porte une couleur, une carte métal/rugosité et une normale en JPEG 2048. Le nombre de sommets va de 2 300 à 5 300. Au nettoyage (`pnpm clean:set-props`), toutes les props Meshy reçoivent le lissage de normales à 60° (`MESHY_NORMAL_CREASE`). Les dumps bruts restent facettés ; les bakes et `public/sets` sont lisses. Audit : `node scripts/audit-set-normals.mjs` (bakes) ou `--masters` (dumps).
 
 Meshy a normé chaque objet pour que son plus grand côté fasse 1. Avant la scène, on remet l’échelle du document : table 1,80 m, plateau 0,28 m, cyclorama 6 m de large, softbox 1,20 m de face, tabouret 0,45 m de haut. Le projecteur suit la hauteur de son pied, calée à 1,60 m.
 
@@ -142,7 +142,7 @@ Les neuf meshes texturés sont dans `docs/raw_assets/salon/`. Même contrat que 
 
 ## Terrasse d’hiver
 
-Dehors, heure bleue. Pour les finales. Dalles mouillées qui portent le ciel. Brouillard dense derrière la balustrade, presque absent sur le damier. Une lanterne est allumée : le verre émet.
+Dehors, heure bleue. Pour les finales. Dalles mouillées qui portent le ciel. Brouillard dense derrière la balustrade, presque absent sur le damier. Une lanterne est allumée : le verre émet. Le grade d’image part plus haut que les intérieurs (luminosité 1,7, contraste 1,2, saturation 0,65) pour que les noirs restent lisibles.
 
 ![Terrasse d'hiver](ambiances/terrasse-hiver.jpg)
 
@@ -266,7 +266,7 @@ Cases terre cuite et vert jardin, cadre vert. Pièces buis clair et bois rouge, 
 
 ![Table de pierre](ambiances/jardin-table.png)
 
-**Coupe terre cuite** — Diamètre 18 cm, vide. Deux instances : pièces claires à gauche, pièces foncées à droite. Le maître est facetté. Le nettoyage moyenne les normales des faces qui se rencontrent à moins de 60°. Le rebord plus vif reste.
+**Coupe terre cuite** — Diamètre 18 cm, vide. Deux instances : pièces claires à gauche, pièces foncées à droite. Comme tous les props Meshy, le nettoyage moyenne les normales des faces qui se rencontrent à moins de 60° (`MESHY_NORMAL_CREASE`). Le rebord plus vif reste.
 
 ![Coupe terre cuite](ambiances/jardin-coupe.png)
 

@@ -17,6 +17,12 @@ export const DRACO_VERTEX_THRESHOLD = 20000;
 export const EMISSIVE_LUMA_THRESHOLD = 200;
 
 /**
+ * Default crease for Meshy set props (60°). Same as HD pieces and the garden bowl.
+ * Applied at clean time when {@link SetProp.smooth} is omitted.
+ */
+export const MESHY_NORMAL_CREASE = Math.PI / 3;
+
+/**
  * @param {number} vertexCount
  * @returns {boolean}
  */
@@ -111,6 +117,26 @@ export function smoothSplitNormals(positions, normals, creaseRadians) {
     }
   }
   return out;
+}
+
+/**
+ * How many vertices would change if {@link smoothSplitNormals} ran at this crease.
+ * Used to audit Meshy masters that shipped with hard edges.
+ * @param {Float32Array} positions
+ * @param {Float32Array} normals
+ * @param {number} creaseRadians
+ * @returns {number}
+ */
+export function countFacetedSplits(positions, normals, creaseRadians) {
+  const smoothed = smoothSplitNormals(positions, normals, creaseRadians);
+  let changed = 0;
+  for (let i = 0; i < normals.length; i += 3) {
+    const dx = normals[i] - smoothed[i];
+    const dy = normals[i + 1] - smoothed[i + 1];
+    const dz = normals[i + 2] - smoothed[i + 2];
+    if (dx * dx + dy * dy + dz * dz > 1e-8) changed += 1;
+  }
+  return changed;
 }
 
 /**
@@ -230,7 +256,7 @@ export const SET_PROPS = [
   { scene: 'club', file: 'bouteilles', axis: 1, metres: 0.3, emissive: { mode: 'none' } },
   { scene: 'club', file: 'dalle', axis: 0, metres: 1, emissive: { mode: 'none' } },
   { scene: 'jardin', file: 'table', axis: 0, metres: 1.5, emissive: { mode: 'none' } },
-  { scene: 'jardin', file: 'coupe', axis: 0, metres: 0.18, smooth: Math.PI / 3, emissive: { mode: 'none' } },
+  { scene: 'jardin', file: 'coupe', axis: 0, metres: 0.18, emissive: { mode: 'none' } },
   { scene: 'jardin', file: 'dalle', axis: 0, metres: 0.3, pitch: -Math.PI / 2, emissive: { mode: 'none' } },
   { scene: 'jardin', file: 'haie', axis: 0, metres: 2, emissive: { mode: 'none' } },
   { scene: 'jardin', file: 'banc', axis: 0, metres: 1.4, emissive: { mode: 'none' } },
@@ -243,6 +269,11 @@ export const SET_PROPS = [
   { scene: 'terrasse', file: 'banc', axis: 0, metres: 1.6, emissive: { mode: 'none' } },
   { scene: 'terrasse', file: 'dalle', axis: 2, metres: 0.6, emissive: { mode: 'none' } },
 ];
+
+/** Crease applied when a prop omits an explicit smooth value. */
+for (const prop of SET_PROPS) {
+  if (prop.smooth === undefined) prop.smooth = MESHY_NORMAL_CREASE;
+}
 
 /**
  * @param {string} scene
