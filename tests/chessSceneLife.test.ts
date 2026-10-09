@@ -99,11 +99,11 @@ describe('scene life', () => {
 
   it('keeps the life switch on the review bar and the compute off a match', () => {
     const bar = readFileSync(new URL('../src/renderer/review/SetReviewBar.tsx', import.meta.url), 'utf8');
-    const slot = bar.indexOf("pass.key === 'volume'");
-    const vie = bar.indexOf('>Vie<');
-    expect(slot).toBeGreaterThan(-1);
-    expect(vie).toBeGreaterThan(slot);
-    expect(vie - slot).toBeLessThan(400);
+    const ambiance = bar.indexOf('<p>Ambiance</p>');
+    const vie = bar.indexOf('Vie');
+    expect(ambiance).toBeGreaterThan(-1);
+    expect(vie).toBeGreaterThan(ambiance);
+    expect(vie - ambiance).toBeLessThan(400);
     expect(bar).toContain('setSceneLifeEnabled');
     const graphics = readFileSync(
       new URL('../src/renderer/graphics/chessGraphicsSettings.ts', import.meta.url),

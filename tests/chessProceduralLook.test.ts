@@ -39,15 +39,16 @@ const STRIDE = STANDARD_MESH_VERTEX_FLOATS;
 const mockLogger = { warn: vi.fn(), error: vi.fn(), debug: vi.fn(), info: vi.fn() } as never;
 
 (ShaderLoader as unknown as { load: (path: string) => Promise<string> }).load = async (path: string) => {
-  const rel = path.replace(/^\/shaders\//, '');
+  // Core cache-busts some templates (`main_shader.wgsl?v=cluster1`).
+  const rel = path.replace(/^\/shaders\//, '').replace(/[?#].*$/, '');
   const filePath = join(shadersRoot, rel);
   try {
     return readFileSync(filePath, 'utf-8');
   } catch {
-    if (path.endsWith('graph_vertex.vert.wgsl')) {
+    if (rel.endsWith('graph_vertex.vert.wgsl')) {
       return `// vertex\n// [[VERTEX_FUNCTION_BODY]]\n// [[VERTEX_MASTER_NODE_LOGIC]]`;
     }
-    if (path.endsWith('main_shader.wgsl')) {
+    if (rel.endsWith('main_shader.wgsl')) {
       return `{{graph_id}}\n// [[DEFINES]]\n// [[UTILITY_FUNCTIONS]]\n// [[MATERIAL_UNIFORMS_STRUCT]]\n// [[TEXTURE_BINDINGS]]\n// [[FUNCTION_BODY]]`;
     }
     return '';
