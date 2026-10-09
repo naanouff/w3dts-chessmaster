@@ -6,7 +6,9 @@
  * @description Typed Chess Game HUD payload (`uiBus` `w3dts-chess-hud-state`). CHESS-B5.
  */
 
-import type { ChessColor } from '../rules/chessTypes';
+import type { CoachGhostStep } from '../coach/coachPlan';
+import type { ChessColor, ChessPieceRole, ChessSquareName } from '../rules/chessTypes';
+import { acceptSavedGame, type SavedGame, type SavedShellMode } from './savedGames';
 import {
   parseChessDemoSession,
   type ChessDemoQuery,
@@ -21,8 +23,26 @@ export const CHESS_HUD_COMMAND_EVENT = 'w3dts-chess-hud-command';
 
 export type ChessHudCommand =
   | { type: 'mode-picker'; open: boolean }
-  | { type: 'apply-session'; session: ChessDemoQuery }
-  | { type: 'request-state' };
+  | { type: 'apply-session'; session: ChessDemoQuery; table?: SavedShellMode }
+  | { type: 'request-state' }
+  | { type: 'resume-saved'; game: SavedGame; cpuDepth?: number }
+  | { type: 'save-voluntary' }
+  | { type: 'discard-interrupt' }
+  | { type: 'delete-voluntary'; id: string }
+  | { type: 'training-stop' }
+  | { type: 'training-resume' }
+  | { type: 'training-undo' }
+  | { type: 'training-clock'; on: boolean }
+  | { type: 'coach-ghosts'; steps: CoachGhostStep[]; horizon: number }
+  | { type: 'close-table' }
+  | { type: 'reset-match' }
+  | { type: 'resign' }
+  | { type: 'offer-draw' }
+  | { type: 'accept-draw' }
+  | { type: 'refuse-draw' };
+
+/** Peer draw offer waiting for a local answer. */
+export type ChessHudDrawOffer = 'none' | 'incoming' | 'refused';
 
 export type ChessHudP2pStatus = 'waiting' | 'connecting' | 'connected' | 'disconnected';
 
@@ -47,8 +67,18 @@ export interface ChessHudPlayState {
   sideToMove: ChessColor;
   cpuThinking: boolean;
   p2pStatus: ChessHudP2pStatus | null;
+  /** Online seats agreed. The lobby may enter the game. */
+  onlineReady: boolean;
+  /** Online table refused: missing, full, or two hosts. */
+  onlineRefused: boolean;
   clocks: { whiteSeconds: number; blackSeconds: number };
   flag: ChessColor | null;
+  /** Checkmate, stalemate, insufficient, resign, or agreed draw. A flag stays on `flag` and leaves this null. */
+  outcome: 'mate' | 'stalemate' | 'insufficient' | 'resign' | 'agreed' | null;
+  /** Side that resigned when `outcome` is `resign`. */
+  resignLoser: ChessColor | null;
+  /** Incoming draw offer from the peer, or a refused CPU offer. */
+  drawOffer: ChessHudDrawOffer;
   session: ChessDemoQuery;
 }
 
@@ -80,7 +110,7 @@ function parseColor(raw: unknown): ChessColor | null {
 }
 
 function parsePlayMode(raw: unknown): ChessHudPlayMode | null {
-  return raw === 'cpu' || raw === 'hotseat' || raw === 'p2p' ? raw : null;
+  return raw === 'cpu' || raw === 'hotseat' || raw === 'p2p' || raw === 'training' ? raw : null;
 }
 
 function parseP2pStatus(raw: unknown): ChessHudP2pStatus | null {
@@ -153,6 +183,13 @@ function parsePlay(raw: Record<string, unknown>): ChessHudPlayState | null {
   const clocksRaw = isRecord(raw.clocks) ? raw.clocks : {};
   const flag = raw.flag === null || raw.flag === undefined ? null : parseColor(raw.flag);
   if (raw.flag !== null && raw.flag !== undefined && flag === null) return null;
+  const outcome = parseOutcome(raw.outcome);
+  if (outcome === undefined) return null;
+  const resignLoser =
+    raw.resignLoser === null || raw.resignLoser === undefined ? null : parseColor(raw.resignLoser);
+  if (raw.resignLoser !== null && raw.resignLoser !== undefined && resignLoser === null) return null;
+  const drawOffer = parseDrawOffer(raw.drawOffer);
+  if (drawOffer === undefined) return null;
   return {
     kind: 'play',
     mode,
@@ -163,11 +200,16 @@ function parsePlay(raw: Record<string, unknown>): ChessHudPlayState | null {
     sideToMove,
     cpuThinking: raw.cpuThinking === true,
     p2pStatus: mode === 'p2p' ? parseP2pStatus(raw.p2pStatus) : null,
+    onlineReady: raw.onlineReady === true,
+    onlineRefused: raw.onlineRefused === true,
     clocks: {
       whiteSeconds: Math.max(0, parseFiniteNumber(clocksRaw.whiteSeconds)),
       blackSeconds: Math.max(0, parseFiniteNumber(clocksRaw.blackSeconds)),
     },
     flag,
+    outcome,
+    resignLoser,
+    drawOffer,
     session: parseChessDemoSession(raw.session) ?? { mode, localColor, quiz: false },
   };
 }
@@ -223,10 +265,91 @@ export function parseChessHudCommand(raw: unknown): ChessHudCommand | null {
   if (raw.type === 'apply-session') {
     const session = parseChessDemoSession(raw.session);
     if (!session) return null;
-    return { type: 'apply-session', session };
+    const table = parseTable(raw.table);
+    return table ? { type: 'apply-session', session, table } : { type: 'apply-session', session };
   }
   if (raw.type === 'request-state') {
     return { type: 'request-state' };
   }
+  if (raw.type === 'resume-saved') {
+    const game = acceptSavedGame(raw.game);
+    if (!game) return null;
+    const cpuDepth = typeof raw.cpuDepth === 'number' && Number.isFinite(raw.cpuDepth) ? raw.cpuDepth : undefined;
+    return cpuDepth !== undefined ? { type: 'resume-saved', game, cpuDepth } : { type: 'resume-saved', game };
+  }
+  if (raw.type === 'save-voluntary') return { type: 'save-voluntary' };
+  if (raw.type === 'discard-interrupt') return { type: 'discard-interrupt' };
+  if (raw.type === 'delete-voluntary' && typeof raw.id === 'string' && raw.id.length > 0) {
+    return { type: 'delete-voluntary', id: raw.id };
+  }
+  if (raw.type === 'training-stop') return { type: 'training-stop' };
+  if (raw.type === 'training-resume') return { type: 'training-resume' };
+  if (raw.type === 'training-undo') return { type: 'training-undo' };
+  if (raw.type === 'training-clock') return { type: 'training-clock', on: raw.on === true };
+  if (raw.type === 'coach-ghosts') {
+    const steps = Array.isArray(raw.steps) ? raw.steps.map(parseGhostStep).filter((step) => step !== null) : [];
+    const horizon = typeof raw.horizon === 'number' ? Math.min(5, Math.max(1, Math.floor(raw.horizon))) : 3;
+    return { type: 'coach-ghosts', steps: steps.slice(0, 5), horizon };
+  }
+  if (raw.type === 'close-table') return { type: 'close-table' };
+  if (raw.type === 'reset-match') return { type: 'reset-match' };
+  if (raw.type === 'resign') return { type: 'resign' };
+  if (raw.type === 'offer-draw') return { type: 'offer-draw' };
+  if (raw.type === 'accept-draw') return { type: 'accept-draw' };
+  if (raw.type === 'refuse-draw') return { type: 'refuse-draw' };
   return null;
+}
+
+function parseOutcome(
+  raw: unknown
+): 'mate' | 'stalemate' | 'insufficient' | 'resign' | 'agreed' | null | undefined {
+  if (raw === undefined || raw === null) return null;
+  if (
+    raw === 'mate' ||
+    raw === 'stalemate' ||
+    raw === 'insufficient' ||
+    raw === 'resign' ||
+    raw === 'agreed'
+  ) {
+    return raw;
+  }
+  return undefined;
+}
+
+function parseDrawOffer(raw: unknown): ChessHudDrawOffer | undefined {
+  if (raw === undefined || raw === null || raw === 'none') return 'none';
+  if (raw === 'incoming' || raw === 'refused') return raw;
+  return undefined;
+}
+
+function parseTable(value: unknown): SavedShellMode | undefined {
+  if (
+    value === 'cpu' ||
+    value === 'hotseat' ||
+    value === 'local' ||
+    value === 'online' ||
+    value === 'learn' ||
+    value === 'training'
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+const GHOST_ROLES: readonly ChessPieceRole[] = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'];
+
+function parseGhostStep(raw: unknown): CoachGhostStep | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const rec = raw as Record<string, unknown>;
+  if (typeof rec.san !== 'string' || typeof rec.from !== 'string' || typeof rec.to !== 'string') return null;
+  if (!/^[a-h][1-8]$/.test(rec.from) || !/^[a-h][1-8]$/.test(rec.to)) return null;
+  if (rec.color !== 'white' && rec.color !== 'black') return null;
+  if (!GHOST_ROLES.includes(rec.role as ChessPieceRole)) return null;
+  return {
+    san: rec.san,
+    from: rec.from as ChessSquareName,
+    to: rec.to as ChessSquareName,
+    role: rec.role as ChessPieceRole,
+    color: rec.color,
+  };
 }

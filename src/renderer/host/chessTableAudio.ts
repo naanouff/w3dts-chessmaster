@@ -1,13 +1,54 @@
 /**
  * @file chessTableAudio.ts
- * @description Synthesized tabletop clips for ChessDemoProject (CHESS-B6e).
- * Replaceable later by CC0 files under /audio/chess/ — no throw if decode fails.
+ * @project w3dts
+ * @author Cyril TARRIET
+ * @description Tabletop clips and layered ambience beds (CHESS-B25).
+ * Loads Asset Store WAVs from `/audio/chess/`; falls back to synths if decode fails.
  */
 
-import type { WebAudioService } from '@naanouff/w3dts-audio';
-import type { ChessTableSfxId } from '../../chess';
+import type { AudioPlayHandle, WebAudioService } from '@naanouff/w3dts-audio';
+import {
+  chessAudioTensionStep,
+  type ChessAudioBedGains,
+  type ChessAudioTensionBand,
+  type ChessTableSfxId,
+} from '../../chess';
+import type { ChessAmbianceId } from './chessAmbiance';
+import { chessTableClipUrl } from './chessAudioClips';
 
 const SAMPLE_RATE = 22050;
+
+type BedLayer = 'calm' | 'edge' | 'pressure' | 'music' | 'musicEdge' | 'musicPressure';
+
+const BED_CLIP: Record<
+  BedLayer,
+  'bed-calm' | 'bed-edge' | 'bed-pressure' | 'bed-music' | 'bed-music-edge' | 'bed-music-pressure'
+> = {
+  calm: 'bed-calm',
+  edge: 'bed-edge',
+  pressure: 'bed-pressure',
+  music: 'bed-music',
+  musicEdge: 'bed-music-edge',
+  musicPressure: 'bed-music-pressure',
+};
+
+const BED_LAYERS: readonly BedLayer[] = [
+  'calm',
+  'edge',
+  'pressure',
+  'music',
+  'musicEdge',
+  'musicPressure',
+];
+
+const DEFAULT_GAINS: ChessAudioBedGains = {
+  calm: 0.5,
+  edge: 0,
+  pressure: 0,
+  music: 1.1,
+  musicEdge: 0,
+  musicPressure: 0,
+};
 
 function encodePcmWav(samples: Float32Array, sampleRate: number): ArrayBuffer {
   const n = samples.length;
@@ -81,7 +122,7 @@ function brownNoise(seconds: number): Float32Array {
   return out;
 }
 
-const CLIP_BUILDERS: Record<ChessTableSfxId | 'ambience', () => Float32Array> = {
+const SYNTH: Record<ChessTableSfxId | 'ambience', () => Float32Array> = {
   drop: () => woodHit(620, 0.09, 0.25),
   capture: () => woodHit(280, 0.16, 0.45),
   check: () => chime([880, 1174], 0.22),
@@ -90,16 +131,52 @@ const CLIP_BUILDERS: Record<ChessTableSfxId | 'ambience', () => Float32Array> = 
   ambience: () => brownNoise(4),
 };
 
-export async function installChessTableClips(audio: WebAudioService): Promise<void> {
-  for (const [id, build] of Object.entries(CLIP_BUILDERS)) {
-    try {
-      const wav = encodePcmWav(build(), SAMPLE_RATE);
-      const buffer = await audio.decodeArrayBuffer(wav);
-      audio.setClip(id, buffer);
-    } catch {
-      /* suspended / missing AudioContext — skip */
+async function installSynthClip(audio: WebAudioService, id: string, build: () => Float32Array): Promise<void> {
+  try {
+    const wav = encodePcmWav(build(), SAMPLE_RATE);
+    const buffer = await audio.decodeArrayBuffer(wav);
+    audio.setClip(id, buffer);
+  } catch {
+    /* suspended / missing AudioContext — skip */
+  }
+}
+
+async function installUrlClip(audio: WebAudioService, id: string, url: string): Promise<boolean> {
+  try {
+    await audio.preloadClip(id, url);
+    return Boolean(audio.getClip(id));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Loads room hits, shared state cues, and bed layers. Synths fill any missing file.
+ * @param audio - Web Audio service.
+ * @param ambiance - Active room for material hits and calm bed.
+ */
+export async function installChessTableClips(
+  audio: WebAudioService,
+  ambiance: ChessAmbianceId = 'atelier'
+): Promise<void> {
+  const sfxIds: ChessTableSfxId[] = ['drop', 'capture', 'check', 'win', 'lose'];
+  for (const id of sfxIds) {
+    const ok = await installUrlClip(audio, id, chessTableClipUrl(id, ambiance));
+    if (!ok) await installSynthClip(audio, id, SYNTH[id]);
+  }
+
+  for (const layer of BED_LAYERS) {
+    const clipId = BED_CLIP[layer];
+    const ok = await installUrlClip(audio, clipId, chessTableClipUrl(clipId, ambiance));
+    if (!ok && layer === 'calm') {
+      await installSynthClip(audio, clipId, SYNTH.ambience);
     }
   }
+
+  /* Legacy id kept for older call sites that still ask for `ambience`. */
+  const calm = audio.getClip('bed-calm');
+  if (calm) audio.setClip('ambience', calm);
+  else await installSynthClip(audio, 'ambience', SYNTH.ambience);
 }
 
 /**
@@ -119,6 +196,7 @@ let ambiencePercent = 40;
 export function setChessAudioLevels(sfx: number, ambience: number): void {
   sfxPercent = Math.min(100, Math.max(0, sfx));
   ambiencePercent = Math.min(100, Math.max(0, ambience));
+  activeBeds?.applyMaster();
 }
 
 export function chessSfxGain(id: ChessTableSfxId): number {
@@ -137,3 +215,97 @@ export const CHESS_SFX_VOLUME: Record<ChessTableSfxId, number> = {
   win: 0.55,
   lose: 0.5,
 };
+
+/**
+ * Three looped beds with tension gains. Restarts voices when the band changes
+ * (WebAudioService has no per-voice gain).
+ */
+export class ChessAmbienceBeds {
+  private audio: WebAudioService | null = null;
+  private handles: Partial<Record<BedLayer, AudioPlayHandle>> = {};
+  private band: ChessAudioTensionBand = 'calm';
+  private gains: ChessAudioBedGains = { ...DEFAULT_GAINS };
+  private running = false;
+
+  /** Starts calm (and any non-zero layers) after clips are installed. */
+  start(audio: WebAudioService): void {
+    this.stop();
+    this.audio = audio;
+    this.running = true;
+    this.band = 'calm';
+    this.gains = { ...DEFAULT_GAINS };
+    this.restartVoices();
+  }
+
+  /** Reloads drop/capture/beds for a new room and restarts the bus. */
+  async applyAmbiance(audio: WebAudioService, ambiance: ChessAmbianceId): Promise<void> {
+    const wasRunning = this.running;
+    this.stop();
+    await installChessTableClips(audio, ambiance);
+    this.audio = audio;
+    if (wasRunning) {
+      this.running = true;
+      this.restartVoices();
+    }
+  }
+
+  /**
+   * Steps tension from a local-centric material score.
+   * @param scoreForLocal - Positive when the listener is ahead.
+   */
+  setTension(scoreForLocal: number): void {
+    const next = chessAudioTensionStep(scoreForLocal, this.band);
+    if (next.band === this.band) return;
+    this.band = next.band;
+    this.gains = next.gains;
+    if (this.running) this.restartVoices();
+  }
+
+  /** Forces calm beds (mate / flag). */
+  resetTension(): void {
+    this.band = 'calm';
+    this.gains = { ...DEFAULT_GAINS };
+    if (this.running) this.restartVoices();
+  }
+
+  /** Reapplies the ambience master after a Paramètres change. */
+  applyMaster(): void {
+    if (this.running) this.restartVoices();
+  }
+
+  stop(): void {
+    for (const handle of Object.values(this.handles)) handle?.stop();
+    this.handles = {};
+    this.running = false;
+  }
+
+  private restartVoices(): void {
+    const audio = this.audio;
+    if (!audio || !this.running) return;
+    for (const handle of Object.values(this.handles)) handle?.stop();
+    this.handles = {};
+    const master = chessAmbienceGain();
+    if (master <= 0) return;
+    for (const layer of BED_LAYERS) {
+      const layerGain = this.gains[layer];
+      if (layerGain <= 0) continue;
+      const clipId = BED_CLIP[layer];
+      if (!audio.getClip(clipId)) continue;
+      try {
+        this.handles[layer] = audio.playOneShot(clipId, {
+          loop: true,
+          volume: master * layerGain,
+        });
+      } catch {
+        /* clip missing */
+      }
+    }
+  }
+}
+
+let activeBeds: ChessAmbienceBeds | null = null;
+
+/** Registers the running bed bus so Paramètres can retarget gains. */
+export function bindChessAmbienceBeds(beds: ChessAmbienceBeds | null): void {
+  activeBeds = beds;
+}

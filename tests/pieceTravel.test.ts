@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CHESS_BOARD_MESH_EXTENT,
   CHESS_BOARD_SURFACE_Y,
+  CHESS_CEMETERY_SURFACE_Y,
   assignCemeterySlot,
   cemeterySlotIsOffBoard,
   samplePieceTravel,
@@ -33,5 +34,11 @@ describe('assignCemeterySlot', () => {
     expect(w0.x).toBeLessThan(-CHESS_BOARD_MESH_EXTENT / 2);
     expect(b0.x).toBeGreaterThan(CHESS_BOARD_MESH_EXTENT / 2);
     expect(w1.z).toBeGreaterThan(w0.z);
+  });
+
+  it('rests captured pieces on the table top, not the playing surface', () => {
+    const slot = assignCemeterySlot('black', 0);
+    expect(slot.y).toBe(CHESS_CEMETERY_SURFACE_Y);
+    expect(slot.y).toBeLessThan(CHESS_BOARD_SURFACE_Y);
   });
 });

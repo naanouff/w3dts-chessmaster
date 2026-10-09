@@ -1,12 +1,20 @@
 import { StrictMode, useEffect, useRef, useState, type ReactElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CHESS_HUD_COMMAND_EVENT, parseChessHudCommand } from '../chess';
+import { opensLocalPeerWindow } from './shell/shellScreen';
 import { chessBus } from './bus';
 import './app.css';
 import './chess-hud.css';
+import { CHESS_REVIEW_GRAPHICS, isChessSetReview } from './host/chessSetReview';
+import { getChessGraphicsEngine, useChessGraphicsSettings } from './graphics/chessGraphicsSettings';
+import { isGraphicsBenchSearch } from './graphics/graphicsBench';
+import { runGraphicsBench } from './graphics/runGraphicsBench';
 import { startChessHost } from './startChessHost';
+import SetReviewBar from './review/SetReviewBar';
 import ChessGameplayHud from './ui/ChessGameplayHud';
 import ChessShell from './shell/ChessShell';
+
+const review = isChessSetReview(window.location.search);
 
 function App(): ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -18,8 +26,11 @@ function App(): ReactElement {
     const onCommand = (raw: unknown): void => {
       const cmd = parseChessHudCommand(raw);
       if (!cmd || cmd.type !== 'apply-session' || cmd.session.mode !== 'p2p') return;
+      if (!opensLocalPeerWindow(cmd.table)) return;
       const opposite = cmd.session.localColor === 'black' ? 'white' : 'black';
-      void window.chessMaster?.openPeerWindow(`chess=p2p&chessColor=${opposite}&chessPeer=1`);
+      void window.chessMaster?.openPeerWindow(
+        `chess=p2p&chessColor=${opposite}&chessPeer=1&chessShell=local`
+      );
     };
     chessBus.on(CHESS_HUD_COMMAND_EVENT, onCommand);
     return () => {
@@ -36,9 +47,16 @@ function App(): ReactElement {
         if (!navigator.gpu) {
           throw new Error('WebGPU is not available in this window.');
         }
+        if (review) useChessGraphicsSettings(CHESS_REVIEW_GRAPHICS);
         await startChessHost(canvas);
         if (cancelled) return;
         setStudioReady(true);
+        if (isGraphicsBenchSearch(window.location.search)) {
+          const engine = getChessGraphicsEngine();
+          if (!engine || cancelled) return;
+          const report = await runGraphicsBench(engine, canvas);
+          if (!cancelled) await window.chessMaster?.benchReport(JSON.stringify(report));
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : String(err));
@@ -54,8 +72,8 @@ function App(): ReactElement {
   return (
     <>
       <canvas ref={canvasRef} className="cm-canvas" />
-      <ChessGameplayHud />
-      <ChessShell studioReady={studioReady} />
+      {review ? <SetReviewBar /> : <ChessGameplayHud />}
+      {review ? null : <ChessShell studioReady={studioReady} />}
       {error ? (
         <div className="cm-error" role="alert">
           <div>

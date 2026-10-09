@@ -15,6 +15,7 @@ import {
   CHESS_BOARD_BODY_HEIGHT,
   CHESS_BOARD_MESH_EXTENT,
   createChessBoardGraph,
+  splitChessBoardPlayingSurface,
 } from '../src/chess/index';
 
 const publicGraphPath = join(
@@ -52,5 +53,47 @@ describe('chess board GPROC graph', () => {
     expect(mesh.aabb.max[0]).toBeCloseTo(CHESS_BOARD_MESH_EXTENT / 2 + CHESS_BOARD_BEVEL_M, 6);
     expect(mesh.aabb.max[1]).toBeCloseTo(CHESS_BOARD_BODY_HEIGHT / 2, 6);
     expect(mesh.aabb.min[1]).toBeCloseTo(-CHESS_BOARD_BODY_HEIGHT / 2, 6);
+  });
+
+  it('puts checker UVs on the flat top and leaves the gold rim without that face', () => {
+    const mesh = buildChessBoardBodyMesh(CHESS_BOARD_MESH_EXTENT, CHESS_BOARD_BODY_HEIGHT);
+    const { rim, top } = splitChessBoardPlayingSurface(mesh, CHESS_BOARD_MESH_EXTENT);
+    const stride = STANDARD_MESH_VERTEX_FLOATS;
+    expect(top.indices.length).toBeGreaterThan(0);
+    expect(rim.indices.length + top.indices.length).toBe(mesh.indices.length);
+
+    let minU = 1;
+    let maxU = 0;
+    let minV = 1;
+    let maxV = 0;
+    for (let i = 0; i < top.vertices.length; i += stride) {
+      const ny = top.vertices[i + 8]!;
+      const u = top.vertices[i + 3]!;
+      const v = top.vertices[i + 4]!;
+      expect(ny).toBeGreaterThan(0.85);
+      minU = Math.min(minU, u);
+      maxU = Math.max(maxU, u);
+      minV = Math.min(minV, v);
+      maxV = Math.max(maxV, v);
+      const x = top.vertices[i]!;
+      const z = top.vertices[i + 2]!;
+      if (x < 0 && z < 0) {
+        expect(u).toBeLessThan(0.5);
+        expect(v).toBeGreaterThan(0.5);
+      }
+    }
+    expect(minU).toBeLessThan(0.05);
+    expect(maxU).toBeGreaterThan(0.95);
+    expect(minV).toBeLessThan(0.05);
+    expect(maxV).toBeGreaterThan(0.95);
+
+    for (let t = 0; t < rim.indices.length; t += 3) {
+      let facingUp = true;
+      for (let k = 0; k < 3; k++) {
+        const ny = rim.vertices[rim.indices[t + k]! * stride + 8]!;
+        if (ny < 0.85) facingUp = false;
+      }
+      expect(facingUp).toBe(false);
+    }
   });
 });

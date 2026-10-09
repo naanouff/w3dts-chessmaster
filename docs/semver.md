@@ -1,8 +1,8 @@
 # Version
 
-Une seule version : le champ `version` de [`package.json`](../package.json). Elle vaut aujourd’hui `0.1.0`. Electron l’affiche avec `app.getVersion()`. L’installateur NSIS porte le même numéro dans son nom de fichier. Pas de second fichier, et pas d’outil qui publie depuis `main` : cela court-circuiterait les branches `release/*`.
+Une seule version : le champ `version` de [`package.json`](../package.json). Elle vaut aujourd’hui `0.2.0`. Electron l’affiche avec `app.getVersion()`. L’installateur NSIS porte le même numéro dans son nom de fichier. Pas de second fichier. electron-builder ne publie pas : un publish pendant le build a déjà fait échouer l’envoi de l’exe.
 
-La première livraison est `0.1.0`, sur la branche `release/0.1.0`, avec la note [docs/releases/0.1.0.md](releases/0.1.0.md). Le tag `v0.1.0` se pose après le merge dans `main`. `develop` reste.
+La livraison `0.2.0` est taguée `v0.2.0` sur `main`, avec la note [docs/releases/0.2.0.md](releases/0.2.0.md). `develop` reste.
 
 ## Numéro
 
@@ -16,9 +16,9 @@ Tant que le majeur est `0`, un correctif augmente le patch, une fonction le mine
 
 Le même commit ajoute `docs/releases/X.Y.Z.md`. C’est la note montrée dans À propos, en français, écrite pour cette version. Elle n’est pas produite depuis l’historique git. La CI refuse la branche si ce fichier manque ou s’il est vide.
 
-Après le merge dans `main`, un tag annoté `vX.Y.Z` est posé sur ce commit. La CI ne pousse pas ce tag. Le merge revient dans `develop`, puis un commit y prépare la version suivante, pour que `develop` ne reste pas sur le numéro déjà livré.
+Après le merge dans `main`, la CI ouvre la release GitHub `vX.Y.Z` sur ce commit. Le seul fichier ajouté est l’installateur NSIS : il embarque l’application, ses ressources et ses dépendances. Si le tag existe déjà, la CI n’en crée pas un second. Le merge revient dans `develop`, puis un commit y prépare la version suivante, pour que `develop` ne reste pas sur le numéro déjà livré. `develop` n’est pas supprimé.
 
-Un push sur `main` ou `release/*` construit l’exe. L’artefact s’appelle `w3dts-chessmaster-X.Y.Z`.
+Un push sur `main` ou `release/*` construit l’exe. L’artefact d’Actions s’appelle `w3dts-chessmaster-X.Y.Z`. La release GitHub ne reçoit cet exe qu’au push sur `main`.
 
 ## À propos
 

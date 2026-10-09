@@ -20,9 +20,10 @@ import type { ColliderShapeOptions } from '@naanouff/w3dts-physics';
 import { CHESS_GROUP_PIECE, CHESS_MASK_PIECE, type ChessColor, type ChessPieceRole } from '../../chess';
 import {
   getChessGraphicsSettings,
-  pieceTextureSize,
   registerPieceTextureReloader,
+  type ChessTextureQuality,
 } from '../graphics/chessGraphicsSettings';
+import { roleTextureSize } from '../graphics/texelDensity';
 
 const STRIDE = 20;
 const MESH_MAGIC = 0x534d3357;
@@ -150,16 +151,17 @@ function gpuTexture(device: GPUDevice, bitmap: ImageBitmap, normalMap: boolean):
 
 interface LoadedPiece extends HdChessPiece {
   file: string;
+  role: ChessPieceRole;
 }
 
 let session: {
   device: GPUDevice;
   resourceManager: ResourceManager;
   pieces: LoadedPiece[];
-  size: number;
+  quality: ChessTextureQuality;
   generation: number;
 } | null = null;
-let pendingSize: number | null = null;
+let pendingQuality: ChessTextureQuality | null = null;
 
 async function bakedBitmap(file: string, kind: MapKind, size: number): Promise<ImageBitmap | null> {
   const response = await fetch(`/models/chess/tex/${size}/${file}-${kind}.webp`);
@@ -221,18 +223,23 @@ function swapTexture(
   }
 }
 
-/** Replaces the three maps on every HD piece. No-op when that size is already on the GPU. */
-export async function applyHdPieceTextureSize(size: number): Promise<void> {
+/**
+ * Replaces the three maps on every HD piece from the quality ladder.
+ * Queen and king load one step above the pawn. No-op when that tier is already on the GPU.
+ * @param quality - Options texture tier.
+ */
+export async function applyHdPieceTextureQuality(quality: ChessTextureQuality): Promise<void> {
   const current = session;
   if (!current) {
-    pendingSize = size;
+    pendingQuality = quality;
     return;
   }
-  if (current.size === size) return;
+  if (current.quality === quality) return;
   const ticket = ++current.generation;
   const uploaded = new Map<LoadedPiece, { color: GPUTexture; normal: GPUTexture; orm: GPUTexture }>();
   try {
     for (const piece of current.pieces) {
+      const size = roleTextureSize(piece.role, quality);
       const [colorBmp, normalBmp, ormBmp] = await mapsForPiece(piece.file, size);
       if (ticket !== current.generation) {
         colorBmp.close();
@@ -274,7 +281,7 @@ export async function applyHdPieceTextureSize(size: number): Promise<void> {
     current.resourceManager.registerTexture(`${name}/orm`, textures.orm);
     current.resourceManager.uploadMaterial(piece.material);
   }
-  current.size = size;
+  current.quality = quality;
 }
 
 /**
@@ -290,7 +297,7 @@ export async function loadHdChessPieces(
   if (!probe.ok) return null;
 
   registerPieceTextureReloader((quality) => {
-    void applyHdPieceTextureSize(pieceTextureSize(quality));
+    void applyHdPieceTextureQuality(quality);
   });
 
   const sampler = device.createSampler({
@@ -304,8 +311,8 @@ export async function loadHdChessPieces(
   const khr: PbrKhrExtensionCompileFlags = { ...CORE_PBR_KHR_FLAGS };
   const pieces = new Map<string, HdChessPiece>();
   const loaded: LoadedPiece[] = [];
-  const size = pendingSize ?? pieceTextureSize(getChessGraphicsSettings().textureQuality);
-  pendingSize = null;
+  const quality = pendingQuality ?? getChessGraphicsSettings().textureQuality;
+  pendingQuality = null;
 
   for (const color of ['white', 'black'] as const) {
     for (const role of ROLES) {
@@ -315,7 +322,7 @@ export async function loadHdChessPieces(
       if (!meshRes.ok) return null;
       const mesh = meshFromWmesh(await meshRes.arrayBuffer(), `chess-hd-${file}`);
       resourceManager.uploadMesh(mesh);
-      const [colorBmp, normalBmp, ormBmp] = await mapsForPiece(file, size);
+      const [colorBmp, normalBmp, ormBmp] = await mapsForPiece(file, roleTextureSize(role, quality));
       const baseColorTexture = gpuTexture(device, colorBmp, false);
       const normalTexture = gpuTexture(device, normalBmp, true);
       const metallicRoughnessTexture = gpuTexture(device, ormBmp, false);
@@ -350,17 +357,17 @@ export async function loadHdChessPieces(
         },
       });
       resourceManager.uploadMaterial(material);
-      const piece = { mesh, material, file };
+      const piece = { mesh, material, file, role };
       loaded.push(piece);
       pieces.set(hdPieceKey(color, role), piece);
     }
   }
 
-  session = { device, resourceManager, pieces: loaded, size, generation: 0 };
-  if (pendingSize !== null && pendingSize !== size) {
-    const next = pendingSize;
-    pendingSize = null;
-    void applyHdPieceTextureSize(next);
+  session = { device, resourceManager, pieces: loaded, quality, generation: 0 };
+  if (pendingQuality !== null && pendingQuality !== quality) {
+    const next = pendingQuality;
+    pendingQuality = null;
+    void applyHdPieceTextureQuality(next);
   }
   return pieces;
 }

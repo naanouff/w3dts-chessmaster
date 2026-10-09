@@ -9,6 +9,6 @@ alwaysApply: true
 
 Use `MAJOR.MINOR.PATCH` with no suffix. While the major is `0`, a fix bumps the patch, a feature bumps the minor, and a breaking change bumps the minor. From `1.0.0`, a breaking change bumps the major.
 
-A `release/X.Y.Z` branch leaves `develop` with `package.json` set to `X.Y.Z`. That commit also adds `docs/releases/X.Y.Z.md`, the French note shown in About. Do not generate it from git history.
+A `release/X.Y.Z` branch leaves `develop` with `package.json` set to `X.Y.Z`. That commit also adds `docs/releases/X.Y.Z.md`, the French note shown in About. Do not generate it from git history. CI rejects the branch if that file is missing or empty.
 
-After the merge to `main`, an annotated tag `vX.Y.Z` is placed on that commit by hand. CI does not push the tag. Merge the release back into `develop`, then bump `develop` to the next version.
+After the merge to `main`, CI opens the GitHub release `vX.Y.Z` and attaches only the NSIS installer. electron-builder does not publish. An existing tag is left alone. Merge the release back into `develop`, then bump `develop` to the next version. Do not delete `develop`.

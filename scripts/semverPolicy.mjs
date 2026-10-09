@@ -36,6 +36,30 @@ export function semverProblems(refName, version, releaseNote) {
 }
 
 /**
+ * Whether a push to `main` should open the GitHub release for this version.
+ * A release or feature branch never publishes. An existing tag is left as it is.
+ * @param {string} refName - Branch name, such as `main`.
+ * @param {string} version - `package.json` version.
+ * @param {string | null} releaseNote - Note body. `null` when the file is absent.
+ * @param {boolean} tagExists - True when `v` + version is already on the remote.
+ * @returns {{ publish: boolean, problems: string[] }}
+ */
+export function githubReleasePlan(refName, version, releaseNote, tagExists) {
+  if (refName !== 'main') return { publish: false, problems: [] };
+  /** @type {string[]} */
+  const problems = [];
+  if (!STRICT_VERSION.test(version)) {
+    problems.push(`version ${version} is not MAJOR.MINOR.PATCH`);
+    return { publish: false, problems };
+  }
+  const notePath = `docs/releases/${version}.md`;
+  if (releaseNote === null) problems.push(`${notePath} is missing`);
+  else if (releaseNote.trim() === '') problems.push(`${notePath} is empty`);
+  if (problems.length > 0 || tagExists) return { publish: false, problems };
+  return { publish: true, problems: [] };
+}
+
+/**
  * Read `package.json` and, on a release branch, the matching note, then print problems.
  * @param {string} refName - Branch name passed by CI.
  * @param {string} [root] - Repository root. Defaults to the process working directory.
@@ -58,8 +82,36 @@ export function checkSemverRef(refName, root = process.cwd()) {
   return problems.length === 0 ? 0 : 1;
 }
 
+/**
+ * Print `publish` or `skip` for a push to main. Problems go to stderr.
+ * @param {string} refName - Branch name passed by CI.
+ * @param {boolean} tagExists - True when the version tag is already on the remote.
+ * @param {string} [root] - Repository root.
+ * @returns {number} Process status, `0` when the plan is usable.
+ */
+export function checkGithubRelease(refName, tagExists, root = process.cwd()) {
+  const pkg = JSON.parse(readFileSync(`${root}/package.json`, 'utf8'));
+  let releaseNote = null;
+  if (STRICT_VERSION.test(pkg.version)) {
+    try {
+      releaseNote = readFileSync(`${root}/docs/releases/${pkg.version}.md`, 'utf8');
+    } catch {
+      releaseNote = null;
+    }
+  }
+  const plan = githubReleasePlan(refName, pkg.version, releaseNote, tagExists);
+  for (const problem of plan.problems) console.error(problem);
+  if (plan.problems.length > 0) return 1;
+  console.log(plan.publish ? 'publish' : 'skip');
+  return 0;
+}
+
 const invoked = process.argv[1]?.replaceAll('\\', '/').endsWith('scripts/semverPolicy.mjs');
 if (invoked) {
+  if (process.argv[2] === '--publish') {
+    const status = checkGithubRelease(process.argv[3] ?? '', process.argv[4] === 'yes');
+    process.exit(status);
+  }
   const status = checkSemverRef(process.argv[2] ?? '');
   process.exit(status);
 }

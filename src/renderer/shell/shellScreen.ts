@@ -3,7 +3,7 @@
  * @description Screen transitions for the ChessMaster shell. No DOM and no GPU.
  */
 
-import { cpuSearchDepth, type ChessColor, type ChessDemoQuery, type ChessPlayMode } from '../../chess';
+import { cpuSearchDepth, ECO_OPENINGS, type ChessColor, type ChessDemoQuery, type ChessPlayMode } from '../../chess';
 import { isShellLanguage, type ShellLanguage } from './copy/types';
 
 /** localStorage key shared by the shell and the learn HUD. */
@@ -15,12 +15,14 @@ export type ShellScreen =
   | 'salon'
   | 'partie'
   | 'pause'
+  | 'nulle-offre'
   | 'options'
   | 'parametres'
   | 'classements'
-  | 'propos';
+  | 'propos'
+  | 'sauvegardes';
 
-export type ShellMode = 'cpu' | 'hotseat' | 'local' | 'online' | 'learn';
+export type ShellMode = 'cpu' | 'hotseat' | 'local' | 'online' | 'learn' | 'training';
 
 export interface ShellState {
   screen: ShellScreen;
@@ -28,8 +30,8 @@ export interface ShellState {
   assistant: boolean;
   reopenAssistant: boolean;
   mode: ShellMode;
-  /** `refused` keeps the lobby on screen. */
-  notice: '' | 'refused';
+  /** `refused` is a bad code. `missing` is a table the relay did not open. */
+  notice: '' | 'refused' | 'missing';
 }
 
 export type ShellAction =
@@ -44,13 +46,20 @@ export type ShellAction =
   | { type: 'set-mode'; mode: ShellMode }
   | { type: 'resume' }
   | { type: 'leave-table' }
-  | { type: 'create-table' }
-  | { type: 'join-table' };
+  | { type: 'create-table'; code: string }
+  | { type: 'join-table'; code: string }
+  | { type: 'peer-ready' }
+  | { type: 'miss-table' };
 
 export interface ShellPrefs {
   sfx: number;
   ambience: number;
   language: ShellLanguage;
+  mode: ShellMode;
+  color: ChessColor;
+  /** Slider step from 1 to 3. */
+  level: number;
+  eco: string;
 }
 
 /**
@@ -85,7 +94,13 @@ export function reduceShell(state: ShellState, action: ShellAction): ShellState 
         : { ...state, screen: 'partie', back: 'modes', assistant: false, notice: '' };
     case 'create-table':
     case 'join-table':
-      return { ...state, screen: 'partie', mode: 'online', back: 'salon', assistant: false, notice: '' };
+      return { ...state, screen: 'salon', mode: 'online', back: 'modes', assistant: false, notice: '' };
+    case 'peer-ready':
+      return state.screen === 'salon' && state.mode === 'online'
+        ? { ...state, screen: 'partie', mode: 'online', back: 'salon', assistant: false, notice: '' }
+        : state;
+    case 'miss-table':
+      return state.screen === 'salon' ? { ...state, notice: 'missing' } : state;
     case 'leave-table':
       return { ...state, screen: 'salon', back: 'modes', assistant: false, notice: '' };
     case 'resume':
@@ -129,17 +144,29 @@ export function shellBlocksPlay(state: ShellState): boolean {
 }
 
 /**
+ * Whether the shell piano loop should run for this screen.
+ * Silent during a live match (including pause and draw offer).
+ * @param screen - Active shell screen.
+ */
+export function shellWantsMenuMusic(screen: ShellScreen): boolean {
+  return screen !== 'partie' && screen !== 'pause' && screen !== 'nulle-offre';
+}
+
+/**
  * Session emitted as `apply-session`. Local and online both use the peer channel.
+ * Online carries the table code and the seat. The relay room is that code.
  * @param mode - Card chosen on the modes screen.
  * @param localColor - Side for this window.
  * @param eco - Opening code when the mode is learn.
  * @param level - CPU slider step.
+ * @param online - Table code and seat when the mode is online.
  */
 export function shellSession(
   mode: ShellMode,
   localColor: ChessColor,
   eco: string,
-  level: number
+  level: number,
+  online?: { room: string; seat: 'host' | 'guest' }
 ): ChessDemoQuery {
   const play: ChessPlayMode = mode === 'local' || mode === 'online' ? 'p2p' : mode;
   return {
@@ -147,8 +174,28 @@ export function shellSession(
     localColor,
     quiz: mode === 'learn',
     ...(mode === 'learn' ? { eco } : {}),
-    ...(mode === 'cpu' ? { cpuDepth: cpuSearchDepth(level) } : {}),
+    ...(mode === 'cpu' || mode === 'training' ? { cpuDepth: cpuSearchDepth(level) } : {}),
+    ...(mode === 'online' && online ? { room: online.room, seat: online.seat } : {}),
   };
+}
+
+/**
+ * The second window is the same-machine table. An online table meets on the relay.
+ * @param table - Shell mode stored on the session, when the command carried one.
+ */
+export function opensLocalPeerWindow(table: string | undefined): boolean {
+  return table !== 'online';
+}
+
+/**
+ * Query for the second window when a local game is restored.
+ * The guest takes the other color and loads the same fiche.
+ * @param hostColor - Color stored on the fiche.
+ * @param id - Interrupt or voluntary id.
+ */
+export function peerResumeSearch(hostColor: ChessColor, id: string): string {
+  const guest = hostColor === 'black' ? 'white' : 'black';
+  return `chess=p2p&chessColor=${guest}&chessPeer=1&chessShell=local&chessResume=${encodeURIComponent(id)}`;
 }
 
 /**
@@ -168,6 +215,85 @@ export function acceptJoinCode(code: string): boolean {
 export function rangeThumbRatio(value: number, min: number, max: number): number {
   if (max === min) return 0;
   return (value - min) / (max - min);
+}
+
+/**
+ * Whether a sheet body needs the fade, because its content is taller than the pane.
+ * @param scrollHeight - Full content height in pixels.
+ * @param clientHeight - Visible pane height in pixels.
+ */
+export function sheetBodyOverflows(scrollHeight: number, clientHeight: number): boolean {
+  if (!Number.isFinite(scrollHeight) || !Number.isFinite(clientHeight)) return false;
+  return scrollHeight > clientHeight + 1;
+}
+
+/** Why a game ended. `line` is a finished opening, not a mate. */
+export type GameEndCause =
+  | 'mate'
+  | 'flag'
+  | 'stalemate'
+  | 'insufficient'
+  | 'resign'
+  | 'agreed'
+  | 'line';
+
+export type GameEndKind = 'won' | 'lost' | 'draw';
+
+export interface GameEnd {
+  kind: GameEndKind;
+  cause: GameEndCause;
+  /** The side that lost. Null for a draw or a finished line. */
+  loser: ChessColor | null;
+}
+
+/**
+ * End card for a played game. A flag wins over mate. Null while the game continues.
+ * @param input - Local seat, side to move, clock flag, and the rules outcome.
+ */
+export function gameEndFromPlay(input: {
+  localColor: ChessColor;
+  sideToMove: ChessColor;
+  flag: ChessColor | null;
+  outcome: 'mate' | 'stalemate' | 'insufficient' | 'resign' | 'agreed' | null;
+  /** Set when `outcome` is `resign`. */
+  resignLoser?: ChessColor | null;
+}): GameEnd | null {
+  if (input.flag) {
+    return {
+      kind: input.flag === input.localColor ? 'lost' : 'won',
+      cause: 'flag',
+      loser: input.flag,
+    };
+  }
+  if (input.outcome === 'stalemate') return { kind: 'draw', cause: 'stalemate', loser: null };
+  if (input.outcome === 'insufficient') return { kind: 'draw', cause: 'insufficient', loser: null };
+  if (input.outcome === 'agreed') return { kind: 'draw', cause: 'agreed', loser: null };
+  if (input.outcome === 'resign') {
+    const loser = input.resignLoser ?? null;
+    if (!loser) return null;
+    return {
+      kind: loser === input.localColor ? 'lost' : 'won',
+      cause: 'resign',
+      loser,
+    };
+  }
+  if (input.outcome === 'mate') {
+    return {
+      kind: input.sideToMove === input.localColor ? 'lost' : 'won',
+      cause: 'mate',
+      loser: input.sideToMove,
+    };
+  }
+  return null;
+}
+
+/**
+ * A finished opening line is a win for the learner. An unfinished line has no card.
+ * @param complete - True once the book line has been played through.
+ */
+export function gameEndFromLearn(complete: boolean): GameEnd | null {
+  if (!complete) return null;
+  return { kind: 'won', cause: 'line', loser: null };
 }
 
 /**
@@ -191,9 +317,9 @@ export function bootCrestInset(fill: number): string {
   return `${(1 - clamped) * 100}%`;
 }
 
-/** Stored sound and language before the player changes them. */
+/** Stored sound, language and last table choices before the player changes them. */
 export function defaultShellPrefs(): ShellPrefs {
-  return { sfx: 80, ambience: 40, language: 'fr' };
+  return { sfx: 80, ambience: 40, language: 'fr', mode: 'cpu', color: 'white', level: 2, eco: firstEco() };
 }
 
 /**
@@ -209,10 +335,43 @@ export function parseShellPrefs(raw: string | null): ShellPrefs {
       sfx: clampPercent(parsed.sfx, base.sfx),
       ambience: clampPercent(parsed.ambience, base.ambience),
       language: isShellLanguage(parsed.language) ? parsed.language : 'fr',
+      mode: parseStoredMode(parsed.mode),
+      color: parsed.color === 'black' ? 'black' : 'white',
+      level: parseStoredLevel(parsed.level),
+      eco: parseStoredEco(parsed.eco),
     };
   } catch {
     return base;
   }
+}
+
+function firstEco(): string {
+  return ECO_OPENINGS[0]?.eco ?? 'C50';
+}
+
+function parseStoredMode(value: unknown): ShellMode {
+  if (
+    value === 'cpu' ||
+    value === 'hotseat' ||
+    value === 'local' ||
+    value === 'online' ||
+    value === 'learn' ||
+    value === 'training'
+  ) {
+    return value;
+  }
+  return 'cpu';
+}
+
+function parseStoredLevel(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 3) return 2;
+  return value;
+}
+
+function parseStoredEco(value: unknown): string {
+  const first = firstEco();
+  if (typeof value !== 'string') return first;
+  return ECO_OPENINGS.some((opening) => opening.eco === value) ? value : first;
 }
 
 function clampPercent(value: unknown, fallback: number): number {
@@ -223,6 +382,9 @@ function clampPercent(value: unknown, fallback: number): number {
 function escapeShell(state: ShellState): ShellState {
   if (state.assistant && state.screen === 'partie') {
     return { ...state, assistant: false };
+  }
+  if (state.screen === 'nulle-offre') {
+    return { ...state, screen: 'pause', back: 'partie', assistant: false };
   }
   if (state.screen === 'partie') {
     return { ...state, screen: 'pause', back: 'partie', assistant: false };

@@ -79,9 +79,80 @@ export function applyChessBoardWorldUvs(mesh: Mesh): Mesh {
   return mesh;
 }
 
+const TOP_NORMAL_Y = 0.85;
+
+function extractTriangles(
+  source: Float32Array,
+  indices: Uint16Array | Uint32Array,
+  triangleStarts: readonly number[],
+  name: string,
+  rewrite?: (vertices: Float32Array) => void
+): Mesh {
+  const remap = new Map<number, number>();
+  const outIndex: number[] = [];
+  for (const start of triangleStarts) {
+    for (let k = 0; k < 3; k++) {
+      const from = indices[start + k]!;
+      let to = remap.get(from);
+      if (to === undefined) {
+        to = remap.size;
+        remap.set(from, to);
+      }
+      outIndex.push(to);
+    }
+  }
+  const vertices = new Float32Array(remap.size * STRIDE);
+  for (const [from, to] of remap) {
+    vertices.set(source.subarray(from * STRIDE, (from + 1) * STRIDE), to * STRIDE);
+  }
+  rewrite?.(vertices);
+  const IndexArray = indices instanceof Uint32Array ? Uint32Array : Uint16Array;
+  return new Mesh(vertices, new IndexArray(outIndex), name);
+}
+
+/**
+ * Flat playing surface (checker UVs, 0–1 across `extentXz`) and the remaining
+ * rim. The gold body used to own the top, so the separate varnish quad never
+ * became the surface on screen.
+ * @param mesh - Centred chamfered slab from {@link buildChessBoardBodyMesh}.
+ * @param extentXz - Inset top width in metres. Corner (−X, −Z) maps to UV (0, 1).
+ */
+export function splitChessBoardPlayingSurface(
+  mesh: Mesh,
+  extentXz: number
+): { rim: Mesh; top: Mesh } {
+  const source = mesh.vertices;
+  const indices = mesh.indices;
+  const topStarts: number[] = [];
+  const rimStarts: number[] = [];
+  for (let t = 0; t < indices.length; t += 3) {
+    let facingUp = true;
+    for (let k = 0; k < 3; k++) {
+      const ny = source[indices[t + k]! * STRIDE + 8]!;
+      if (ny < TOP_NORMAL_Y) facingUp = false;
+    }
+    (facingUp ? topStarts : rimStarts).push(t);
+  }
+  const half = extentXz || 1;
+  return {
+    rim: extractTriangles(source, indices, rimStarts, 'ChessBoardRim'),
+    top: extractTriangles(source, indices, topStarts, 'ChessBoardTop', (vertices) => {
+      for (let i = 0; i < vertices.length; i += STRIDE) {
+        const u = vertices[i]! / half + 0.5;
+        const v = 0.5 - vertices[i + 2]! / half;
+        vertices[i + 3] = u;
+        vertices[i + 4] = v;
+        vertices[i + 5] = u;
+        vertices[i + 6] = v;
+      }
+    }),
+  };
+}
+
 /**
  * Body centred at the origin. Outer AABB is `extentXz + 2*bevel`; the inset
- * top face is `extentXz` so the checker plane sits flush without shrinking squares.
+ * top face is `extentXz`. Split it with {@link splitChessBoardPlayingSurface}
+ * before drawing so the checker owns that face and the rim stays gold.
  */
 export function buildChessBoardBodyMesh(
   extentXz = CHESS_BOARD_MESH_EXTENT,

@@ -13,7 +13,10 @@ import {
   type PbrKhrExtensionCompileFlags,
   type ResourceManager,
   type ShaderGraph,
+  type ShaderGraphNode,
 } from '@naanouff/w3dts-core';
+import { getChessGraphicsSettings } from '../graphics/chessGraphicsSettings';
+import { boardTextureSize } from '../graphics/texelDensity';
 import { fetchPublicAssetPreferSameOrigin } from './assetFetch';
 
 /** Enable KHR anisotropy so the brushed-steel highlight is not stripped. */
@@ -198,6 +201,31 @@ export function patchChessPhotoMaterialsFromCache(resourceManager: ResourceManag
 export const CHESS_BOARD_CLEARCOAT_FACTOR = 0.38;
 export const CHESS_BOARD_CLEARCOAT_ROUGHNESS = 0.36;
 
+/**
+ * Photo wood checker and gold plinth when the PBR maps loaded.
+ * The painted checker is only the stand-in when those maps are missing.
+ */
+export function chessBoardSurfaceMaterials<T>(
+  photo: { top: T; gold: T } | null,
+  fallback: { top: T; rim: T }
+): { top: T; rim: T } {
+  if (photo) return { top: photo.top, rim: photo.gold };
+  return fallback;
+}
+
+/**
+ * The checker quad shares the piece bases. It does not cast: a shadow of the
+ * slab onto a sheet a fraction of a millimetre above it hides the wood maps.
+ * Drawn from both sides so a flipped winding cannot drop the surface.
+ */
+export function chessBoardCheckerPlacement(): {
+  y: number;
+  castShadow: false;
+  doubleSided: true;
+} {
+  return { y: 0.001, castShadow: false, doubleSided: true };
+}
+
 const NEON_MASK_SIZE = 256;
 
 /**
@@ -254,8 +282,9 @@ export function createChessMoveGlowMaterial(
   pbrGraph: ShaderGraph,
   neon: GPUTexture,
   name: string,
-  tint: [number, number, number],
-  emissive: [number, number, number]
+  tint: readonly [number, number, number],
+  emissive: readonly [number, number, number],
+  alpha = 1
 ): Material {
   const sampler = resourceManager['device']?.createSampler?.({
     magFilter: 'linear',
@@ -273,7 +302,7 @@ export function createChessMoveGlowMaterial(
     doubleSided: true,
     properties: {
       tag: 'transparent',
-      baseColor: [...tint, 1],
+      baseColor: [...tint, alpha],
       baseColorTexture: neon,
       emissiveColor: [...emissive, 1],
       emissiveTexture: neon,
@@ -285,39 +314,170 @@ export function createChessMoveGlowMaterial(
   return material;
 }
 
-/** Legal / drop-hover / spline glow recipes used by ChessDemoProject. */
+function coachProperty(id: string, propertyName: string, dataType: 'vec3f' | 'f32', y: number): ShaderGraphNode {
+  return {
+    id,
+    type: 'Property',
+    position: { x: 0, y },
+    stage: 'common',
+    inputs: [],
+    outputs: [{ id: 'out', name: propertyName, dataType }],
+    data: { propertyName },
+  };
+}
+
+/** Flat color. Ghosts blend it; the mask pass writes it for the silhouette. */
+const COACH_UNLIT_GRAPH: ShaderGraph = {
+  id: 'CoachCutoutUnlit',
+  properties: {
+    color: { name: 'Color', type: 'vec3f', defaultValue: [1, 1, 1] },
+    opacity: { name: 'Opacity', type: 'f32', defaultValue: 1 },
+  },
+  nodes: [
+    coachProperty('color', 'color', 'vec3f', 0),
+    coachProperty('opacity', 'opacity', 'f32', 80),
+    {
+      id: 'master',
+      type: 'UnlitMasterNode',
+      position: { x: 280, y: 0 },
+      stage: 'fragment',
+      inputs: [
+        { id: 'albedo', name: 'Albedo', dataType: 'vec3f' },
+        { id: 'alpha', name: 'Alpha', dataType: 'f32' },
+      ],
+      outputs: [],
+    },
+  ],
+  connections: [
+    { fromNodeId: 'color', fromSocketId: 'out', toNodeId: 'master', toSocketId: 'albedo' },
+    { fromNodeId: 'opacity', fromSocketId: 'out', toNodeId: 'master', toSocketId: 'alpha' },
+  ],
+};
+
+function createCoachUnlitMaterial(
+  resourceManager: ResourceManager,
+  name: string,
+  tint: readonly [number, number, number],
+  opacity: number,
+  alphaMode: 'OPAQUE' | 'BLEND',
+  tag: string
+): Material {
+  const material = new MaterialClass({
+    name,
+    shadingModel: 'unlit',
+    shaderGraph: COACH_UNLIT_GRAPH,
+    alphaMode,
+    doubleSided: false,
+    properties: {
+      tag,
+      color: [tint[0], tint[1], tint[2]],
+      opacity,
+    },
+  });
+  resourceManager.uploadMaterial(material);
+  return material;
+}
+
+/** Flat translucent piece on the destination square. */
+export function createChessGhostMaterial(
+  resourceManager: ResourceManager,
+  name: string,
+  tint: readonly [number, number, number]
+): Material {
+  return createCoachUnlitMaterial(resourceManager, name, tint, 0.72, 'BLEND', 'transparent');
+}
+
+/**
+ * Mask for the cutout pass. Blended so the engine queues it.
+ * An opaque mesh is batched with the pieces and that pass never draws it.
+ * The tag keeps it out of the transparent pass.
+ * @param name - Material name.
+ * @param tint - Ring color, the same as the matching ghost.
+ */
+export function chessCutoutMaterial(
+  name: string,
+  tint: readonly [number, number, number]
+): Material {
+  return new MaterialClass({
+    name,
+    shadingModel: 'unlit',
+    shaderGraph: COACH_UNLIT_GRAPH,
+    alphaMode: 'BLEND',
+    doubleSided: false,
+    properties: {
+      tag: 'coach_mask',
+      color: [tint[0], tint[1], tint[2]],
+      opacity: 1,
+    },
+  });
+}
+
+/** Flat mask. Only the coach cutout pass draws it. */
+export function createChessCutoutMaterial(
+  resourceManager: ResourceManager,
+  name: string,
+  tint: readonly [number, number, number]
+): Material {
+  const material = chessCutoutMaterial(name, tint);
+  resourceManager.uploadMaterial(material);
+  return material;
+}
+
+/**
+ * Legal / drop-hover / spline glow. The brightest channel stays near 2.4:
+ * above 1 it still blooms, and a peak of 22 turned the line into a fat halo.
+ */
 export const CHESS_MOVE_GLOW_RECIPES = [
   {
     name: 'ChessLegalSquare',
     tint: [0.28, 1, 0.42] as [number, number, number],
-    emissive: [2.2, 22, 4] as [number, number, number],
+    emissive: [0.24, 2.4, 0.44] as [number, number, number],
   },
   {
     name: 'ChessDropHoverLegal',
     tint: [1, 0.86, 0.22] as [number, number, number],
-    emissive: [18, 14, 1.8] as [number, number, number],
+    emissive: [2.4, 1.87, 0.24] as [number, number, number],
   },
   {
     name: 'ChessDropHoverHome',
     tint: [0.72, 0.88, 1] as [number, number, number],
-    emissive: [5, 10, 24] as [number, number, number],
+    emissive: [0.5, 1, 2.4] as [number, number, number],
   },
   {
     name: 'ChessDropHoverIllegal',
     tint: [1, 0.22, 0.18] as [number, number, number],
-    emissive: [32, 4.5, 2] as [number, number, number],
+    emissive: [2.4, 0.34, 0.15] as [number, number, number],
   },
   {
     name: 'ChessBookSpline',
     tint: [0.35, 0.92, 1] as [number, number, number],
-    emissive: [4, 16, 22] as [number, number, number],
+    emissive: [0.44, 1.75, 2.4] as [number, number, number],
   },
   {
     name: 'ChessBookSplineHead',
     tint: [1, 0.95, 0.55] as [number, number, number],
-    emissive: [22, 18, 4] as [number, number, number],
+    emissive: [2.4, 1.96, 0.44] as [number, number, number],
   },
 ] as const;
+
+/**
+ * Pre-grab hover on the piece square. Warm ivory under the bloom threshold,
+ * kept out of {@link CHESS_MOVE_GLOW_RECIPES} so those stay blooming.
+ */
+export const CHESS_PIECE_HOVER_GLOW = {
+  name: 'ChessPieceHover',
+  tint: [0.96, 0.9, 0.72] as [number, number, number],
+  emissive: [0.9, 0.78, 0.48] as [number, number, number],
+} as const;
+
+/** One move-glow recipe. The host and the material bake share this list. */
+export function chessMoveGlowRecipe(
+  name: (typeof CHESS_MOVE_GLOW_RECIPES)[number]['name']
+): (typeof CHESS_MOVE_GLOW_RECIPES)[number] {
+  const recipe = CHESS_MOVE_GLOW_RECIPES.find((item) => item.name === name);
+  if (!recipe) throw new Error(`Unknown move glow ${name}`);
+  return recipe;
+}
 
 /**
  * Bake neon ring mask and replace SceneDD placeholder glow mats with transparent emissive ones.
@@ -513,7 +673,6 @@ export async function loadChessPhotoPbrMaterials(
 
 type RgbaMap = { data: Uint8ClampedArray; w: number; h: number };
 
-const BOARD_COMPOSE_SIZE = 2048;
 
 function wrap01(t: number): number {
   return t - Math.floor(t);
@@ -595,7 +754,7 @@ async function composeChessBoardWoodMaps(
   const darkNormal = bitmapToRgba(darkNormalBmp);
   const darkRough = bitmapToRgba(darkRoughBmp);
 
-  const size = BOARD_COMPOSE_SIZE;
+  const size = boardTextureSize(getChessGraphicsSettings().textureQuality);
   const albedo = new ImageData(size, size);
   const normal = new ImageData(size, size);
   const orm = new ImageData(size, size);
@@ -714,8 +873,6 @@ export async function loadChessBoardPhotoMaterials(
       roughness: 1,
       anisotropy: 0,
       normalScale: 0.55,
-      clearcoatFactor: CHESS_BOARD_CLEARCOAT_FACTOR,
-      clearcoatRoughnessFactor: CHESS_BOARD_CLEARCOAT_ROUGHNESS,
     }),
     gold: createPhotoPbrMaterial(resourceManager, pbrGraph, 'ChessBoardGoldPhotoPBR', {
       color: goldColor,

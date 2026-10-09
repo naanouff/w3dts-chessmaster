@@ -6,10 +6,10 @@
 .shell {
   --accent: #e8b86d;
   --accent-ink: #1a140c;
-  --ink: #2c261f;
-  --muted: rgba(44, 38, 31, 0.62);
+  --ink: #000;
+  --muted: rgba(0, 0, 0, 0.62);
   --danger: #9a3d3d;
-  --glass: rgba(255, 255, 255, 0.07);
+  --glass: rgba(255, 255, 255, 0.25);
   --glass-highlight:
     inset 1px 1px 0 rgba(255, 255, 255, 0.75),
     inset -1px -1px 0 rgba(255, 255, 255, 0.18),
@@ -62,7 +62,8 @@
 
 .shell .panel,
 .shell .bar,
-.shell .drawer {
+.shell .drawer,
+.shell .dialogue {
   position: relative;
   isolation: isolate;
   background: var(--glass);
@@ -77,6 +78,7 @@
 .shell .panel::before,
 .shell .bar::before,
 .shell .drawer::before,
+.shell .dialogue::before,
 .shell .split > div::before,
 .shell .stats > div::before,
 .shell .primary::before,
@@ -105,6 +107,7 @@
 
 .shell .panel::after,
 .shell .drawer::after,
+.shell .dialogue::after,
 .shell .bar::after {
   content: "";
   position: absolute;
@@ -124,22 +127,74 @@
   padding: 1.4rem 1.45rem 1.5rem;
 }
 
+.shell[data-screen='accueil'] > .panel {
+  width: min(44rem, calc(100% - 2rem));
+}
+
 .shell .panel.sheet,
 .shell .panel.wide {
   width: min(46rem, calc(100% - 2rem));
 }
 
 .shell .sheet {
+  display: flex;
+  flex-direction: column;
   margin-top: 4vh;
   margin-bottom: 4vh;
+  max-height: calc(100% - 8vh);
+  overflow: hidden;
+  padding-right: 0.7rem;
+}
+
+.shell .sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 0.65rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(44, 38, 31, 0.35) transparent;
+}
+
+.shell .sheet-body::-webkit-scrollbar {
+  width: 0.35rem;
+}
+
+.shell .sheet-body::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+}
+
+.shell .sheet-body::-webkit-scrollbar-track {
+  background: transparent;
+  margin-block: 0.4rem;
+}
+
+.shell .sheet-body::-webkit-scrollbar-thumb {
+  background: rgba(44, 38, 31, 0.28);
+  border-radius: 999px;
+}
+
+.shell .sheet-body::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+.shell .sheet-body.is-overflow {
+  padding-bottom: 1.4rem;
+  mask-image: linear-gradient(#000 calc(100% - 1.5rem), transparent);
+}
+
+.shell .sheet-body > :first-child {
+  margin-top: 0;
 }
 
 .shell .sheet-head {
   display: flex;
+  flex: none;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: var(--space);
+  padding-right: 0.75rem;
 }
 
 .shell .sheet-head h1,
@@ -208,6 +263,14 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.shell .lesson {
+  margin: 0.2rem 0 0.8rem;
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.55;
+  white-space: pre-line;
 }
 
 .shell .hint,
@@ -325,10 +388,35 @@
   margin-top: 0.85rem;
 }
 
-.shell[data-screen='accueil'] > .panel > button.primary {
+.shell[data-screen='accueil'] > .panel > button.primary,
+.shell[data-screen='accueil'] > .panel > button.home-resume {
   width: fit-content;
   margin-inline: auto;
   padding-inline: 2.4rem;
+}
+
+.shell[data-screen='accueil'] > .panel > button.home-resume {
+  margin-top: 0.65rem;
+  padding-inline: 1.6rem;
+}
+
+.shell .save-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.shell .save-row p {
+  flex: 1 1 12rem;
+  margin: 0;
+}
+
+.shell .save-row .ghost,
+.shell .save-row .primary {
+  width: auto;
+  margin-top: 0;
 }
 
 .shell button.ghost,
@@ -389,6 +477,65 @@
   background-image: none;
   box-shadow: none;
   animation: none;
+}
+
+.shell .set-choice {
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
+  gap: 0.55rem;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+}
+
+.shell .set-choice button {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  gap: 0.35rem;
+  padding: 0.35rem 0.35rem 0.45rem;
+  background: var(--control-well);
+  box-shadow: var(--glass-highlight);
+}
+
+.shell .set-choice button:hover,
+.shell .set-choice button.is-selected {
+  background-color: var(--control-well);
+  background-image: none;
+  animation: none;
+}
+
+.shell .set-choice button.is-selected {
+  box-shadow: var(--glass-highlight), 0 0 0 2px var(--accent);
+}
+
+.shell .set-choice img {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 4.75rem;
+  object-fit: cover;
+  object-position: center 58%;
+  border-radius: calc(var(--radius-control) - 6px);
+  filter: grayscale(1);
+  pointer-events: none;
+  transition: filter 420ms ease;
+}
+
+.shell .set-choice button:hover img,
+.shell .set-choice button.is-selected img {
+  filter: grayscale(0);
+}
+
+.shell .set-choice span {
+  font-size: 0.82rem;
+  text-align: center;
 }
 
 .shell .cards {
@@ -477,8 +624,107 @@
   position: absolute;
   top: 4.5rem;
   right: 0.75rem;
+  bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
   width: min(22rem, calc(100% - 1.5rem));
-  padding: 1rem;
+  padding: 0.75rem;
+  overflow: hidden;
+}
+
+.shell .drawer-head {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.shell .drawer-head h2,
+.shell .drawer-head .banner {
+  margin: 0;
+}
+
+.shell .drawer-head .banner {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.shell .drawer .presence {
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: none;
+}
+
+.shell .drawer-actions {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  align-content: start;
+}
+
+.shell .drawer-actions .span-2 {
+  grid-column: 1 / -1;
+}
+
+.shell .drawer button.primary,
+.shell .drawer button.ghost {
+  width: 100%;
+  margin-top: 0;
+  padding: 0.4rem 0.5rem;
+}
+
+.shell .drawer .field {
+  margin: 0;
+}
+
+.shell .drawer textarea {
+  height: 2.1rem;
+  min-height: 0;
+  margin: 0.2rem 0 0;
+  resize: none;
+}
+
+.shell .drawer .notice {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+}
+
+.shell .dialogue {
+  position: absolute;
+  top: 4.5rem;
+  right: calc(min(22rem, calc(100% - 1.5rem)) + 1.25rem);
+  width: min(20rem, calc(100% - 26rem));
+  padding: 0.75rem 0.85rem 0.65rem;
+  border-radius: 22px;
+}
+
+.shell .dialogue p {
+  position: relative;
+  z-index: 2;
+  margin: 0 0 0.7rem;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.shell .dialogue-nav {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.shell .dialogue-nav .ghost {
+  width: auto;
+  margin-top: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.9rem;
 }
 
 .shell .keys {
@@ -518,6 +764,7 @@
 .shell input[type='text'],
 .shell input[type='url'],
 .shell input[type='password'],
+.shell select,
 .shell textarea {
   width: 100%;
   margin: 0.25rem 0 0.7rem;
@@ -755,6 +1002,31 @@
   margin: 0;
 }
 
+.shell .fin-card {
+  width: min(24rem, calc(100% - 2rem));
+  text-align: center;
+}
+
+.shell .fin-crest {
+  display: block;
+  width: min(8rem, 36vw);
+  height: auto;
+  margin: 0 auto 0.35rem;
+}
+
+.shell .fin-card.is-lost .fin-crest {
+  filter: grayscale(1);
+}
+
+.shell .fin-card.is-won h1 {
+  color: #8a5a12;
+}
+
+.shell .fin-card h1,
+.shell .fin-card p {
+  text-align: center;
+}
+
 @keyframes shell-caustic {
   0%,
   100% {
@@ -826,6 +1098,118 @@
   object-fit: fill;
 }
 
+.shell .presence {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: var(--shadow);
+}
+
+.shell .objection {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.4rem;
+  pointer-events: none;
+  background: rgba(255, 244, 220, 0.28);
+}
+
+.shell .objection img {
+  width: 7.5rem;
+  height: auto;
+  object-fit: contain;
+  animation: objection-crest 0.42s cubic-bezier(0.15, 1.3, 0.35, 1) both;
+}
+
+.shell .objection-word {
+  margin: 0;
+  padding: 0.02em 0.22em 0.08em;
+  transform: rotate(-7deg);
+  background: var(--accent);
+  color: var(--accent-ink, #1a140c);
+  font-size: clamp(3.2rem, 11vw, 7.5rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.9;
+  animation: objection-slam 0.38s cubic-bezier(0.12, 1.45, 0.32, 1) both;
+}
+
+.shell .objection-line {
+  margin: 0.2rem 0 0;
+  max-width: 16rem;
+  text-align: center;
+  color: var(--ink, #1a140c);
+  font-size: 1.05rem;
+  animation: objection-line 0.4s ease 0.28s both;
+}
+
+.shell .objection.is-leaving {
+  animation: objection-leave 0.45s ease forwards;
+}
+
+body.is-shaken {
+  animation: coach-shake 0.42s linear;
+}
+
+@keyframes objection-crest {
+  0% {
+    transform: translateY(-42vh) scale(0.55);
+    opacity: 0;
+  }
+  72% {
+    transform: translateY(0) scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes objection-line {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+}
+
+@keyframes objection-leave {
+  to {
+    transform: translate(32vw, -34vh) scale(0.14);
+    opacity: 0;
+  }
+}
+
+@keyframes objection-slam {
+  0% {
+    transform: rotate(-7deg) scale(2.6);
+    opacity: 0;
+  }
+  70% {
+    opacity: 1;
+  }
+}
+
+@keyframes coach-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .shell .choice-thumb,
   .shell .check input,
@@ -835,7 +1219,13 @@
   .shell button.danger,
   .shell .scale-thumb,
   .shell .scale-mark.is-catch,
-  .shell .boot {
+  .shell .boot,
+  .shell .set-choice img,
+  .shell .objection,
+  .shell .objection img,
+  .shell .objection-word,
+  .shell .objection-line,
+  body.is-shaken {
     transition: none;
     animation: none;
   }

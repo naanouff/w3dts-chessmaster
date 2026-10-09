@@ -36,6 +36,7 @@ struct FrameUniforms {
     ambientLightIntensity       : f32,
     debugViewMode               : u32,
     totalTime                   : f32,
+    shadowFilter                : f32,
     cascadeSplits               : vec4<f32>,
 };
 
@@ -152,6 +153,9 @@ fn terrain_fetchShadow(worldPos: vec3<f32>, worldNormal: vec3<f32>, NdotL: f32) 
 
     let depthBias    = max(0.00028 * (1.0 - NdotL), 0.0001);
     let currentDepth = shadowNDC.z - depthBias;
+    if (frame.shadowFilter > 0.5) {
+        return textureSampleCompareLevel(shadowMap, shadowSampler, uv, cascadeIdx, currentDepth);
+    }
     // Same PCSS as fetchShadow (directional). Constants: packages/core/src/rendering/pcss.ts.
     let dims = vec2<f32>(textureDimensions(shadowMap));
     let search = 0.006;

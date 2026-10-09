@@ -8,8 +8,13 @@ import {
   ChessMatch,
   chessPlyFromFen,
   decideChessFenSync,
+  chessRelayUrl,
+  CHESS_RELAY_PRODUCTION_URL,
+  decideOnlineHello,
   decodeChessWire,
   encodeChessWire,
+  guestWaitExpired,
+  ONLINE_GUEST_WAIT_MS,
   parseChessDemoQuery,
   formatChessClock,
 } from '../src/chess/index';
@@ -20,9 +25,80 @@ describe('chess wire + demo query', () => {
     expect(decodeChessWire(encodeChessWire(msg))).toEqual(msg);
   });
 
+  it('round-trips resign and draw-offer messages', () => {
+    const resign = { v: 1 as const, t: 'resign' as const, loser: 'white' as const };
+    expect(decodeChessWire(encodeChessWire(resign))).toEqual(resign);
+    const offer = { v: 1 as const, t: 'draw-offer' as const };
+    expect(decodeChessWire(encodeChessWire(offer))).toEqual(offer);
+    const accept = { v: 1 as const, t: 'draw-accept' as const };
+    expect(decodeChessWire(encodeChessWire(accept))).toEqual(accept);
+    const refuse = { v: 1 as const, t: 'draw-refuse' as const };
+    expect(decodeChessWire(encodeChessWire(refuse))).toEqual(refuse);
+  });
+
   it('round-trips a sync message', () => {
     const msg = { v: 1 as const, t: 'sync' as const, fen: 'start' };
     expect(decodeChessWire(encodeChessWire(msg))).toEqual(msg);
+  });
+
+  it('round-trips a hello and a move that carries both clocks', () => {
+    const hello = {
+      v: 1 as const,
+      t: 'hello' as const,
+      host: true,
+      color: 'black' as const,
+      fen: 'saved',
+      whiteSeconds: 500,
+      blackSeconds: 480,
+    };
+    expect(decodeChessWire(encodeChessWire(hello))).toEqual(hello);
+    const move = {
+      v: 1 as const,
+      t: 'move' as const,
+      from: 'e2' as const,
+      to: 'e4' as const,
+      fen: 'after',
+      whiteSeconds: 590,
+      blackSeconds: 600,
+    };
+    expect(decodeChessWire(encodeChessWire(move))).toEqual(move);
+    const sync = {
+      v: 1 as const,
+      t: 'sync' as const,
+      fen: 'after',
+      whiteSeconds: 590,
+      blackSeconds: 600,
+    };
+    expect(decodeChessWire(encodeChessWire(sync))).toEqual(sync);
+  });
+
+  it('lets the host color win and refuses two hosts', () => {
+    expect(decideOnlineHello('guest', true, 'white')).toEqual({ kind: 'adopt', localColor: 'black' });
+    expect(decideOnlineHello('guest', true, 'black')).toEqual({ kind: 'adopt', localColor: 'white' });
+    expect(decideOnlineHello('host', false, 'white')).toEqual({ kind: 'ready' });
+    expect(decideOnlineHello('host', true, 'white')).toEqual({ kind: 'refuse' });
+    expect(decideOnlineHello('guest', false, 'black')).toEqual({ kind: 'ignore' });
+  });
+
+  it('uses the published relay unless the build overrides it', () => {
+    expect(chessRelayUrl(undefined)).toBe(CHESS_RELAY_PRODUCTION_URL);
+    expect(chessRelayUrl('  ws://127.0.0.1:4471  ')).toBe('ws://127.0.0.1:4471');
+    expect(chessRelayUrl('')).toBe(CHESS_RELAY_PRODUCTION_URL);
+    expect(guestWaitExpired(0, ONLINE_GUEST_WAIT_MS - 1)).toBe(false);
+    expect(guestWaitExpired(0, ONLINE_GUEST_WAIT_MS)).toBe(true);
+  });
+
+  it('accepts a restore with both clocks and still accepts a sync without clocks', () => {
+    const restore = {
+      v: 1 as const,
+      t: 'restore' as const,
+      fen: 'saved',
+      whiteSeconds: 180,
+      blackSeconds: 240,
+    };
+    expect(decodeChessWire(encodeChessWire(restore))).toEqual(restore);
+    const sync = new TextEncoder().encode(JSON.stringify({ v: 1, t: 'sync', fen: 'saved' }));
+    expect(decodeChessWire(sync)).toEqual({ v: 1, t: 'sync', fen: 'saved' });
   });
 
   it('rejects garbage', () => {

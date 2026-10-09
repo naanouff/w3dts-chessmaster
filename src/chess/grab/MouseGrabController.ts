@@ -3,19 +3,16 @@
  * @project w3dts
  * @author Cyril TARRIET
  * @date 2026-08-26
- * @description Kinematic fingertip grab with a CPU spring (solver-safe).
+ * @description Kinematic fingertip grab with a CPU spring. No physics joint.
  */
 
-import { mat4, quat, vec3 } from 'gl-matrix';
+import { mat4, vec3 } from 'gl-matrix';
 import type { Entity, World } from '@naanouff/w3dts-core';
 import { TransformComponent } from '@naanouff/w3dts-core';
-import { ColliderComponent, JointComponent, RigidBodyComponent } from '@naanouff/w3dts-physics';
+import { ColliderComponent, RigidBodyComponent } from '@naanouff/w3dts-physics';
 import { CHESS_MASK_PIECE_GRABBED } from '../physics/chessGroups';
 import { setChessPieceHeld, seatChessPieceUpright } from '../physics/piecePose';
-import { CHESS_GRAB_DAMPING_RATIO, CHESS_GRAB_FREQUENCY_HZ, stepChessGrabSpring } from './grabMath';
-
-const invRot = quat.create();
-const localA = vec3.create();
+import { stepChessGrabSpring } from './grabMath';
 
 export interface ChessGrabState {
   entity: Entity;
@@ -36,7 +33,7 @@ function bakeChessTransform(transform: TransformComponent): void {
 
 /**
  * Lifts a piece with a damped spring onto the grab plane and follows the cursor.
- * Motion is kinematic: a dynamic zero-length DISTANCE weld ejected 40 g pieces.
+ * The pose is written on the transform. A physics joint is not used.
  */
 export class MouseGrabController {
   private state: ChessGrabState | null = null;
@@ -64,28 +61,7 @@ export class MouseGrabController {
     if (!transform || !collider || !body) return false;
     setChessPieceHeld(body, collider, true);
     seatChessPieceUpright(transform, body);
-    vec3.set(
-      localA,
-      worldHit[0]! - transform.position[0],
-      worldHit[1]! - transform.position[1],
-      worldHit[2]! - transform.position[2]
-    );
-    quat.invert(invRot, transform.rotation);
-    vec3.transformQuat(localA, localA, invRot);
     bakeChessTransform(transform);
-    world.addComponent(
-      entity,
-      new JointComponent({
-        type: 'DISTANCE',
-        connectedEntity: null,
-        localAnchorA: [localA[0]!, localA[1]!, localA[2]!],
-        localAnchorB: [worldHit[0]!, grabHeightY, worldHit[2]!],
-        minDistance: 0,
-        maxDistance: 0.04,
-        frequency: CHESS_GRAB_FREQUENCY_HZ,
-        dampingRatio: CHESS_GRAB_DAMPING_RATIO,
-      })
-    );
     const previousMask = collider.collisionMask;
     collider.collisionMask = CHESS_MASK_PIECE_GRABBED;
     this.state = {
@@ -108,8 +84,6 @@ export class MouseGrabController {
     this.state.targetX = worldX;
     this.state.targetY = grabHeightY;
     this.state.targetZ = worldZ;
-    const joint = world.getComponent(entity, JointComponent);
-    if (joint) vec3.set(joint.localAnchorB, worldX, grabHeightY, worldZ);
     const transform = world.getComponent(entity, TransformComponent);
     if (!transform) return;
     const vel = vec3.fromValues(this.state.velX, this.state.velY, this.state.velZ);
@@ -128,7 +102,6 @@ export class MouseGrabController {
       vec3.set(transform.position, targetX, targetY, targetZ);
       bakeChessTransform(transform);
     }
-    world.removeComponent(entity, JointComponent);
     const collider = world.getComponent(entity, ColliderComponent);
     const body = world.getComponent(entity, RigidBodyComponent);
     if (collider) collider.collisionMask = previousMask;
