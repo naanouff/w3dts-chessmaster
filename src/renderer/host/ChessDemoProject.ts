@@ -203,7 +203,6 @@ import {
 import { applyReviewFog, applyRoomSky, gardenShadowBox } from './gardenStage';
 import { terraceShadowBox } from './terraceStage';
 import {
-  CHESS_REVIEW_POSES,
   applyReviewDof,
   applyReviewGrade,
   chessReviewFrame,
@@ -223,6 +222,7 @@ import {
   subscribeChessReviewPiece,
 } from './chessPieceReview';
 import { chessCameraArrival, chessCameraArrivalPose } from './chessCameraArrival';
+import { chessGameCameraPose } from './chessGameCamera';
 import {
   applyChessShadowMode,
   getChessGraphicsSettings,
@@ -1630,11 +1630,18 @@ export class ChessDemoProject extends LitAbstractProject {
 
   /**
    * Places the game camera on a review pose and keeps the orbit controller there.
+   * Match view follows {@link localColor}; authoring review stays white-side.
    * @param frame - Game camera or the wider room frame.
    */
   private aimChessCamera(world: World, engine: IEngineContext, frame: ChessReviewFrame): void {
-    const pose = CHESS_REVIEW_POSES[frame];
+    const side = this.reviewing ? 'white' : this.localColor;
+    const pose = chessGameCameraPose(frame, side);
     this.placeChessCamera(world, engine, pose.eye, pose.target);
+  }
+
+  /** Side used for match fly-ins and game framing. Review stays white. */
+  private matchCameraColor(): ChessColor {
+    return this.reviewing ? 'white' : this.localColor;
   }
 
   /**
@@ -1692,7 +1699,7 @@ export class ChessDemoProject extends LitAbstractProject {
     if (!world || !engine) return;
     this.cameraArrival = { elapsed: 0 };
     this.camJuice = null;
-    const pose = chessCameraArrivalPose(getChessAmbiance(), 0);
+    const pose = chessCameraArrivalPose(getChessAmbiance(), 0, this.matchCameraColor());
     this.placeChessCamera(world, engine, pose.eye, pose.look);
   }
 
@@ -1714,7 +1721,7 @@ export class ChessDemoProject extends LitAbstractProject {
     const move = chessCameraArrival(getChessAmbiance());
     arrival.elapsed += dt;
     const unit = Math.min(1, arrival.elapsed / move.duration);
-    const pose = chessCameraArrivalPose(getChessAmbiance(), unit);
+    const pose = chessCameraArrivalPose(getChessAmbiance(), unit, this.matchCameraColor());
     this.placeChessCamera(world, engine, pose.eye, pose.look);
     if (unit >= 1) {
       this.cameraArrival = null;
@@ -2664,12 +2671,13 @@ export class ChessDemoProject extends LitAbstractProject {
    * Falls back to the game pose before that entity exists.
    */
   private coachViewEye(world: World): readonly [number, number, number] {
+    const fallback = chessGameCameraPose('game', this.matchCameraColor()).eye;
     const id = this.chessEngine?.getGameCameraEntityId() ?? null;
-    if (id === null) return CHESS_REVIEW_POSES.game.eye;
+    if (id === null) return fallback;
     const transform = world.getComponent(id, TransformComponent);
-    if (!transform) return CHESS_REVIEW_POSES.game.eye;
+    if (!transform) return fallback;
     const eye = transform.position;
-    if (eye[0] === 0 && eye[1] === 0 && eye[2] === 0) return CHESS_REVIEW_POSES.game.eye;
+    if (eye[0] === 0 && eye[1] === 0 && eye[2] === 0) return fallback;
     return [eye[0], eye[1], eye[2]];
   }
 
@@ -3365,6 +3373,7 @@ export class ChessDemoProject extends LitAbstractProject {
       );
       if (this.match.fen() !== msg.fen) this.rebuildFromFen(world, msg.fen);
       this.syncFileRankLabels(world);
+      if (this.chessEngine) this.aimChessCamera(world, this.chessEngine, 'game');
     }
     this.clearGuestWait();
     this.onlineReady = true;

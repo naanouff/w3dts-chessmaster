@@ -5,7 +5,9 @@
  * @description Fly-in from the room's opening frame to the game camera.
  */
 
+import type { ChessColor } from '../../chess/rules/chessTypes';
 import type { ChessAmbianceId } from './chessAmbiance';
+import { mirrorCameraPointZ } from './chessGameCamera';
 import { CHESS_REVIEW_POSES } from './chessSetReview';
 
 type Vec3 = readonly [number, number, number];
@@ -64,6 +66,7 @@ const ARRIVALS: Record<ChessAmbianceId, ChessCameraArrival> = {
 
 /**
  * Opening move for one room. The review does not play it.
+ * Keyframes stay white-side; {@link chessCameraArrivalPose} mirrors for black.
  * @param id - Room id.
  * @returns Duration, ease, and the eye and look splines.
  */
@@ -75,19 +78,32 @@ export function chessCameraArrival(id: ChessAmbianceId): ChessCameraArrival {
  * Eye and look-at at a raw time in the move. 0 is the opening frame, 1 is the game camera.
  * @param id - Room id.
  * @param unit - Un-eased progress, from 0 to 1.
+ * @param localColor - Side the local client plays. Defaults to white.
  * @returns Positions in metres.
  */
 export function chessCameraArrivalPose(
   id: ChessAmbianceId,
-  unit: number
+  unit: number,
+  localColor: ChessColor = 'white'
 ): { eye: [number, number, number]; look: [number, number, number] } {
   const move = ARRIVALS[id];
   const t = ease(move.ease, clamp01(unit));
-  if (t <= 0) return { eye: tuple(move.eye[0]), look: tuple(move.look[0]) };
-  if (t >= 1) {
-    return { eye: tuple(move.eye[move.eye.length - 1]), look: tuple(move.look[move.look.length - 1]) };
+  let eye: [number, number, number];
+  let look: [number, number, number];
+  if (t <= 0) {
+    eye = tuple(move.eye[0]);
+    look = tuple(move.look[0]);
+  } else if (t >= 1) {
+    eye = tuple(move.eye[move.eye.length - 1]);
+    look = tuple(move.look[move.look.length - 1]);
+  } else {
+    eye = catmull(move.eye, t);
+    look = catmull(move.look, t);
   }
-  return { eye: catmull(move.eye, t), look: catmull(move.look, t) };
+  return {
+    eye: mirrorCameraPointZ(eye, localColor),
+    look: mirrorCameraPointZ(look, localColor),
+  };
 }
 
 function tuple(point: Vec3 | undefined): [number, number, number] {
