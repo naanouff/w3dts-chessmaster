@@ -240,7 +240,7 @@ import {
   sceneLifeWanted,
   subscribeSceneLife,
 } from './chessSceneLife';
-import { loadChessSet } from './spawnChessSet';
+import { applyChessSetView, loadChessSet } from './spawnChessSet';
 import { sceneLifeFloorY, spawnSceneLife } from './spawnSceneLife';
 
 /** Studio cloth plane size (must match the mesh in onInit). */
@@ -1305,7 +1305,8 @@ export class ChessDemoProject extends LitAbstractProject {
       nodes = await loadChessSet(
         { device, world, resourceManager, pbrGraph },
         id,
-        getChessGraphicsSettings().textureQuality
+        getChessGraphicsSettings().textureQuality,
+        this.matchCameraColor()
       );
     } catch (e) {
       nodes = null;
@@ -1642,6 +1643,13 @@ export class ChessDemoProject extends LitAbstractProject {
   /** Side used for match fly-ins and game framing. Review stays white. */
   private matchCameraColor(): ChessColor {
     return this.reviewing ? 'white' : this.localColor;
+  }
+
+  /** Shows the far set dressing and hides the band behind the game camera. */
+  private syncSetView(): void {
+    const world = this.world;
+    if (!world || this.setNodes.length === 0) return;
+    applyChessSetView(this.setNodes, world, this.matchCameraColor());
   }
 
   /**
@@ -2395,6 +2403,7 @@ export class ChessDemoProject extends LitAbstractProject {
     );
     this.spawnMatchPieces(world);
     this.syncFileRankLabels(world);
+    this.syncSetView();
     this.boardReady = true;
     if (game.shellMode === 'online') {
       this.modePickerOpen = true;
@@ -2472,6 +2481,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.flagSfxPlayed = false;
     this.spawnMatchPieces(world);
     this.syncFileRankLabels(world);
+    this.syncSetView();
     this.boardReady = true;
     this.beginCameraArrival();
     this.bindP2p();
@@ -3373,6 +3383,7 @@ export class ChessDemoProject extends LitAbstractProject {
       );
       if (this.match.fen() !== msg.fen) this.rebuildFromFen(world, msg.fen);
       this.syncFileRankLabels(world);
+      this.syncSetView();
       if (this.chessEngine) this.aimChessCamera(world, this.chessEngine, 'game');
     }
     this.clearGuestWait();
