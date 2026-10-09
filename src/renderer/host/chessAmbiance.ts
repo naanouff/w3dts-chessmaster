@@ -279,21 +279,46 @@ const LIGHTS: Record<ChessAmbianceId, readonly ChessSetLight[]> = {
     {
       type: 'rect',
       color: 0xfff7f0,
-      intensity: 5,
+      intensity: 3.6,
       width: 0.7,
       height: 1.05,
-      position: [1.35, 0.85, 0.4],
+      // Further on +Z so the black-side game camera is not looking into the softbox.
+      position: [1.35, 0.95, 0.95],
       target: [0, 0.15, 0],
     },
     {
       type: 'spot',
       color: 0xfff4ea,
-      intensity: 7.2,
+      intensity: 5.6,
       distance: 6,
       angle: 0.45,
       penumbra: 0.65,
-      position: [-1.15, 1.4, 0.05],
+      position: [-1.15, 1.4, -0.05],
       target: [0.1, 0.05, 0],
+    },
+    {
+      type: 'spot',
+      color: 0xfff4ea,
+      intensity: 1.6,
+      distance: 4,
+      angle: 0.95,
+      penumbra: 0.7,
+      // Behind the white-side game camera (faces the player sees when playing white).
+      position: [0, 0.95, -1.15],
+      target: [0, 0.05, 0],
+      cast: false,
+    },
+    {
+      type: 'spot',
+      color: 0xfff4ea,
+      intensity: 1.6,
+      distance: 4,
+      angle: 0.95,
+      penumbra: 0.7,
+      // Behind the black-side game camera after the Z mirror.
+      position: [0, 0.95, 1.15],
+      target: [0, 0.05, 0],
+      cast: false,
     },
   ],
   salon: [
@@ -520,6 +545,24 @@ export function chessSetPlacements(id: ChessAmbianceId): readonly ChessSetPlacem
  */
 export function chessSetShell(id: ChessAmbianceId): ChessSetShell {
   return SHELLS[id];
+}
+
+/** World Z and yaw for one procedural cove instance. */
+export type ChessSetCovePose = { z: number; yaw: number };
+
+/**
+ * Cove instances so both game cameras (white −Z, black +Z) have a backdrop.
+ * Empty when the room has no cove.
+ * @param cove - Shell cove, or null.
+ */
+export function chessSetCovePoses(
+  cove: ChessSetShell['cove']
+): readonly ChessSetCovePose[] {
+  if (!cove) return [];
+  return [
+    { z: cove.zFront, yaw: 0 },
+    { z: -cove.zFront, yaw: Math.PI },
+  ];
 }
 
 /** One local cubemap. The box is its influence. `radius` is unused while the box is set. */

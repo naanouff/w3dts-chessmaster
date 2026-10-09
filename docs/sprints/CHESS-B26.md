@@ -48,7 +48,7 @@ Fait quand :
 - Les quatre WebP (grand côté 1280) sont reprises dans le client (`pnpm dev`) : accueil, modes, partie avec ambiance visible et version 0.2.x, langues.
 - Pas de Node / pnpm / WebGPU dans le README.
 
-## CHESS-B26e — Release 0.2.1
+## CHESS-B26e — Release 0.2.1 ✅
 
 Fichiers : `docs/releases/0.2.1.md`, `package.json` (déjà `0.2.1` sur `develop`), [semver.md](../semver.md).
 

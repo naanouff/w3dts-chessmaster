@@ -29,7 +29,7 @@ Prise de vue produit. Défaut, toutes les parties. HDRI [studio_kontrast_04_2k.h
 
 Cases ivoire et wengé, cadre foncé. Blancs marbre ou ivoire mat, noirs acier brossé, déjà dans [chessLook.ts](../src/renderer/host/chessLook.ts). La prise fait un clic sec. L’échec ajoute un filet de bloom sur la pièce seule.
 
-La caméra de partie reste basse et proche. Le cyclo et la softbox entrent quand on orbite.
+La caméra de partie reste basse et proche. Deux cyclos se font face (+Z et −Z) pour que le joueur noir ait aussi un fond derrière les blancs ([CHESS-B27](sprints/CHESS-B27.md)). La softbox et le projecteur restent latéraux ; deux fills derrière chaque caméra de partie éclairent les faces vues.
 
 **Table studio** — 180 × 100 cm, toile lin beige, retombée de 4 cm, pieds en tube d’acier carré, entretoise basse.
 
@@ -39,7 +39,7 @@ La caméra de partie reste basse et proche. Le cyclo et la softbox entrent quand
 
 ![Plateau toile](ambiances/atelier-plateau-toile.png)
 
-**Cyclorama** — 6 m de large, 3 m de haut, plâtre gris mat. Le sol du cyclo remonte en quart de cercle, rayon 80 cm. Le béton sous la table est un autre plan. Le GLB Meshy est à l’envers : la maquette le dessine en procédural, elle ne charge pas `cyclorama.glb`.
+**Cyclorama** — 6 m de large, 3 m de haut, plâtre gris mat. Le sol du cyclo remonte en quart de cercle, rayon 80 cm. Deux instances procédurales : une à +Z (fond côté noirs pour la caméra blanche), une à −Z (fond côté blancs pour la caméra noire). Le béton sous la table est un autre plan. Le GLB Meshy est à l’envers : on ne charge pas `cyclorama.glb`.
 
 ![Cyclorama](ambiances/atelier-cyclorama.png)
 
