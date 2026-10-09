@@ -77,6 +77,23 @@ Le preload expose `coachSettings`, `coachSaveSettings`, `coachProbe`, `coachLaun
 
 Le présentateur est le tiroir de la coque, pas un second panneau sur le HUD.
 
+## Installation Ollama (Windows)
+
+Pour l’alpha, le coach **sans modèle** reste le cas nominal. Cette section est pour les volontaires qui veulent brancher un modèle local. Sprint : [CHESS-B24](sprints/CHESS-B24.md).
+
+1. Installer Ollama depuis [ollama.com/download](https://ollama.com/download). Redémarrer si l’installateur le demande.
+2. Ouvrir un terminal et tirer le modèle par défaut du client :
+
+```bash
+ollama pull llama3.2
+```
+
+3. Vérifier que le service répond : `ollama list` doit montrer `llama3.2`, ou ouvrir `http://127.0.0.1:11434` dans le navigateur (réponse courte du serveur).
+4. Lancer ChessMaster. Ouvrir **Paramètres** → section assistant. Si Ollama tourne, le client le détecte et choisit `llama3.2` (ou le premier modèle disponible). Sinon : bouton pour lancer Ollama, ou lien de téléchargement s’il est absent.
+5. En partie ou en entraînement, ouvrir le tiroir **Assistant** → **Expliquer**. Une réponse en une ou deux phrases confirme le branchement. Si rien ne vient : Ollama est arrêté, le modèle manque, ou un pare-feu bloque `127.0.0.1:11434`.
+
+API distante (URL + modèle + clé) reste un choix replié dans Paramètres. La clé ne revient pas à l’écran.
+
 ## Hors de ce palier
 
 - Avatar parlant, voix, visème.

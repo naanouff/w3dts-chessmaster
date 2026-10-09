@@ -4,10 +4,13 @@
  * @description NDC mapping and ray–plane intersection for fingertip grab.
  */
 
+import { createRequire } from 'node:module';
+import { dirname } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { mat4, vec3, vec4 } from 'gl-matrix';
-import { TransformComponent, World } from '@naanouff/w3dts-core';
+import { Mesh, TransformComponent, World } from '@naanouff/w3dts-core';
 import { ColliderComponent, raycast } from '@naanouff/w3dts-physics';
+import { readFileSync } from 'node:fs';
 import {
   CHESS_GROUP_PIECE,
   clientPointToNdc,
@@ -18,6 +21,9 @@ import {
   stauntonPieceColliderShapes,
   viewProjectionLookAt,
 } from '../src/chess/index';
+import { hdPieceCollider } from '../src/renderer/host/hdChessPieces';
+
+const require = createRequire(import.meta.url);
 
 describe('grab math', () => {
   it('maps the rect centre to NDC origin', () => {
@@ -62,6 +68,15 @@ describe('grab math', () => {
     expect(Number.isFinite(ray!.origin[2])).toBe(true);
   });
 
+  it('resolves one @naanouff/w3dts-core for the app and physics', () => {
+    const appCore = require.resolve('@naanouff/w3dts-core');
+    const physicsEntry = require.resolve('@naanouff/w3dts-physics');
+    const physicsCore = require.resolve('@naanouff/w3dts-core', {
+      paths: [dirname(physicsEntry)],
+    });
+    expect(physicsCore).toBe(appCore);
+  });
+
   it('hits a pawn collider from the table camera through the piece NDC', () => {
     const world = new World();
     const entity = world.createEntity();
@@ -92,6 +107,51 @@ describe('grab math', () => {
     const ndcX = clip[0]! / clip[3]!;
     const ndcY = clip[1]! / clip[3]!;
     const ray = pickRayFromViewProjection(vp, ndcX, ndcY);
+    expect(ray).not.toBeNull();
+    const hit = raycast(world, ray!.origin, ray!.direction, 8, {
+      collisionMask: CHESS_GROUP_PIECE,
+    });
+    expect(hit?.entity).toBe(entity);
+  });
+
+  it('hits an HD piece mesh AABB from the table camera', () => {
+    const file = readFileSync('public/models/chess/b_pion.wmesh');
+    const vertexCount = file.readUInt32LE(8);
+    const indexCount = file.readUInt32LE(12);
+    const vertices = new Float32Array(file.buffer, file.byteOffset + 16, vertexCount * 20);
+    const indices = new Uint16Array(
+      file.buffer,
+      file.byteOffset + 16 + vertexCount * 20 * 4,
+      indexCount
+    );
+    const mesh = new Mesh(new Float32Array(vertices), new Uint16Array(indices), 'hd-pawn');
+
+    const world = new World();
+    const entity = world.createEntity();
+    const transform = new TransformComponent();
+    const pos = squareToWorld('e2');
+    vec3.copy(transform.position, pos);
+    transform.updateLocalTransform();
+    world.addComponent(entity, transform);
+    world.addComponent(
+      entity,
+      new ColliderComponent({
+        shapes: [hdPieceCollider(mesh)],
+        collisionGroup: CHESS_GROUP_PIECE,
+      })
+    );
+
+    const vp = viewProjectionLookAt(
+      [0, 0.55, -0.72],
+      [0, 0.02, 0],
+      (38 * Math.PI) / 180,
+      16 / 9,
+      0.05,
+      20
+    );
+    const clip = vec4.fromValues(pos[0]!, pos[1]! + 0.03, pos[2]!, 1);
+    vec4.transformMat4(clip, clip, vp);
+    const ray = pickRayFromViewProjection(vp, clip[0]! / clip[3]!, clip[1]! / clip[3]!);
     expect(ray).not.toBeNull();
     const hit = raycast(world, ray!.origin, ray!.direction, 8, {
       collisionMask: CHESS_GROUP_PIECE,

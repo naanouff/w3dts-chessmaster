@@ -74,6 +74,30 @@
       "usage": 22
     },
     {
+      "name": "fogBuffer",
+      "format": "rgba16float",
+      "sizeType": "relative",
+      "width": 0.5,
+      "height": 0.5,
+      "usage": 22
+    },
+    {
+      "name": "fogScene",
+      "format": "rgba16float",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
+      "name": "dofScene",
+      "format": "rgba16float",
+      "sizeType": "relative",
+      "width": 1.0,
+      "height": 1.0,
+      "usage": 22
+    },
+    {
       "name": "sceneColorSsr",
       "format": "rgba16float",
       "sizeType": "relative",
@@ -249,7 +273,7 @@
       "shaderPath": "/shaders/post-processing/hbao.frag.wgsl",
       "useFrameUniforms": true,
       "uniforms": {
-        "hbaoParams": { "type": "struct", "value": [0.085, 1.7, 0.05, 8.0] }
+        "hbaoParams": { "type": "struct", "value": [0.085, 1.7, 0.05, 4.0] }
       }
     },
     {
@@ -280,7 +304,7 @@
       "outputs": ["ssrBuffer"],
       "shaderPath": "/shaders/post-processing/ssr_floor.frag.wgsl",
       "uniforms": {
-        "params": { "type": "struct", "value": [1.0, 256.0, 0.018, 0.72] }
+        "params": { "type": "struct", "value": [1.0, 16.0, 0.018, 0.72] }
       }
     },
     {
@@ -289,6 +313,27 @@
       "inputs": ["aoSceneColor", "ssrBuffer"],
       "outputs": ["sceneColorSsr"],
       "shaderPath": "/shaders/post-processing/ssr_composite.frag.wgsl"
+    },
+    {
+      "name": "09_Fog",
+      "type": "fullscreen",
+      "useFrameUniforms": true,
+      "bindShadows": true,
+      "inputs": ["sceneDepth"],
+      "outputs": ["fogBuffer"],
+      "outputFormat": "rgba16float",
+      "shaderPath": "/shaders/post-processing/volumetric_fog.frag.wgsl",
+      "uniforms": {
+        "fogParams": { "type": "struct", "value": [0.06, 0.45, 0.0, 0.6, 14.0] }
+      }
+    },
+    {
+      "name": "09b_FogComposite",
+      "type": "fullscreen",
+      "inputs": ["sceneColorSsr", "fogBuffer"],
+      "outputs": ["fogScene"],
+      "outputFormat": "rgba16float",
+      "shaderPath": "/shaders/post-processing/fog_composite.frag.wgsl"
     },
     {
       "name": "06_Bright",
@@ -323,19 +368,36 @@
     {
       "name": "06d_BloomAdd",
       "type": "fullscreen",
-      "inputs": ["sceneColorSsr", "bloomTexture"],
+      "inputs": ["fogScene", "bloomTexture"],
       "outputs": ["bloomScene"],
       "shaderPath": "/shaders/post-processing/bloom_add.frag.wgsl",
       "uniforms": { "intensity": { "type": "f32", "value": 1.0 } }
     },
     {
+      "name": "10_DoF",
+      "type": "fullscreen",
+      "useFrameUniforms": true,
+      "inputs": ["bloomScene", "sceneDepth"],
+      "outputs": ["dofScene"],
+      "outputFormat": "rgba16float",
+      "shaderPath": "/shaders/post-processing/dof.frag.wgsl",
+      "uniforms": {
+        "dofParams": { "type": "struct", "value": [0.0, 0.02, 0.0, 0.55, 4.0] },
+        "dofSlot": { "type": "f32", "value": 1.0 }
+      }
+    },
+    {
       "name": "Tone Mapping & Output",
       "type": "fullscreen",
-      "inputs": ["bloomScene"],
+      "inputs": ["dofScene"],
       "outputs": ["ldrBuffer"],
       "outputFormat": "rgba8unorm",
       "shaderPath": "/shaders/post-processing/tonemapping.frag.wgsl",
-      "uniforms": { "exposure": { "type": "f32", "value": 1.0 } }
+      "uniforms": {
+        "exposure": { "type": "f32", "value": 1.0 },
+        "contrast": { "type": "f32", "value": 1.0 },
+        "saturation": { "type": "f32", "value": 1.0 }
+      }
     },
     {
       "name": "Debug Lines Pass",

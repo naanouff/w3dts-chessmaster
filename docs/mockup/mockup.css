@@ -95,20 +95,61 @@ body {
 
 .mock-ends {
   display: flex;
-  gap: 0.55rem;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.4rem 0.28rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: var(--glass-highlight), var(--shadow);
+}
+
+.mock-ends span {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .mock-ends button {
   margin: 0;
-  padding: 0;
+  padding: 0.28rem 0.55rem;
   border: 0;
-  background: none;
+  border-radius: 999px;
+  background: transparent;
   font: inherit;
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(44, 38, 31, 0.45);
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--ink);
   cursor: pointer;
+}
+
+.mock-ends button:hover {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.fin-card {
+  width: min(24rem, calc(100% - 2rem));
+  text-align: center;
+}
+
+.fin-crest {
+  display: block;
+  width: min(8rem, 36vw);
+  height: auto;
+  margin: 0 auto 0.35rem;
+}
+
+.fin-card.is-lost .fin-crest {
+  filter: grayscale(1);
+}
+
+.fin-card.is-won h1 {
+  color: #8a5a12;
+}
+
+.fin-card h1,
+.fin-card p {
+  text-align: center;
 }
 
 #app {
@@ -199,16 +240,64 @@ body {
 }
 
 .sheet {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 8vh);
   margin-top: 4vh;
   margin-bottom: 4vh;
+  overflow: hidden;
+  padding-right: 0.7rem;
+}
+
+.sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 0.65rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(44, 38, 31, 0.35) transparent;
+}
+
+.sheet-body::-webkit-scrollbar {
+  width: 0.35rem;
+}
+
+.sheet-body::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+}
+
+.sheet-body::-webkit-scrollbar-track {
+  background: transparent;
+  margin-block: 0.4rem;
+}
+
+.sheet-body::-webkit-scrollbar-thumb {
+  background: rgba(44, 38, 31, 0.28);
+  border-radius: 999px;
+}
+
+.sheet-body::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+.sheet-body.is-overflow {
+  padding-bottom: 1.4rem;
+  mask-image: linear-gradient(#000 calc(100% - 1.5rem), transparent);
+}
+
+.sheet-body > :first-child {
+  margin-top: 0;
 }
 
 .sheet-head {
   display: flex;
+  flex: none;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: var(--space);
+  padding-right: 0.75rem;
 }
 
 .sheet-head h1,
@@ -424,7 +513,8 @@ textarea:focus-visible {
   margin-top: 0.9rem;
 }
 
-.text-links button {
+.text-links button,
+.text-links a.text-link {
   background: none;
   border: 0;
   box-shadow: none;
@@ -432,6 +522,14 @@ textarea:focus-visible {
   width: auto;
   flex: none;
   white-space: nowrap;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+}
+
+.text-links a.text-link:hover {
+  color: var(--accent-ink);
 }
 
 .mode-grid {
@@ -560,8 +658,30 @@ textarea:focus-visible {
 }
 
 #sets span {
-  font-size: 0.82rem;
+  font-size: clamp(0.68rem, 2.1vw, 0.82rem);
+  line-height: 1.15;
   text-align: center;
+}
+
+.son-shots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.son-shots button {
+  min-width: 5.5rem;
+  padding: 0.55rem 0.85rem;
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  background: var(--control-well);
+  box-shadow: var(--glass-highlight);
+  cursor: pointer;
+}
+
+.son-shots button:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .row-actions {

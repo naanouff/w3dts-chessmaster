@@ -461,6 +461,20 @@ if (anisotropy != 0.0) {
 
 const MAX_REFLECTION_LOD: f32 = 4.0;
 var prefilteredColor = textureSampleLevel(prefilterMap, iblSampler, R_vec, roughnessIbl * MAX_REFLECTION_LOD).rgb;
+if (reflectionProbes.count > 0u) {
+    let probe = reflectionProbes.probes[0];
+    let probeCenter = probe.centerRadius.xyz;
+    let probeBox = probe.boxHalf.xyz;
+    let probeWeight = reflectionProbeWeight(input.world_position, probeCenter, probe.centerRadius.w, probeBox);
+    if (probeWeight > 0.0) {
+        var probeDir = R_vec;
+        if (probeBox.x > 1e-3 && probeBox.y > 1e-3 && probeBox.z > 1e-3) {
+            probeDir = normalize(boxParallaxDir(R_vec, input.world_position, probeCenter, probeBox));
+        }
+        let captured = textureSampleLevel(probePrefilter, iblSampler, probeDir, 0, roughnessIbl * MAX_REFLECTION_LOD).rgb;
+        prefilteredColor = mix(prefilteredColor, captured, probeWeight);
+    }
+}
 let specularIBL = prefilteredColor * FssEss;
 // Clearcoat IBL follows clearcoat normal Nc (MultiTest Clearcoat Normal). Keep a stable
 // face-on intensity so clearcoatTexture checkmarks stay readable (pure F0=0.04 is too dim).

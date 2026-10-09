@@ -25,6 +25,17 @@ describe('chess wire + demo query', () => {
     expect(decodeChessWire(encodeChessWire(msg))).toEqual(msg);
   });
 
+  it('round-trips resign and draw-offer messages', () => {
+    const resign = { v: 1 as const, t: 'resign' as const, loser: 'white' as const };
+    expect(decodeChessWire(encodeChessWire(resign))).toEqual(resign);
+    const offer = { v: 1 as const, t: 'draw-offer' as const };
+    expect(decodeChessWire(encodeChessWire(offer))).toEqual(offer);
+    const accept = { v: 1 as const, t: 'draw-accept' as const };
+    expect(decodeChessWire(encodeChessWire(accept))).toEqual(accept);
+    const refuse = { v: 1 as const, t: 'draw-refuse' as const };
+    expect(decodeChessWire(encodeChessWire(refuse))).toEqual(refuse);
+  });
+
   it('round-trips a sync message', () => {
     const msg = { v: 1 as const, t: 'sync' as const, fen: 'start' };
     expect(decodeChessWire(encodeChessWire(msg))).toEqual(msg);

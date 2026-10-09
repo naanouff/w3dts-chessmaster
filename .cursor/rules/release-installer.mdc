@@ -5,8 +5,8 @@ alwaysApply: true
 
 # Release installer
 
-A push to `main` or `release/*` builds the NSIS installer and uploads `release/*.exe` as the `w3dts-chessmaster-X.Y.Z` artifact. The push to `main` also attaches that exe, and only that exe, to the GitHub release `vX.Y.Z`.
+A push to `main` or `release/*` builds the NSIS installer and uploads `release/*.exe` as the `w3dts-chessmaster-X.Y.Z` artifact. The push to `main` also attaches that exe, and only that exe, to the GitHub release `vX.Y.Z`. The same refs also run `deploy-web`, which builds the static renderer and publishes it to Vercel when `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` are set.
 
 `pnpm dist` passes `--publish never`. electron-builder must not publish during this job: a missing `GH_TOKEN` fails the build after the exe exists and the artifact is never uploaded. The release is created afterwards with `gh`, from the exe already on disk.
 
-Do not build the installer on `develop` or on feature branches.
+Do not build the installer or deploy the web build on `develop` or on feature branches.

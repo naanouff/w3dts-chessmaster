@@ -103,6 +103,8 @@ export interface ShellCopy {
   mistake: string;
   strategy: string;
   objection: string;
+  /** Second line under the cry. */
+  objectionLine: string;
   ghostHint: string;
   dialoguePrev: string;
   dialogueNext: string;
@@ -131,6 +133,31 @@ export interface ShellCopy {
   changeMode: string;
   leave: string;
   home: string;
+  won: string;
+  lost: string;
+  drawn: string;
+  mateWhite: string;
+  mateBlack: string;
+  flagWhite: string;
+  flagBlack: string;
+  stalemateLine: string;
+  insufficientLine: string;
+  agreedLine: string;
+  resignWhite: string;
+  resignBlack: string;
+  resign: string;
+  offerDraw: string;
+  acceptDraw: string;
+  refuseDraw: string;
+  drawOfferTitle: string;
+  drawOfferCpu: string;
+  drawOfferPeer: string;
+  drawRefused: string;
+  cancel: string;
+  lineDone: string;
+  seeBoard: string;
+  replay: string;
+  result: string;
   sound: string;
   sfx: string;
   ambience: string;
@@ -157,6 +184,8 @@ export interface ShellCopy {
     atelier: string;
     salon: string;
     club: string;
+    jardin: string;
+    terrasse: string;
   };
   preset: string;
   presets: {

@@ -1,6 +1,6 @@
 /**
  * Launches the graphics bench, one window size at a time, and writes tmp/graphics-bench.json.
- * Sizes match GRAPHICS_BENCH_WINDOWS and GRAPHICS_MOTION_WINDOWS.
+ * Default: full rest matrix + motion. `--presets` (or CHESS_BENCH_SCOPE=presets): four looks only.
  */
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const electronVite = path.join(root, 'node_modules', 'electron-vite', 'bin', 'electron-vite.js');
+const presetsOnly =
+  process.argv.includes('--presets') || process.env.CHESS_BENCH_SCOPE === 'presets';
 
 const REST = [
   [1366, 768],
@@ -17,6 +19,10 @@ const REST = [
   [2560, 1440],
   [3440, 1440],
   [3840, 2160],
+];
+const PRESETS = [
+  [1920, 1080],
+  [3440, 1440],
 ];
 const MOTION = [
   [1920, 1080],
@@ -141,10 +147,12 @@ try {
 async function run() {
   const windows = [];
   let stopped = null;
-  for (const [width, height] of REST) {
-    process.stderr.write(`rest ${width}x${height}\n`);
-    const report = await measureWindow(width, height, 'rest');
-    windows.push({ pass: 'rest', ...report });
+  const pass = presetsOnly ? 'presets' : 'rest';
+  const sizes = presetsOnly ? PRESETS : REST;
+  for (const [width, height] of sizes) {
+    process.stderr.write(`${pass} ${width}x${height}\n`);
+    const report = await measureWindow(width, height, pass);
+    windows.push({ pass, ...report });
     process.stderr.write(`  fluid ${report.fluidMs} quality ${report.qualityMs}\n`);
     if (report.stopped === 'vsync' || report.stopped === 'unready') {
       stopped = report.stopped;
@@ -153,7 +161,7 @@ async function run() {
     await pause();
   }
   const motion = [];
-  if (!stopped) {
+  if (!stopped && !presetsOnly) {
     for (const [width, height] of MOTION) {
       process.stderr.write(`motion ${width}x${height}\n`);
       motion.push(await measureWindow(width, height, 'motion'));
@@ -163,7 +171,7 @@ async function run() {
 
   mkdirSync(path.join(root, 'tmp'), { recursive: true });
   const out = path.join(root, 'tmp', 'graphics-bench.json');
-  writeFileSync(out, JSON.stringify({ stopped, windows, motion }, null, 2));
+  writeFileSync(out, JSON.stringify({ stopped, scope: presetsOnly ? 'presets' : 'full', windows, motion }, null, 2));
   process.stderr.write(`${out}\n`);
   if (stopped) process.exitCode = 2;
 }

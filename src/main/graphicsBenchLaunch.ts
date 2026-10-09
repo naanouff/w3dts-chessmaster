@@ -27,7 +27,12 @@ export function graphicsBenchLaunch(env: {
   if (env.CHESS_GRAPHICS_BENCH !== '1') return null;
   const width = Number(env.CHESS_BENCH_WIDTH);
   const height = Number(env.CHESS_BENCH_HEIGHT);
-  const pass = env.CHESS_BENCH_PASS === 'motion' ? 'motion' : 'rest';
+  const pass =
+    env.CHESS_BENCH_PASS === 'motion'
+      ? 'motion'
+      : env.CHESS_BENCH_PASS === 'presets'
+        ? 'presets'
+        : 'rest';
   return {
     search: `bench=graphics&benchPass=${pass}&chess=hotseat`,
     width: Number.isFinite(width) && width >= 640 ? Math.round(width) : 1280,

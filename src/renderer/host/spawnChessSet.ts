@@ -22,6 +22,7 @@ import {
   type World,
 } from '@naanouff/w3dts-core';
 import { quat, vec3 } from 'gl-matrix';
+import type { ChessTextureQuality } from '../graphics/chessGraphicsSettings';
 import {
   chessGlassTop,
   chessSetPlacements,
@@ -57,15 +58,15 @@ export interface ChessSetHost {
  * Builds the room nodes. They are not added to the scene.
  * @param host - Device, world, and the PBR graph.
  * @param id - Room to build.
- * @param textureSize - Baked JPEG tier, matching the piece textures.
+ * @param quality - Options texture tier. Props resolve their bake size from scene density.
  * @returns Nodes, or null when a required GLB is missing.
  */
 export async function loadChessSet(
   host: ChessSetHost,
   id: ChessAmbianceId,
-  textureSize: number
+  quality: ChessTextureQuality
 ): Promise<SceneNode[] | null> {
-  const buffers = await fetchChessSetBuffers(id, textureSize, async (url) => {
+  const buffers = await fetchChessSetBuffers(id, quality, async (url) => {
     const response = await fetch(url);
     if (!response.ok) return null;
     return response.arrayBuffer();

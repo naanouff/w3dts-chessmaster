@@ -10,18 +10,22 @@ La règle [`.cursor/rules/docs-min.mdc`](../.cursor/rules/docs-min.mdc) renvoie 
 
 - `README.md` — la partie, les captures, les langues.
 - [Compiler](build.md) — prérequis et scripts.
-- [Coach](coach-ia.md)
+- [Coach](coach-ia.md) — dont installation Ollama
 - [Maquette](maquette-ui.md)
 - [Shell](shell-client.md)
 - [Langues](i18n.md)
 - [Assets 3D](assets-3d.md)
+- [Pièces](pieces.md)
+- [Survol](survol.md)
 - [Ambiances](ambiances.md)
+- [Son](audio.md) — revue : `pnpm review:audio` → `/mockup/audio.html`
 - [Version](semver.md)
 - [Persistance](persistance.md)
 - [Multijoueur](multijoueur.md)
 - [Profil graphique](profil-graphismes.md)
 - [Ombres](ombres.md)
 - [Upscale](upscale.md)
+- [Plan QA de l’alpha](qa-alpha.md)
 
 Les fichiers de `docs/sprints/` sont des archives. On ne les rallonge pas quand le code bouge.
 

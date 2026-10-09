@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "id": "fire-realistic",
+  "name": "Fire (realistic)",
+  "metadata": {
+    "kind": "fire/realistic",
+    "category": "fire",
+    "simMode": "procedural"
+  },
+  "parameters": {
+    "intensity": { "type": "f32", "value": 1 },
+    "enabled": { "type": "bool", "value": true }
+  },
+  "nodes": [{ "id": "out", "type": "ProceduralEmberOutput" }],
+  "links": []
+}

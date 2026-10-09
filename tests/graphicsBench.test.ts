@@ -5,7 +5,11 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { FLUID_GRAPHICS, GRAPHICS_PRESETS } from '../src/renderer/graphics/chessGraphicsSettings';
+import {
+  FLUID_GRAPHICS,
+  GRAPHICS_PRESETS,
+  matchingGraphicsPreset,
+} from '../src/renderer/graphics/chessGraphicsSettings';
 import {
   GRAPHICS_BENCH_SAMPLE_FRAMES,
   GRAPHICS_BENCH_WARMUP_FRAMES,
@@ -115,9 +119,31 @@ describe('graphics bench campaign', () => {
     expect(graphicsBenchClockAdvanced(10, 12)).toBe(true);
   });
 
-  it('stops when fluid and quality frame times match', async () => {
+  it('presets pass records only the four named looks', async () => {
+    const report = await collectGraphicsBench('presets', 1920, 1080, 1, {
+      async apply() {},
+      async sample() {
+        return probe(5);
+      },
+      setMotion() {},
+      pose: () => null,
+    });
+    expect(report.stopped).toBeUndefined();
+    expect(report.rows).toHaveLength(4);
+    expect(report.rows.map((row) => matchingGraphicsPreset(row.settings))).toEqual([
+      'fluide',
+      'equilibre',
+      'qualite',
+      'natif',
+    ]);
+  });
+
+  it('stops only when matched fluid and quality sit on a display period', async () => {
     expect(graphicsBenchVsyncCapped(16.7, 16.7)).toBe(true);
+    expect(graphicsBenchVsyncCapped(10, 10)).toBe(true);
     expect(graphicsBenchVsyncCapped(4.2, 11.8)).toBe(false);
+    // Fast GPU: Fluide and Qualité can share a CPU-bound slice without a vsync cap.
+    expect(graphicsBenchVsyncCapped(7.3, 7.4)).toBe(false);
     const report = await collectGraphicsBench('rest', 1920, 1080, 1, {
       async apply() {},
       async sample() {
@@ -144,7 +170,8 @@ describe('graphics bench campaign', () => {
     });
     expect(report.stopped).toBeUndefined();
     expect(report.rows).toHaveLength(4 * 3 * 3 * 64);
-    expect(seen.size).toBe(3 * 3 * 64);
+    // Qualité adds fog and depth of field. The matrix leaves both off, so that look is measured once more.
+    expect(seen.size).toBe(3 * 3 * 64 + 1);
     const aliased = report.rows.filter((row) => !row.measured);
     expect(aliased.length).toBeGreaterThan(0);
     expect(aliased.every((row) => row.frameTimeMs > 0)).toBe(true);
@@ -226,6 +253,14 @@ describe('graphics bench launch', () => {
       persistBounds: false,
       userDataDir: 'tmp/bench-userdata',
     });
+    expect(
+      graphicsBenchLaunch({
+        CHESS_GRAPHICS_BENCH: '1',
+        CHESS_BENCH_WIDTH: '1920',
+        CHESS_BENCH_HEIGHT: '1080',
+        CHESS_BENCH_PASS: 'presets',
+      })?.search
+    ).toBe('bench=graphics&benchPass=presets&chess=hotseat');
   });
 
   it('does not pass the switch that kills the GPU command buffer', () => {

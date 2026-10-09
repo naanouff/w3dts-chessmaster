@@ -130,6 +130,11 @@ export class ChessMatch {
     return this.position.isStalemate();
   }
 
+  /** True when neither side can force mate with the remaining material. */
+  public isInsufficientMaterial(): boolean {
+    return this.position.isInsufficientMaterial();
+  }
+
   public isEnd(): boolean {
     return this.position.isEnd();
   }

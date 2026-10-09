@@ -10,6 +10,7 @@ export { ChessMatch } from './rules/ChessMatch';
 export type { IChessEngine, ChessEngineMove } from './rules/IChessEngine';
 export { HeuristicChessEngine } from './rules/HeuristicChessEngine';
 export type { HeuristicChessEngineOptions } from './rules/HeuristicChessEngine';
+export { cpuAcceptsDrawOffer } from './rules/cpuDrawOffer';
 export {
   encodeChessWire,
   decodeChessWire,
@@ -57,6 +58,7 @@ export {
 } from './play/chessHudState';
 export type {
   ChessHudCommand,
+  ChessHudDrawOffer,
   ChessHudLearnState,
   ChessHudPlayMode,
   ChessHudPlayState,
@@ -116,10 +118,21 @@ export {
   easeSmoothstep,
   CHESS_PIECE_TRAVEL_LIFT_Y,
 } from './board/pieceTravel';
-export { assignCemeterySlot, cemeterySlotIsOffBoard } from './board/cemeterySlots';
+export {
+  assignCemeterySlot,
+  cemeterySlotIsOffBoard,
+  CHESS_CEMETERY_SURFACE_Y,
+} from './board/cemeterySlots';
 export type { CemeterySlotPose } from './board/cemeterySlots';
 export { chessTableSfxForPly } from './play/chessTableSfx';
 export type { ChessTableSfxId, ChessTableSfxCue } from './play/chessTableSfx';
+export {
+  chessAudioTensionStep,
+  chessScoreForLocal,
+  CHESS_AUDIO_TENSION_ENTER,
+  CHESS_AUDIO_TENSION_EXIT,
+} from './play/chessAudioTension';
+export type { ChessAudioTensionBand, ChessAudioBedGains } from './play/chessAudioTension';
 export {
   CHESS_GROUP_BOARD,
   CHESS_GROUP_PIECE,
@@ -176,6 +189,7 @@ export {
   viewProjectionLookAt,
 } from './grab/pickRay';
 export { MouseGrabController, type ChessGrabState } from './grab/MouseGrabController';
+export { pieceHoverSquare, type PieceHoverInput } from './grab/pieceHover';
 export { lockChessPieceTilt, seatChessPieceUpright, setChessPieceHeld } from './physics/piecePose';
 export { ChessPieceComponent } from './ecs/ChessPieceComponent';
 export {

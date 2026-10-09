@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "id": "smoke-realistic",
+  "name": "Smoke (realistic)",
+  "metadata": {
+    "kind": "smoke/realistic",
+    "category": "smoke",
+    "simMode": "procedural"
+  },
+  "parameters": {
+    "opacity": { "type": "f32", "value": 0.7 },
+    "enabled": { "type": "bool", "value": true }
+  },
+  "nodes": [{ "id": "out", "type": "ProceduralEmberOutput" }],
+  "links": []
+}

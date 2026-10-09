@@ -5,6 +5,8 @@
  * @description Reads a non-Draco set GLB into the engine vertex layout, and places it like the review stage.
  */
 
+import type { ChessTextureQuality } from '../graphics/chessGraphicsSettings';
+import { pickAvailableBakeSize, setPropTextureSize } from '../graphics/texelDensity';
 import { chessSetPropUrl, chessSetProps, type ChessAmbianceId, type ChessSetPlacement } from './chessAmbiance';
 
 const STRIDE = 20;
@@ -158,19 +160,28 @@ export function cycloramaMesh(floorRun: number): { vertices: Float32Array; indic
 
 /**
  * Loads every prop of a room. One missing file keeps the cloth plane.
+ * Each prop picks its bake size from scene texel density at `quality`.
  * @param id - Room id.
- * @param textureSize - 256, 512, or 1024.
+ * @param quality - Options texture tier.
  * @param load - Fetches one URL, or returns null when the file is absent.
  * @returns Buffers keyed by prop stem, or null when the set is incomplete.
  */
 export async function fetchChessSetBuffers(
   id: ChessAmbianceId,
-  textureSize: number,
+  quality: ChessTextureQuality,
   load: (url: string) => Promise<ArrayBuffer | null>
 ): Promise<Map<string, ArrayBuffer> | null> {
   const buffers = new Map<string, ArrayBuffer>();
   for (const file of chessSetProps(id)) {
-    const buffer = await load(chessSetPropUrl(id, file, textureSize));
+    const preferred = setPropTextureSize(id, file, quality);
+    const tried = new Set<number>();
+    let buffer: ArrayBuffer | null = null;
+    while (buffer === null) {
+      const size = pickAvailableBakeSize(preferred, (candidate) => !tried.has(candidate));
+      if (size === null) break;
+      tried.add(size);
+      buffer = await load(chessSetPropUrl(id, file, size));
+    }
     if (!buffer) return null;
     buffers.set(file, buffer);
   }

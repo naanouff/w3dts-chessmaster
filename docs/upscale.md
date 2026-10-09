@@ -16,7 +16,7 @@ Options donne Sans, Qualité, Performance. Sans garde l’échelle 1 et l’aff�
 
 Sans et Qualité sont les deux seules valeurs des préréglages : Fluide et Équilibré en Sans, Qualité et Natif en Qualité. Performance ne vient que d’un choix du joueur.
 
-Le gain porte sur le travail par pixel : 0,44 fois aux deux tiers, 0,25 fois à la moitié. La géométrie, près de 980 000 triangles, et la passe d’ombre ne bougent pas. Un poste limité par les appels de dessin ne gagne rien.
+Le gain porte sur le travail par pixel : 0,44 fois aux deux tiers, 0,25 fois à la moitié. Les triangles et la passe d’ombre ne bougent pas. Les 32 pièces font 137 936 triangles ; le décor va de 25 000 à l’atelier jusqu’à 200 000 au jardin. Le détail est dans [Ambiances](ambiances.md). Un poste limité par les appels de dessin ne gagne rien.
 
 ## La chaîne
 

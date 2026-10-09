@@ -25,6 +25,7 @@ import {
 } from '../src/chess/index';
 import {
   CHESS_MOVE_GLOW_RECIPES,
+  CHESS_PIECE_HOVER_GLOW,
   chessBoardCheckerPlacement,
   chessBoardSurfaceMaterials,
   chessCutoutMaterial,
@@ -151,6 +152,14 @@ describe('chess procedural look', () => {
       expect(peak).toBeGreaterThan(1);
       expect(peak).toBeLessThanOrEqual(2.5);
     }
+  });
+
+  it('keeps the piece hover glow warm ivory under the bloom threshold', () => {
+    expect(CHESS_MOVE_GLOW_RECIPES.some((recipe) => recipe.name === CHESS_PIECE_HOVER_GLOW.name)).toBe(
+      false
+    );
+    expect(CHESS_PIECE_HOVER_GLOW.tint[0]).toBeGreaterThan(CHESS_PIECE_HOVER_GLOW.tint[2]);
+    expect(Math.max(...CHESS_PIECE_HOVER_GLOW.emissive)).toBeLessThanOrEqual(1);
   });
 });
 

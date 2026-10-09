@@ -263,7 +263,11 @@ export function enumerateGraphicsConfigurations(): ChessGraphicsSettings[] {
                       reflections,
                       bloom,
                       antialiasing,
+                      volume: false,
+                      dof: false,
+                      reflectionProbes: false,
                       coachOutline,
+                      sceneLife: false,
                     });
                   }
                 }
@@ -311,14 +315,29 @@ export function uniqueGraphicsBenchSettings(
   return rows;
 }
 
+/** Common display periods in ms. A matched Fluide/Qualité pair only means a cap when it sits here. */
+const GRAPHICS_BENCH_DISPLAY_PERIODS_MS = [
+  1000 / 60,
+  1000 / 75,
+  1000 / 90,
+  1000 / 100,
+  1000 / 120,
+  1000 / 144,
+  1000 / 165,
+  1000 / 240,
+] as const;
+
 /**
- * True when two frame times are too close to show a cost. The present is still capped.
+ * True when Fluide and Qualité look display-capped: same cost and on a refresh period.
+ * A fast GPU may finish both presets in one CPU-bound slice without a present wait.
  * @param fluidMs - Fluide frame time.
  * @param qualityMs - Qualité frame time.
  */
 export function graphicsBenchVsyncCapped(fluidMs: number, qualityMs: number): boolean {
   const scale = Math.max(Math.abs(fluidMs), Math.abs(qualityMs), 0.001);
-  return Math.abs(fluidMs - qualityMs) / scale < 0.02;
+  if (Math.abs(fluidMs - qualityMs) / scale >= 0.02) return false;
+  const mean = (fluidMs + qualityMs) / 2;
+  return GRAPHICS_BENCH_DISPLAY_PERIODS_MS.some((period) => Math.abs(mean - period) / period < 0.03);
 }
 
 /**
@@ -368,12 +387,15 @@ export async function takeBenchProbe(
   return sorted[Math.floor((sorted.length - 1) / 2)] ?? 0;
 }
 
+export type GraphicsBenchPass = 'rest' | 'presets' | 'motion';
+
 /**
  * One window of the campaign. Rest rows share a measurement per cost key.
+ * Presets rows are only Fluide, Équilibré, Qualité and Natif.
  * Motion rows are the presets, plus Qualité without shadows, at rest, in flight, and held.
  */
 export async function collectGraphicsBench(
-  pass: 'rest' | 'motion',
+  pass: GraphicsBenchPass,
   clientWidth: number,
   clientHeight: number,
   devicePixelRatio: number,
@@ -404,7 +426,11 @@ export async function collectGraphicsBench(
     report.stopped = 'vsync';
     return report;
   }
-  for (const settings of enumerateGraphicsConfigurations()) {
+  const settingsList =
+    pass === 'presets'
+      ? GRAPHICS_PRESETS.map((preset) => preset.settings)
+      : enumerateGraphicsConfigurations();
+  for (const settings of settingsList) {
     const key = graphicsBenchKey(settings, clientWidth, clientHeight, devicePixelRatio);
     if (!cache.has(key)) {
       await measure(settings, clientWidth, clientHeight, devicePixelRatio, hooks, cache);

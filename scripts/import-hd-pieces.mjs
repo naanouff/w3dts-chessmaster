@@ -1,13 +1,15 @@
 /**
  * Decodes the Staunton GLBs in docs/raw_assets/pieces/glb into engine meshes.
  *
- * Source files use KHR_draco_mesh_compression and are all 0.12 m tall, which
- * is wider than a 0.06 m square. This writes a scaled interleaved mesh.
- * Textures stay in the GLB and are baked separately.
+ * A Draco mesh authored at 0.12 m, or a plain mesh of any height, is scaled
+ * to the board and grounded so its base sits at y = 0. This writes an interleaved mesh.
+ * Heights match `stauntonPieceHeight`: king 9.2 cm, queen 7.8 cm, bishop and knight
+ * 6.2 cm, rook 6 cm, pawn 5.4 cm. Textures stay in the GLB and are baked separately.
  *
  * Black pieces are yawed 180° so identity rotation faces the opponent:
  * white toward +Z, black toward −Z.
  */
+import { smoothSplitNormals } from './setProps.mjs';
 import { createRequire } from 'node:module';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -20,11 +22,31 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sourceDir = join(root, 'docs/raw_assets/pieces/glb');
 const outDir = join(root, 'public/models/chess');
 
-/** Authored height of every GLB, metres. */
-const SOURCE_HEIGHT = 0.12;
-/** Height on the 0.06 m board, metres. */
-const TARGET_HEIGHT = 0.078;
-const SCALE = TARGET_HEIGHT / SOURCE_HEIGHT;
+/**
+ * Same metres as `stauntonPieceHeight` in stauntonPieces.ts.
+ * Keep both lists identical: one chess rule, two callers.
+ */
+const STAUNTON_HEIGHT = {
+  pion: 0.054,
+  tour: 0.06,
+  cavalier: 0.062,
+  fou: 0.062,
+  reine: 0.078,
+  roi: 0.092,
+};
+/** Crease kept sharp. Shallower splits, including the pawn, are averaged. */
+const PIECE_NORMAL_CREASE = Math.PI / 3;
+
+/**
+ * @param {string} name
+ * @returns {number}
+ */
+export function hdPieceHeight(name) {
+  const role = name.replace(/^[bn]_/, '');
+  const height = STAUNTON_HEIGHT[role];
+  if (!(height > 0)) throw new Error(`unknown piece height for ${name}`);
+  return height;
+}
 const STRIDE = 20;
 
 const PIECES = [
@@ -58,12 +80,54 @@ function readAttribute(decoder, geometry, attributeId, stride) {
   return out;
 }
 
+function accessorBytes(json, bin, accessorIndex) {
+  const accessor = json.accessors[accessorIndex];
+  const view = json.bufferViews[accessor.bufferView];
+  const start = (view.byteOffset || 0) + (accessor.byteOffset || 0);
+  return { accessor, bytes: bin.subarray(start) };
+}
+
+function readFloatAccessor(json, bin, accessorIndex, stride) {
+  const { accessor, bytes } = accessorBytes(json, bin, accessorIndex);
+  const count = accessor.count * stride;
+  const copy = Buffer.from(bytes.subarray(0, count * 4));
+  return new Float32Array(copy.buffer, copy.byteOffset, count);
+}
+
+function readIndices(json, bin, accessorIndex) {
+  const { accessor, bytes } = accessorBytes(json, bin, accessorIndex);
+  const indices = new Uint32Array(accessor.count);
+  if (accessor.componentType === 5125) {
+    const copy = Buffer.from(bytes.subarray(0, accessor.count * 4));
+    indices.set(new Uint32Array(copy.buffer, copy.byteOffset, accessor.count));
+  } else if (accessor.componentType === 5123) {
+    const copy = Buffer.from(bytes.subarray(0, accessor.count * 2));
+    const src = new Uint16Array(copy.buffer, copy.byteOffset, accessor.count);
+    for (let i = 0; i < src.length; i++) indices[i] = src[i];
+  } else {
+    throw new Error(`index component ${accessor.componentType}`);
+  }
+  return indices;
+}
+
+function decodePlain(json, bin, prim) {
+  return {
+    positions: readFloatAccessor(json, bin, prim.attributes.POSITION, 3),
+    normals: readFloatAccessor(json, bin, prim.attributes.NORMAL, 3),
+    uvs: readFloatAccessor(json, bin, prim.attributes.TEXCOORD_0, 2),
+    indices: readIndices(json, bin, prim.indices),
+  };
+}
+
 function decodePiece(name) {
   const file = readFileSync(join(sourceDir, `${name}.glb`));
   const jsonLen = file.readUInt32LE(12);
   const json = JSON.parse(file.subarray(20, 20 + jsonLen).toString('utf8'));
   const binStart = 20 + jsonLen + 8;
   const prim = json.meshes[0].primitives[0];
+  if (!prim.extensions?.KHR_draco_mesh_compression) {
+    return decodePlain(json, file.subarray(binStart), prim);
+  }
   const view = json.bufferViews[prim.extensions.KHR_draco_mesh_compression.bufferView];
   const start = binStart + (view.byteOffset || 0);
   const bytes = file.subarray(start, start + view.byteLength);
@@ -148,17 +212,26 @@ function accumulateTangents(positions, normals, uvs, indices) {
 }
 
 function writeMesh(name, turnAround, decoded) {
-  const { positions, normals, uvs, indices } = decoded;
+  const { positions, uvs, indices } = decoded;
+  const normals = smoothSplitNormals(positions, decoded.normals, PIECE_NORMAL_CREASE);
   const count = positions.length / 3;
+  let minY = Infinity;
+  let spanY = 0;
+  for (let i = 1; i < positions.length; i += 3) {
+    minY = Math.min(minY, positions[i]);
+    spanY = Math.max(spanY, positions[i]);
+  }
+  spanY -= minY;
+  const scale = hdPieceHeight(name) / spanY;
   const { tan, bit } = accumulateTangents(positions, normals, uvs, indices);
   const vertices = new Float32Array(count * STRIDE);
   const yaw = turnAround ? -1 : 1;
   let maxY = 0;
   for (let i = 0; i < count; i++) {
     const o = i * STRIDE;
-    const x = positions[i * 3] * SCALE * yaw;
-    const y = positions[i * 3 + 1] * SCALE;
-    const z = positions[i * 3 + 2] * SCALE * yaw;
+    const x = positions[i * 3] * scale * yaw;
+    const y = (positions[i * 3 + 1] - minY) * scale;
+    const z = positions[i * 3 + 2] * scale * yaw;
     vertices[o] = x;
     vertices[o + 1] = y;
     vertices[o + 2] = z;
@@ -196,7 +269,9 @@ function writeMesh(name, turnAround, decoded) {
   return { vertices: count, triangles: indices.length / 3, height: maxY };
 }
 
+const only = new Set(process.argv.slice(2));
 for (const [name, turnAround] of PIECES) {
+  if (only.size > 0 && !only.has(name)) continue;
   const stats = writeMesh(name, turnAround, decodePiece(name));
   console.log(`${name}  tris=${stats.triangles}  height=${stats.height.toFixed(4)}`);
 }

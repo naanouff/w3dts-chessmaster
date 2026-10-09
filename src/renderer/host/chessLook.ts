@@ -15,6 +15,8 @@ import {
   type ShaderGraph,
   type ShaderGraphNode,
 } from '@naanouff/w3dts-core';
+import { getChessGraphicsSettings } from '../graphics/chessGraphicsSettings';
+import { boardTextureSize } from '../graphics/texelDensity';
 import { fetchPublicAssetPreferSameOrigin } from './assetFetch';
 
 /** Enable KHR anisotropy so the brushed-steel highlight is not stripped. */
@@ -458,6 +460,16 @@ export const CHESS_MOVE_GLOW_RECIPES = [
   },
 ] as const;
 
+/**
+ * Pre-grab hover on the piece square. Warm ivory under the bloom threshold,
+ * kept out of {@link CHESS_MOVE_GLOW_RECIPES} so those stay blooming.
+ */
+export const CHESS_PIECE_HOVER_GLOW = {
+  name: 'ChessPieceHover',
+  tint: [0.96, 0.9, 0.72] as [number, number, number],
+  emissive: [0.9, 0.78, 0.48] as [number, number, number],
+} as const;
+
 /** One move-glow recipe. The host and the material bake share this list. */
 export function chessMoveGlowRecipe(
   name: (typeof CHESS_MOVE_GLOW_RECIPES)[number]['name']
@@ -661,7 +673,6 @@ export async function loadChessPhotoPbrMaterials(
 
 type RgbaMap = { data: Uint8ClampedArray; w: number; h: number };
 
-const BOARD_COMPOSE_SIZE = 2048;
 
 function wrap01(t: number): number {
   return t - Math.floor(t);
@@ -743,7 +754,7 @@ async function composeChessBoardWoodMaps(
   const darkNormal = bitmapToRgba(darkNormalBmp);
   const darkRough = bitmapToRgba(darkRoughBmp);
 
-  const size = BOARD_COMPOSE_SIZE;
+  const size = boardTextureSize(getChessGraphicsSettings().textureQuality);
   const albedo = new ImageData(size, size);
   const normal = new ImageData(size, size);
   const orm = new ImageData(size, size);

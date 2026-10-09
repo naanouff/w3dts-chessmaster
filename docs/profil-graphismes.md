@@ -8,7 +8,7 @@ Sprint : [CHESS-B17](sprints/CHESS-B17.md).
 
 ## Combinaisons
 
-Les options sont indépendantes : résolution `1080`, `1440`, `2160` ou `native` ; upscale sans, qualité ou performance ; textures 256, 512 ou 1024 ; ombres, occlusion, reflets, bloom, anticrénelage, silhouette. Cela fait 2304 combinaisons. Fluide, Équilibré, Qualité et Natif en sont quatre. Fluide garde les ombres, l’anticrénelage et la silhouette du coach, et coupe l’occlusion, les reflets et le bloom. Le banc ne multiplie pas la matrice par le mode d’ombre. L’ombre visée, une couche ajustée au plateau et un filtre par palier, est dans [Ombres](ombres.md).
+Les options sont indépendantes : résolution `1080`, `1440`, `2160` ou `native` ; upscale sans, qualité ou performance ; textures sujet 256, 512 ou 1024 (les props de scène suivent une densité au huitième) ; ombres, occlusion, reflets, bloom, anticrénelage, silhouette. Cela fait 2304 combinaisons. Fluide, Équilibré, Qualité et Natif en sont quatre. Fluide garde les ombres, l’anticrénelage et la silhouette du coach, et coupe l’occlusion, les reflets, le bloom, le volume et la profondeur de champ. Qualité et Natif les gardent, comme la revue. Une sauvegarde antérieure s’ouvre sur Qualité. Le banc ne multiplie pas la matrice par le mode d’ombre. L’ombre visée, une couche ajustée au plateau et un filtre par palier, est dans [Ombres](ombres.md).
 
 `gameSurfacePixels` ne grossit jamais l’image : il donne la taille du canvas. Sous le plafond, `1440`, `2160` et `native` ont le même canvas que `1080`. Sur ce 3440×1440, Qualité et Natif ont le même canvas. L’upscale divise les cibles internes sous ce canvas, qui garde sa taille ; c’est [Upscale](upscale.md). Deux combinaisons de même surface, même échelle, mêmes passes et mêmes textures ne se chronomètrent qu’une fois ; les lignes du rapport reprennent cette mesure.
 
@@ -41,11 +41,30 @@ Chaque état donne la médiane et, si la passe est tracée, le temps de `01_Shad
 
 ## Banc
 
-Mode dev seulement. `CHESS_GRAPHICS_BENCH=1` ouvre `?bench=graphics` dans une fenêtre de taille imposée, sans mémoriser les bounds. Le profil Electron du banc est `tmp/bench-userdata`, séparé du profil du joueur, pour ne pas partager le cache GPU ni les réglages enregistrés. Pas d’écran nouveau, pas de chaîne visible. Le script enchaîne les fenêtres et écrit `tmp/graphics-bench.json`, hors git. La ligne de commande rejoint [Compiler](build.md) quand le script existe.
+Mode dev seulement. `CHESS_GRAPHICS_BENCH=1` ouvre `?bench=graphics` dans une fenêtre de taille imposée, sans mémoriser les bounds. Le profil Electron du banc est `tmp/bench-userdata`, séparé du profil du joueur, pour ne pas partager le cache GPU ni les réglages enregistrés. Pas d’écran nouveau, pas de chaîne visible. `pnpm bench:graphics` enchaîne la matrice au repos puis le mouvement. `pnpm bench:graphics:presets` ne chronomètre que Fluide, Équilibré, Qualité et Natif (relevé alpha). Sortie : `tmp/graphics-bench.json`, hors git.
 
 ## Relevé
 
-Le passage qui quitte avec `GPU state invalid after WaitForGetOffsetInRange` vient de `--disable-frame-rate-limit`. Ce drapeau n’est plus passé. Le temps d’image du banc est celui de la file GPU, pas les 10,0 ms de l’écran. La campagne chiffrée reste à refaire.
+Le passage qui quitte avec `GPU state invalid after WaitForGetOffsetInRange` vient de `--disable-frame-rate-limit`. Ce drapeau n’est plus passé. Le temps d’image du banc est celui de la file GPU, pas les 10,0 ms de l’écran.
+
+Campagne [CHESS-B24](sprints/CHESS-B24.md) h : médianes des quatre préréglages via `pnpm bench:graphics:presets` (pas la matrice 2304). Fermer `pnpm dev` avant (port 5173). Source `tmp/graphics-bench.json`. Valeurs en ms (médiane file GPU).
+
+### Passe GPU intégré (Économie d’énergie)
+
+| Fenêtre | Fluide | Équilibré | Qualité | Natif |
+| --- | ---: | ---: | ---: | ---: |
+| 1920×1080 | — | — | — | — |
+
+GPU : **absent** sur la machine de campagne (PnP Display : Meta Virtual Monitor + NVIDIA GeForce RTX 3070 Ti uniquement). Date : 2026-10-09. Seuil alpha Fluide ≥ 30 img/s (≤ 33 ms) à 1080p : **non mesurable ici**. Arbitrage : ouverture alpha sur la passe RTX ci-dessous (Fluide ≪ 33 ms).
+
+### Passe RTX (Performances élevées)
+
+| Fenêtre | Fluide | Équilibré | Qualité | Natif |
+| --- | ---: | ---: | ---: | ---: |
+| 1920×1080 | 7,3 | 7,9 | 6,7 | 6,7 |
+| 3440×1440 | 7,8 | 8,9 | 9,4 | 9,4 |
+
+GPU : NVIDIA GeForce RTX 3070 Ti. Date : 2026-10-09. Fenêtres demandées 1920×1080 et 3440×1440 ; la seconde s’est ouverte en 3424×1353 (chrome / DPI). `scope: presets`. Natif partage la clé de coût de Qualité sur ces tailles (`measured: false`).
 
 ## Hors de cette mesure
 

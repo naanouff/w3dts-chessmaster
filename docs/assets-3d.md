@@ -1,10 +1,10 @@
 # Assets 3D Staunton
 
-Les pièces jouées viennent de maîtres locaux. Le client charge le `.wmesh` et les WebP copiés dans le dépôt. Les GLB et le fichier Blender restent la source, à pleine définition, hors git.
+Les pièces jouées viennent de maîtres locaux. Le client charge le `.wmesh` et les WebP copiés dans le dépôt. Les GLB et le fichier Blender restent la source, à pleine définition, hors git. Les photos de référence du jeu marbre et bois sont dans [pieces.md](pieces.md).
 
 Sprint d’implémentation : [CHESS-B9](sprints/CHESS-B9.md). Le dossier des binaires est [docs/raw_assets](raw_assets/README.md).
 
-[scripts/import-hd-pieces.mjs](../scripts/import-hd-pieces.mjs) lit `docs/raw_assets/pieces/glb`, décode le Draco et écrit un `.wmesh` à 0,078 m (les exports font 0,12 m). Les noirs sont tournés de 180° : les blancs regardent +Z, les noirs −Z. [scripts/bake-piece-textures.mjs](../scripts/bake-piece-textures.mjs) en extrait les cartes. [src/renderer/host/hdChessPieces.ts](../src/renderer/host/hdChessPieces.ts) sert le `.wmesh` et le WebP du palier graphique ; le GLB n’est lu que si le WebP manque.
+[scripts/import-hd-pieces.mjs](../scripts/import-hd-pieces.mjs) lit `docs/raw_assets/pieces/glb`, décode le Draco et écrit un `.wmesh` aux hauteurs Staunton (les exports font 0,12 m). Les noirs sont tournés de 180° : les blancs regardent +Z, les noirs −Z. [scripts/bake-piece-textures.mjs](../scripts/bake-piece-textures.mjs) en extrait les cartes. [src/renderer/host/hdChessPieces.ts](../src/renderer/host/hdChessPieces.ts) sert le `.wmesh` et le WebP du palier graphique ; le GLB n’est lu que si le WebP manque.
 
 ```mermaid
 flowchart LR
@@ -22,21 +22,25 @@ flowchart LR
 
 ## Ce qui reste à pleine qualité
 
-Douze GLB, 20 à 28 Mo chacun. La géométrie pèse peu : environ 30 000 triangles et 1,5 Mo de `.wmesh` par pièce, 367 000 triangles pour le jeu. Le reste est une carte unique par pièce, sans fichier partagé d’une pièce à l’autre :
+Douze GLB, 21 à 29 Mo chacun, liens durs vers `Print/Models/Echecs`. Chaque mesh joué tient autour de 30 000 triangles (pion blanc 30 476). Les cartes WebP et le `.wmesh` doivent venir du même maître : un atlas d’une autre export casse les UV. Le reste du fichier est une carte unique par pièce, sans fichier partagé d’une pièce à l’autre :
 
 - normale 4096, PNG, environ 12 à 16 Mo
 - couleur 4096, JPEG, environ 8 à 11 Mo
 - ORM 2048, JPEG, environ 1,1 à 1,6 Mo
 
-Le rendu Qualité et Natif affiche déjà le WebP 1024 des pièces. Couleur et ORM sont lossy (qualité 82 et 80). Les normales restent en WebP lossless, redimensionnées en linéaire. Les paliers 256 et 512 servent Fluide et Équilibré. Ces réglages, et ceux de [chessGraphicsSettings.ts](../src/renderer/graphics/chessGraphicsSettings.ts), ne bougent pas.
+Le sujet (pion) garde une densité haute : 256 / 512 / 1024. Reine, roi et plateau prennent un cran de plus (512 / 1024 / 2048). Les props de scène partent au huitième de cette densité, plafonnés à 2048 ; seuls les paliers réellement demandés de Fluide à Qualité sont gardés dans `public/sets`. Couleur et ORM sont lossy (qualité 82 et 80). Les normales restent en WebP lossless. Voir [texelDensity.ts](../src/renderer/graphics/texelDensity.ts). `pnpm prune:public` retire le reste avant `pnpm dist` et `pnpm build:web`.
 
-On ne décime pas les maillages : le cavalier et les profils tournés se lisent dans la silhouette. On ne réencode pas les maîtres 4K.
+On ne décime pas les maillages Staunton : le cavalier et les profils tournés se lisent dans la silhouette. On ne réencode pas les maîtres 4K.
+
+Les douze pièces jouées sont les GLB marbre, bois et or (Draco dans le maître). L’import décode, mesure la hauteur et pose chaque rôle à sa hauteur Staunton : roi 9,2 cm, reine 7,8 cm, fou et cavalier 6,2 cm, tour 6 cm, pion 5,4 cm, base en y = 0. Les noirs sont tournés de 180°. Les normales qui se rencontrent sous 60° sont lissées, comme la coupe du jardin.
+
+La couleur Meshy est en 8 192. Le bake sert 256 / 512 / 1024 pour le sujet, et 512 / 1024 / 2048 pour reine, roi et plateau. Une carte 8K n’est pas servie.
 
 `pieces.blend` (~575 Mo) est le fichier Blender. `pieces.blend1` est une sauvegarde du même ordre de taille : elle ne entre pas dans `docs/raw_assets`.
 
 ## Plateau
 
-`chess_board_B.glb` est le premier maître ajouté après les pièces. Même contrat : lien dur, `.wmesh`, WebP, pas de GLB dans `public/`. Les cartes partent plus haut : 512, 1024 et 2048, soit Fluide, Équilibré, puis Qualité et Natif. L’encodeur est celui des pièces.
+`chess_board_B.glb` est le premier maître ajouté après les pièces. Même contrat : lien dur, `.wmesh`, WebP, pas de GLB dans `public/`. Les cartes du plateau sont un cran au-dessus du pion : 512, 1024 et 2048. L’encodeur est celui des pièces.
 
 Le fichier est en Z-up, un mètre de côté. [scripts/import-hd-board.mjs](../scripts/import-hd-board.mjs) le pose à plat, à l’encombrement visuel du plateau (`CHESS_BOARD_MESH_EXTENT`), face supérieure en y = 0. Le client dessine encore le plateau procédural : ce maillage n’est pas encore celui de la scène.
 
@@ -62,7 +66,7 @@ Les pièces pointent vers `c:/Local/Travail/Print/Models/Echecs`. Le plateau poi
 
 ## Runtime
 
-`public/models/chess/` ne garde que les `.wmesh` et `tex/{256,512,1024,2048}/{nom}-{color|normal|orm}.webp`. Ces fichiers runtime sont dans git, pour que l’installateur construit par la CI puisse les servir. L’import n’y dépose plus le GLB, et les `.glb` restent ignorés. Les pixels des pièces ne changent pas tant que le bake relit les mêmes GLB.
+`public/models/chess/` ne garde que les `.wmesh` et les WebP runtime demandés par la densité (Fluide → Qualité) : pions/tours/cavaliers/fous en `256/512/1024`, reines/rois et plateau en `512/1024/2048`. Ces fichiers sont dans git, pour que l’installateur et le build web les servent. L’import n’y dépose plus le GLB, et les `.glb` restent ignorés. `pnpm prune:public` (appelé par `pnpm build` / `pnpm build:web`) retire les GLB locaux et les tailles hors échelle. Les pixels des pièces ne changent pas tant que le bake relit les mêmes GLB.
 
 Le repli qui fetch `/models/chess/{fichier}.glb` dans `hdChessPieces.ts` reste. Sans WebP, ce fetch échoue. Pas d’autre chemin de chargement.
 
@@ -76,10 +80,10 @@ node scripts/import-hd-board.mjs
 pnpm bake:piece-textures
 ```
 
-La preuve que l’échelle, le yaw des noirs et les cartes des pièces n’ont pas bougé est un hash identique des `.wmesh` et des WebP de pièces, avant et après ces commandes.
+La preuve que l’échelle, le yaw des noirs et les cartes des pièces n’ont pas bougé est un hash identique des `.wmesh` et des WebP de pièces, avant et après ces commandes. Les hauteurs sont celles de `stauntonPieceHeight` : roi 9,2 cm, reine 7,8 cm, fou et cavalier 6,2 cm, tour 6 cm, pion 5,4 cm.
 
 ## Décors
 
-Les cinq ambiances et les props à modéliser sont dans [ambiances.md](ambiances.md). L’atelier, le salon, le club, le jardin et la terrasse ont leurs GLB Meshy dans `docs/raw_assets/`, hors git. L’atelier, le salon et le club sont dans la scène jouable. La revue se fait dans le client : `pnpm review`.
+Les cinq ambiances et les props à modéliser sont dans [ambiances.md](ambiances.md). L’atelier, le salon, le club, le jardin et la terrasse ont leurs GLB Meshy dans `docs/raw_assets/`, hors git. Les cinq ambiances sont dans la scène jouable, dans Options et dans la revue (`pnpm review`).
 
-`pnpm clean:set-props` remet l’échelle de la fiche, réduit les cartes en JPEG 256, 512 et 1024, et ajoute l’émission des sources. Le résultat est `docs/raw_assets/<ambiance>/baked/<taille>/`. Les maîtres 2048 restent la source. Pas de Draco : l’atelier, le salon et le club sont sous 6 000 sommets, le jardin et la terrasse sous 14 000.
+`pnpm clean:set-props` remet l’échelle de la fiche, réduit les cartes en JPEG 256, 512, 1024 et 2048, et ajoute l’émission des sources. Le résultat est `docs/raw_assets/<ambiance>/baked/<taille>/`. Pas de Draco : l’atelier, le salon et le club sont sous 6 000 sommets, le jardin et la terrasse sous 14 000.

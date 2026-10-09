@@ -54,6 +54,12 @@ const ARRIVALS: Record<ChessAmbianceId, ChessCameraArrival> = {
     eye: [[0.35, 1.05, -2.2], GAME_EYE],
     look: [[0, 0.06, 0.35], GAME_LOOK],
   },
+  terrasse: {
+    duration: 5,
+    ease: 'out',
+    eye: [[0.4, 1.15, -2.4], GAME_EYE],
+    look: [[0, 0.02, 0.6], GAME_LOOK],
+  },
 };
 
 /**

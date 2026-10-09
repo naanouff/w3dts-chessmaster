@@ -49,6 +49,9 @@ describe('parseChessHudState', () => {
       p2pStatus: null,
       clocks: { whiteSeconds: 600, blackSeconds: 599.2 },
       flag: null,
+      outcome: null,
+      resignLoser: null,
+      drawOffer: 'none',
       onlineReady: false,
       onlineRefused: false,
       session: { mode: 'cpu', localColor: 'white', quiz: false },
@@ -73,6 +76,30 @@ describe('parseChessHudState', () => {
     expect(parsed.description).toBe('You are white. Second tab: chess=p2p&chessColor=black');
     expect(parsed.description.includes('FEN')).toBe(false);
     expect(parsed.description.includes('depth')).toBe(false);
+  });
+
+  it('keeps mate or stalemate and drops an unknown outcome', () => {
+    const base = {
+      kind: 'play',
+      mode: 'cpu',
+      label: 'Status',
+      title: 'Checkmate',
+      description: '',
+      localColor: 'white',
+      sideToMove: 'black',
+      flag: null,
+    };
+    expect(parseChessHudState({ ...base, outcome: 'mate' })).toMatchObject({ outcome: 'mate' });
+    expect(parseChessHudState({ ...base, outcome: 'stalemate' })).toMatchObject({ outcome: 'stalemate' });
+    expect(parseChessHudState({ ...base, outcome: 'insufficient' })).toMatchObject({
+      outcome: 'insufficient',
+    });
+    expect(
+      parseChessHudState({ ...base, outcome: 'resign', resignLoser: 'white' })
+    ).toMatchObject({ outcome: 'resign', resignLoser: 'white' });
+    expect(parseChessHudState({ ...base, outcome: 'agreed' })).toMatchObject({ outcome: 'agreed' });
+    expect(parseChessHudState(base)).toMatchObject({ outcome: null, drawOffer: 'none' });
+    expect(parseChessHudState({ ...base, outcome: 'bogus' })).toBeNull();
   });
 
   it('parses a learn payload and drops invalid plies', () => {
@@ -162,6 +189,7 @@ describe('parseChessHudCommand', () => {
     });
     expect(parseChessHudCommand({ type: 'apply-session', session: { mode: 'nope' } })).toBeNull();
     expect(parseChessHudCommand({ type: 'request-state' })).toEqual({ type: 'request-state' });
+    expect(parseChessHudCommand({ type: 'reset-match' })).toEqual({ type: 'reset-match' });
     expect(
       parseChessHudCommand({
         type: 'apply-session',

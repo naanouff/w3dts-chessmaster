@@ -24,7 +24,11 @@ export type ChessWireMessage =
       fen: string;
       whiteSeconds: number;
       blackSeconds: number;
-    };
+    }
+  | { v: 1; t: 'resign'; loser: ChessColor }
+  | { v: 1; t: 'draw-offer' }
+  | { v: 1; t: 'draw-accept' }
+  | { v: 1; t: 'draw-refuse' };
 
 export type ChessFenSyncDecision = 'apply' | 'ignore' | 'reply';
 
@@ -52,7 +56,12 @@ export function decodeChessWire(bytes: Uint8Array): ChessWireMessage | null {
   }
   if (!raw || typeof raw !== 'object') return null;
   const rec = raw as Record<string, unknown>;
-  if (rec.v !== 1 || typeof rec.fen !== 'string') return null;
+  if (rec.v !== 1) return null;
+  if (rec.t === 'resign' && isColor(rec.loser)) return { v: 1, t: 'resign', loser: rec.loser };
+  if (rec.t === 'draw-offer') return { v: 1, t: 'draw-offer' };
+  if (rec.t === 'draw-accept') return { v: 1, t: 'draw-accept' };
+  if (rec.t === 'draw-refuse') return { v: 1, t: 'draw-refuse' };
+  if (typeof rec.fen !== 'string') return null;
   const clocks = wireClocks(rec.whiteSeconds, rec.blackSeconds);
   if (clocks === null) return null;
   if (rec.t === 'reset') return { v: 1, t: 'reset', fen: rec.fen };

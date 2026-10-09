@@ -15,11 +15,15 @@ import {
   initialShell,
   parseShellPrefs,
   rangeThumbRatio,
+  gameEndFromLearn,
+  gameEndFromPlay,
+  sheetBodyOverflows,
   reduceShell,
   opensLocalPeerWindow,
   peerResumeSearch,
   shellBlocksPlay,
   shellSession,
+  shellWantsMenuMusic,
   type ShellState,
 } from '../src/renderer/shell/shellScreen';
 
@@ -69,6 +73,17 @@ describe('shell shadow choice', () => {
   });
 });
 
+describe('shellWantsMenuMusic', () => {
+  it('plays on menu screens and stays silent in a live match', () => {
+    expect(shellWantsMenuMusic('accueil')).toBe(true);
+    expect(shellWantsMenuMusic('modes')).toBe(true);
+    expect(shellWantsMenuMusic('parametres')).toBe(true);
+    expect(shellWantsMenuMusic('partie')).toBe(false);
+    expect(shellWantsMenuMusic('pause')).toBe(false);
+    expect(shellWantsMenuMusic('nulle-offre')).toBe(false);
+  });
+});
+
 describe('shell screen', () => {
   it('starts on the welcome screen', () => {
     expect(initialShell(false).screen).toBe('accueil');
@@ -98,6 +113,13 @@ describe('shell screen', () => {
     expect(state.screen).toBe('partie');
     expect(state.assistant).toBe(false);
     expect(reduceShell(state, { type: 'escape' }).screen).toBe('pause');
+  });
+
+  it('returns from the draw-offer screen to pause on escape', () => {
+    const pause = reduceShell(game(), { type: 'escape' });
+    const offer = reduceShell(pause, { type: 'go', screen: 'nulle-offre' });
+    expect(offer.screen).toBe('nulle-offre');
+    expect(reduceShell(offer, { type: 'escape' }).screen).toBe('pause');
   });
 
   it('returns to the previous screen on escape', () => {
@@ -211,6 +233,71 @@ describe('shell screen', () => {
     expect(bootCrestInset(1)).toBe('0%');
   });
 
+  it('marks a sheet body only when its content is taller than the pane', () => {
+    expect(sheetBodyOverflows(200, 100)).toBe(true);
+    expect(sheetBodyOverflows(101, 100)).toBe(false);
+    expect(sheetBodyOverflows(100, 100)).toBe(false);
+    expect(sheetBodyOverflows(Number.NaN, 100)).toBe(false);
+  });
+
+  it('names a mate, a flag, a stalemate, and an unfinished game', () => {
+    expect(
+      gameEndFromPlay({ localColor: 'white', sideToMove: 'black', flag: null, outcome: 'mate' })
+    ).toEqual({ kind: 'won', cause: 'mate', loser: 'black' });
+    expect(
+      gameEndFromPlay({ localColor: 'white', sideToMove: 'white', flag: null, outcome: 'mate' })
+    ).toEqual({ kind: 'lost', cause: 'mate', loser: 'white' });
+    expect(
+      gameEndFromPlay({ localColor: 'black', sideToMove: 'white', flag: 'white', outcome: 'mate' })
+    ).toEqual({ kind: 'won', cause: 'flag', loser: 'white' });
+    expect(
+      gameEndFromPlay({ localColor: 'white', sideToMove: 'white', flag: 'white', outcome: null })
+    ).toEqual({ kind: 'lost', cause: 'flag', loser: 'white' });
+    expect(
+      gameEndFromPlay({ localColor: 'white', sideToMove: 'black', flag: null, outcome: 'stalemate' })
+    ).toEqual({ kind: 'draw', cause: 'stalemate', loser: null });
+    expect(
+      gameEndFromPlay({
+        localColor: 'white',
+        sideToMove: 'white',
+        flag: null,
+        outcome: 'insufficient',
+      })
+    ).toEqual({ kind: 'draw', cause: 'insufficient', loser: null });
+    expect(
+      gameEndFromPlay({
+        localColor: 'white',
+        sideToMove: 'black',
+        flag: null,
+        outcome: 'resign',
+        resignLoser: 'white',
+      })
+    ).toEqual({ kind: 'lost', cause: 'resign', loser: 'white' });
+    expect(
+      gameEndFromPlay({
+        localColor: 'black',
+        sideToMove: 'white',
+        flag: null,
+        outcome: 'resign',
+        resignLoser: 'white',
+      })
+    ).toEqual({ kind: 'won', cause: 'resign', loser: 'white' });
+    expect(
+      gameEndFromPlay({
+        localColor: 'white',
+        sideToMove: 'black',
+        flag: null,
+        outcome: 'agreed',
+      })
+    ).toEqual({ kind: 'draw', cause: 'agreed', loser: null });
+    expect(gameEndFromPlay({ localColor: 'white', sideToMove: 'white', flag: null, outcome: null })).toBeNull();
+  });
+
+  it('treats a finished opening line as a win', () => {
+    expect(gameEndFromLearn(true)).toEqual({ kind: 'won', cause: 'line', loser: null });
+    expect(gameEndFromLearn(false)).toBeNull();
+  });
+
   it('places a slider thumb from the minimum to the maximum', () => {
     expect(rangeThumbRatio(1, 1, 5)).toBe(0);
     expect(rangeThumbRatio(5, 1, 5)).toBe(1);
@@ -230,7 +317,7 @@ describe('shell screen', () => {
     const stored = JSON.stringify({
       mode: 'learn',
       color: 'black',
-      level: 5,
+      level: 3,
       eco: 'C60',
       sfx: 10,
       ambience: 20,
@@ -239,7 +326,7 @@ describe('shell screen', () => {
     expect(parseShellPrefs(stored)).toMatchObject({
       mode: 'learn',
       color: 'black',
-      level: 5,
+      level: 3,
       eco: 'C60',
       sfx: 10,
       ambience: 20,
@@ -255,6 +342,13 @@ describe('shell screen', () => {
       language: 'fr',
     });
     expect(defaultShellPrefs()).toMatchObject({ mode: 'cpu', color: 'white', level: 2, eco: 'C50' });
+  });
+
+  it('clamps a stored CPU level above 3 down to the default level 2', () => {
+    expect(parseShellPrefs(JSON.stringify({ level: 4 })).level).toBe(2);
+    expect(parseShellPrefs(JSON.stringify({ level: 5 })).level).toBe(2);
+    expect(parseShellPrefs(JSON.stringify({ level: 1 })).level).toBe(1);
+    expect(parseShellPrefs(JSON.stringify({ level: 3 })).level).toBe(3);
   });
 
   it('keeps the eight shell languages and drops an unknown one', () => {

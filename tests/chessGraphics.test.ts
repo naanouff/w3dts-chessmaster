@@ -5,9 +5,12 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { CHESS_BOARD_EXTENT } from '../src/chess/board/chessBoard';
+import { chessSetBoardY } from '../src/renderer/host/chessAmbiance';
 import {
   FLUID_GRAPHICS,
   GRAPHICS_PRESETS,
+  graphicsFromStored,
   applyChessGraphics,
   applyChessShadowMode,
   coachOutlineFromStored,
@@ -213,6 +216,16 @@ describe('chess graphics', () => {
       expect.arrayContaining(['04e_CoachMask', '04f_CoachCutout'])
     );
     expect(matchingGraphicsPreset(quality!.settings)).toBe('qualite');
+    expect(quality!.settings.reflections).toBe(true);
+    expect(quality!.settings.reflectionProbes).toBe(true);
+    expect(gamePassNames(quality!.settings)).toContain('05_SSR_Floor');
+    expect(FLUID_GRAPHICS.reflectionProbes).toBe(false);
+    expect(GRAPHICS_PRESETS.find((preset) => preset.id === 'equilibre')?.settings.reflectionProbes).toBe(
+      false
+    );
+    expect(GRAPHICS_PRESETS.find((preset) => preset.id === 'natif')?.settings.reflectionProbes).toBe(
+      true
+    );
   });
 
   it('turns the silhouette on for a saved higher look that predates the flag', () => {
@@ -305,6 +318,9 @@ describe('chess graphics', () => {
     const engine = {
       setGameViewSurfaceSize() {},
       setGameActivePasses() {},
+      reloadGameRenderGraph() {
+        return Promise.resolve();
+      },
       renderer: {
         setShadowMapSize(size: number) {
           sizes.push(size);
@@ -342,7 +358,8 @@ describe('chess graphics', () => {
     expect(upscaleRenderScale('performance')).toBe(0.5);
     // Sharpening a one to one image would only add a halo.
     expect(upscaleSharpness('off')).toBe(0);
-    expect(upscaleSharpness('quality')).toBeGreaterThan(0);
+    expect(upscaleSharpness('quality')).toBe(0.7);
+    expect(upscaleSharpness('performance')).toBe(0.7);
   });
 
   it('scales the relative targets and leaves the shadow atlas alone', () => {
@@ -476,6 +493,127 @@ describe('chess graphics', () => {
     );
     expect(source.includes('scaleChessGraphResources')).toBe(true);
     expect(source.includes('registerResource')).toBe(true);
+  });
+
+  it('marches the room haze at half size and leaves a match without it', () => {
+    const graph = chessGraph();
+    const fog = graph.resources.find((resource) => resource.name === 'fogBuffer');
+    expect(fog?.sizeType).toBe('relative');
+    expect(fog?.width).toBe(0.5);
+    const march = graph.passes.find((pass) => pass.name === '09_Fog');
+    expect(march?.outputs).toEqual(['fogBuffer']);
+    const fogParams = march?.uniforms?.fogParams?.value as unknown as number[];
+    expect(fogParams[0]).toBe(0.06);
+    expect(fogParams[4]).toBe(14);
+    const hbao = graph.passes.find((pass) => pass.name === '04b_HBAO')?.uniforms?.hbaoParams
+      ?.value as unknown as number[];
+    expect(hbao[3]).toBe(4);
+    const ssr = graph.passes.find((pass) => pass.name === '05_SSR_Floor')?.uniforms?.params
+      ?.value as unknown as number[];
+    expect(ssr[1]).toBe(16);
+    const shader = readFileSync(
+      new URL('../public/shaders/post-processing/volumetric_fog.frag.wgsl', import.meta.url),
+      'utf8'
+    );
+    // The room key is a spot. Air outside its shadow map stays lit.
+    expect(shader).toContain('lightType == 2u');
+    expect(shader).toContain('air stays lit');
+    expect(shader).toContain('min(rayLength, 8.0)');
+    expect(shader).toContain('pow(align, 12.0)');
+    const composite = readFileSync(
+      new URL('../public/shaders/post-processing/fog_composite.frag.wgsl', import.meta.url),
+      'utf8'
+    );
+    expect(composite).toContain('textureSample(fogTex');
+    expect(composite).not.toContain('depthDiff');
+    expect(graph.passes.find((pass) => pass.name === '09b_FogComposite')?.inputs).toEqual([
+      'sceneColorSsr',
+      'fogBuffer',
+    ]);
+    expect(graph.passes.find((pass) => pass.name === '06d_BloomAdd')?.inputs?.[0]).toBe('fogScene');
+    expect(gamePassNames(FLUID_GRAPHICS)).not.toContain('09_Fog');
+    expect(gamePassNames({ ...FLUID_GRAPHICS, volume: true })).toEqual(
+      expect.arrayContaining(['09_Fog', '09b_FogComposite'])
+    );
+  });
+
+  it('focuses the review blur on the board and leaves a match sharp', () => {
+    const graph = chessGraph();
+    const pass = graph.passes.find((entry) => entry.name === '10_DoF');
+    expect(pass?.inputs).toEqual(['bloomScene', 'sceneDepth']);
+    expect(pass?.outputs).toEqual(['dofScene']);
+    expect(pass?.outputFormat).toBe('rgba16float');
+    const focus = pass?.uniforms?.dofParams?.value as unknown as number[];
+    expect(focus[0]).toBe(0);
+    expect(focus[1]).toBeCloseTo(chessSetBoardY('atelier'));
+    expect(focus[2]).toBe(0);
+    expect(focus[3]).toBeGreaterThanOrEqual(CHESS_BOARD_EXTENT);
+    expect(focus[4]).toBe(4);
+    // HBAO already owns the two-texture, one-uniform layout, with depth in the first slot.
+    // A second uniform gives this pass its own layout and keeps the color as the alias source.
+    expect(Object.keys(pass?.uniforms ?? {})).toHaveLength(2);
+    const shader = readFileSync(
+      new URL('../public/shaders/post-processing/dof.frag.wgsl', import.meta.url),
+      'utf8'
+    );
+    expect(shader).toContain('params.focusX');
+    expect(shader).toContain('frame.viewMatrix');
+    expect(shader).toContain('withoutReflection');
+    expect(shader).toContain('centerGlint');
+    expect(graph.passes.find((entry) => entry.name === 'Tone Mapping & Output')?.inputs?.[0]).toBe(
+      'dofScene'
+    );
+    expect(gamePassNames(FLUID_GRAPHICS)).not.toContain('10_DoF');
+    expect(gamePassNames({ ...FLUID_GRAPHICS, dof: true })).toEqual(
+      expect.arrayContaining(['10_DoF'])
+    );
+    for (const preset of GRAPHICS_PRESETS) {
+      const reviewFinish = preset.id === 'qualite' || preset.id === 'natif';
+      expect(preset.settings.dof).toBe(reviewFinish);
+      expect(preset.settings.volume).toBe(reviewFinish);
+    }
+    const tone = graph.passes.find((entry) => entry.name === 'Tone Mapping & Output');
+    expect(tone?.uniforms?.exposure?.value).toBe(1);
+    expect(tone?.uniforms?.contrast?.value).toBe(1);
+    expect(tone?.uniforms?.saturation?.value).toBe(1);
+    const gradeShader = readFileSync(
+      new URL('../public/shaders/post-processing/tonemapping.frag.wgsl', import.meta.url),
+      'utf8'
+    );
+    expect(gradeShader).toContain('var<uniform> contrast: f32');
+    expect(gradeShader).toContain('(mapped - vec3<f32>(0.5)) * contrast');
+    expect(gradeShader).toContain('var<uniform> saturation: f32');
+    expect(gradeShader).toContain('mix(vec3<f32>(luma), graded, saturation)');
+  });
+
+  it('gives Qualité and Natif the review finish, and opens a match on it', () => {
+    const reviewPasses = ['04b_HBAO', '05_SSR_Floor', '06_Bright', '07_FXAA', '09_Fog', '10_DoF'];
+    for (const id of ['qualite', 'natif'] as const) {
+      const settings = GRAPHICS_PRESETS.find((preset) => preset.id === id)?.settings;
+      expect(settings?.ambientOcclusion).toBe(true);
+      expect(settings?.reflections).toBe(true);
+      expect(settings?.bloom).toBe(true);
+      expect(settings?.antialiasing).toBe(true);
+      expect(settings?.volume).toBe(true);
+      expect(settings?.dof).toBe(true);
+      expect(gamePassNames(settings ?? FLUID_GRAPHICS)).toEqual(expect.arrayContaining(reviewPasses));
+    }
+    const quality = GRAPHICS_PRESETS.find((preset) => preset.id === 'qualite')?.settings;
+    expect(graphicsFromStored(null)).toEqual(quality);
+    expect(graphicsFromStored(JSON.stringify(FLUID_GRAPHICS))).toEqual(quality);
+    const chosen = graphicsFromStored(JSON.stringify({ ...FLUID_GRAPHICS, finish: 1 }));
+    expect(chosen.ambientOcclusion).toBe(false);
+    expect(chosen.reflections).toBe(false);
+    expect(chosen.bloom).toBe(false);
+    expect(chosen.volume).toBe(false);
+    expect(chosen.dof).toBe(false);
+    expect(chosen.antialiasing).toBe(true);
+  });
+
+  it('keeps the preview emitters on every preset, Fluide included', () => {
+    for (const preset of GRAPHICS_PRESETS) {
+      expect(preset.settings.sceneLife).toBe(true);
+    }
   });
 
   it('maps texture quality to the baked sizes', () => {

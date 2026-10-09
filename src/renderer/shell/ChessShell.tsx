@@ -3,7 +3,7 @@
  * @description Welcome, modes, lobby, pause, saves, options and settings over the chess table.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import {
   CHESS_COACH_CONTEXT_EVENT,
   CHESS_COACH_OBJECT_EVENT,
@@ -43,6 +43,7 @@ import {
   type ChessTextureQuality,
   type ChessUpscale,
 } from '../graphics/chessGraphicsSettings';
+import { ChessMenuMusic } from '../host/chessMenuMusic';
 import { setChessAudioLevels } from '../host/chessTableAudio';
 import {
   CHESS_AMBIANCES,
@@ -71,10 +72,15 @@ import {
   parseShellPrefs,
   peerResumeSearch,
   rangeThumbRatio,
+  gameEndFromLearn,
+  gameEndFromPlay,
+  sheetBodyOverflows,
   reduceShell,
+  type GameEnd,
   SHELL_PREFS_KEY,
   shellBlocksPlay,
   shellSession,
+  shellWantsMenuMusic,
   type ShellAction,
   type ShellMode,
   type ShellPrefs,
@@ -256,6 +262,22 @@ function BootCover({
   );
 }
 
+function endTitle(copy: ShellCopy, kind: GameEnd['kind']): string {
+  if (kind === 'won') return copy.won;
+  if (kind === 'lost') return copy.lost;
+  return copy.drawn;
+}
+
+function endSentence(copy: ShellCopy, end: GameEnd): string {
+  if (end.cause === 'stalemate') return copy.stalemateLine;
+  if (end.cause === 'insufficient') return copy.insufficientLine;
+  if (end.cause === 'agreed') return copy.agreedLine;
+  if (end.cause === 'resign') return end.loser === 'black' ? copy.resignBlack : copy.resignWhite;
+  if (end.cause === 'line') return copy.lineDone;
+  if (end.cause === 'flag') return end.loser === 'black' ? copy.flagBlack : copy.flagWhite;
+  return end.loser === 'black' ? copy.mateBlack : copy.mateWhite;
+}
+
 export default function ChessShell({ studioReady }: { studioReady: boolean }): ReactElement {
   const peer = new URLSearchParams(window.location.search).get('chessPeer') === '1';
   const [bootGone, setBootGone] = useState(false);
@@ -284,23 +306,51 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
   const [coachContext, setCoachContext] = useState<CoachContext | null>(null);
   const [horizon, setHorizon] = useState(3);
   const [objecting, setObjecting] = useState(false);
+  const [objectionLeaving, setObjectionLeaving] = useState(false);
   const [coachModels, setCoachModels] = useState<string[]>([]);
   const [coachStatus, setCoachStatus] = useState<'checking' | 'ready' | 'installed' | 'missing'>('checking');
   const [coachRemote, setCoachRemote] = useState(false);
   const [coachBase, setCoachBase] = useState('http://127.0.0.1:11434/v1');
   const [coachModel, setCoachModel] = useState('');
   const [coachKey, setCoachKey] = useState('');
+  const [hideEnd, setHideEnd] = useState(false);
+  const endRef = useRef<GameEnd | null>(null);
   const objectingRef = useRef(false);
+  const objectionTimersRef = useRef<number[]>([]);
   const explainAfterRef = useRef(false);
   const [rankTab, setRankTab] = useState<'local' | 'online'>('local');
   const [cabinet, setCabinet] = useState<SaveCabinet>(loadCabinet);
   const [savedFlash, setSavedFlash] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const root = useRef<HTMLDivElement>(null);
+  const menuMusic = useRef<ChessMenuMusic | null>(null);
+  if (menuMusic.current === null) menuMusic.current = new ChessMenuMusic();
 
   useEffect(() => {
     savePrefs(prefs);
+    menuMusic.current?.applyMaster();
   }, [prefs]);
+
+  useEffect(() => {
+    const bus = menuMusic.current;
+    if (!bus) return;
+    bus.setWanted(bootGone && shellWantsMenuMusic(shell.screen));
+  }, [bootGone, shell.screen]);
+
+  useEffect(() => {
+    const bus = menuMusic.current;
+    if (!bus) return;
+    const arm = (): void => {
+      void bus.arm();
+    };
+    window.addEventListener('pointerdown', arm);
+    window.addEventListener('keydown', arm);
+    return () => {
+      window.removeEventListener('pointerdown', arm);
+      window.removeEventListener('keydown', arm);
+      bus.stop();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -352,7 +402,13 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
         document.body.classList.remove('is-shaken');
         return;
       }
-      setShell((prev) => reduceShell(prev, { type: 'escape' }));
+      const finished = endRef.current;
+      setShell((prev) => {
+        if (finished && (prev.screen === 'partie' || prev.screen === 'pause')) {
+          return reduceShell(prev, { type: 'go', screen: 'accueil' });
+        }
+        return reduceShell(prev, { type: 'escape' });
+      });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -377,22 +433,47 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
         return parsed;
       });
     };
+    const clearObjectionTimers = (): void => {
+      for (const id of objectionTimersRef.current) window.clearTimeout(id);
+      objectionTimersRef.current = [];
+    };
     const onObject = (): void => {
-      objectingRef.current = true;
-      setObjecting(true);
+      clearObjectionTimers();
       setCoachNote(copy.objectionLesson);
       explainAfterRef.current = true;
       setShell((prev) => reduceShell(prev, { type: 'open-assistant' }));
-      document.body.classList.add('is-shaken');
-      window.setTimeout(() => {
+      const reduceMotion =
+        typeof window !== 'undefined' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduceMotion) {
         objectingRef.current = false;
         setObjecting(false);
+        setObjectionLeaving(false);
         document.body.classList.remove('is-shaken');
-      }, 900);
+        objectionTimersRef.current = [
+          window.setTimeout(() => document.getElementById('coach-stop')?.focus(), 0),
+        ];
+        return;
+      }
+      objectingRef.current = true;
+      setObjectionLeaving(false);
+      setObjecting(true);
+      document.body.classList.add('is-shaken');
+      objectionTimersRef.current = [
+        window.setTimeout(() => setObjectionLeaving(true), 1600),
+        window.setTimeout(() => {
+          objectingRef.current = false;
+          setObjecting(false);
+          setObjectionLeaving(false);
+          document.body.classList.remove('is-shaken');
+          document.getElementById('coach-stop')?.focus();
+        }, 2050),
+      ];
     };
     chessBus.on(CHESS_COACH_CONTEXT_EVENT, onContext);
     chessBus.on(CHESS_COACH_OBJECT_EVENT, onObject);
     return () => {
+      clearObjectionTimers();
       chessBus.off(CHESS_COACH_CONTEXT_EVENT, onContext);
       chessBus.off(CHESS_COACH_OBJECT_EVENT, onObject);
     };
@@ -594,6 +675,11 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
     }
   };
 
+  const replayMatch = (): void => {
+    if (shell.screen === 'pause') dispatch({ type: 'resume' });
+    chessBus.emit(CHESS_HUD_COMMAND_EVENT, { type: 'reset-match' });
+  };
+
   const saveGame = (): void => {
     const before = loadCabinet().voluntary.at(-1)?.id;
     chessBus.emit(CHESS_HUD_COMMAND_EVENT, { type: 'save-voluntary' });
@@ -604,6 +690,23 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
 
   const menu = shell.screen !== 'partie';
   const play = hud?.kind === 'play' ? hud : null;
+  const end = play
+    ? gameEndFromPlay({
+        localColor: play.localColor,
+        sideToMove: play.sideToMove,
+        flag: play.flag,
+        outcome: play.outcome,
+        resignLoser: play.resignLoser,
+      })
+    : hud?.kind === 'learn'
+      ? gameEndFromLearn(hud.complete)
+      : null;
+  endRef.current = end;
+  const endKey = end ? `${end.kind}:${end.cause}:${end.loser ?? ''}` : '';
+  const showEnd =
+    Boolean(end) &&
+    !hideEnd &&
+    (shell.screen === 'partie' || shell.screen === 'pause' || shell.screen === 'nulle-offre');
 
   useEffect(() => {
     if (shell.mode !== 'online' || !play) return;
@@ -619,6 +722,22 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
       dispatch({ type: 'leave-table' });
     }
   }, [shell.mode, shell.screen, shell.notice, play?.onlineReady, play?.onlineRefused, play?.p2pStatus]);
+
+  useEffect(() => {
+    setHideEnd(false);
+  }, [endKey]);
+
+  useEffect(() => {
+    if (!play || end) return;
+    if (play.drawOffer === 'incoming' && shell.screen !== 'nulle-offre') {
+      setShell((prev) => ({ ...prev, screen: 'nulle-offre', back: 'pause', assistant: false }));
+    }
+  }, [play?.drawOffer, play, end, shell.screen]);
+
+  useEffect(() => {
+    if (!showEnd) return;
+    root.current?.querySelector<HTMLElement>('#fin-see')?.focus();
+  }, [showEnd]);
   const turn =
     play?.sideToMove === 'black' ? copy.blackTurn : copy.whiteTurn;
   const clock = play
@@ -643,9 +762,10 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
     <div ref={root} className={menu ? 'shell is-menu' : 'shell'} data-screen={shell.screen}>
       <BootCover studioReady={studioReady} onGone={() => setBootGone(true)} />
       {objecting ? (
-        <div className="objection" role="alert">
+        <div className={objectionLeaving ? 'objection is-leaving' : 'objection'} role="alert">
           <img src="/brand/coach-crest.webp" alt="" />
-          <p>{copy.objection}</p>
+          <p className="objection-word">{copy.objection}</p>
+          <p className="objection-line">{copy.objectionLine}</p>
         </div>
       ) : null}
       {shell.screen === 'accueil' ? (
@@ -714,7 +834,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
                   </p>
                   <ScaleRange
                     min={1}
-                    max={5}
+                    max={3}
                     value={level}
                     onChange={(value) => {
                       setLevel(value);
@@ -824,10 +944,10 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
           <header className="bar">
             <img className="crest-sm" src="/brand/w3dts-chessmaster-logo.png" alt="" />
             <div className="bar-copy">
-              <p>{play?.cpuThinking ? copy.thinking : turn}</p>
-              <p className="hint">{modeTitle}</p>
+              <p>{end ? endTitle(copy, end.kind) : play?.cpuThinking ? copy.thinking : turn}</p>
+              <p className="hint">{end ? endSentence(copy, end) : modeTitle}</p>
             </div>
-            {shell.mode === 'training' && coachContext?.training?.clock !== true ? null : (
+            {end || (shell.mode === 'training' && coachContext?.training?.clock !== true) ? null : (
             <p className="clock">{clock}</p>
           )}
             {play?.p2pStatus ? (
@@ -839,6 +959,12 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
             <button type="button" className="ghost" onClick={() => dispatch({ type: 'open-assistant' })}>
               {copy.assistant}
             </button>
+            {end && hideEnd ? (
+              <button type="button" className="ghost" id="reopen-fin" onClick={() => setHideEnd(false)}>
+                {copy.result}
+              </button>
+            ) : null}
+            {end ? null : (
             <button
               type="button"
               className="primary"
@@ -847,6 +973,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
             >
               {shell.screen === 'pause' ? copy.resume : copy.pause}
             </button>
+            )}
           </header>
           <p className="keys">
             <span>
@@ -910,6 +1037,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
                 {shell.mode === 'training' ? (
                   <>
                     <button
+                      id="coach-stop"
                       type="button"
                       className="ghost"
                       onClick={() =>
@@ -988,7 +1116,32 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
         </>
       ) : null}
 
-      {shell.screen === 'pause' ? (
+      {showEnd && end ? (
+        <div className="overlay">
+          <section
+            className={`panel fin-card is-${end.kind === 'won' ? 'won' : end.kind === 'lost' ? 'lost' : 'draw'}`}
+            aria-labelledby="fin-title"
+          >
+            <img className="fin-crest" src="/brand/w3dts-chessmaster-logo.png" alt="" />
+            <h1 id="fin-title">{endTitle(copy, end.kind)}</h1>
+            <p>{endSentence(copy, end)}</p>
+            <button type="button" className="primary" id="fin-see" data-primary onClick={() => setHideEnd(true)}>
+              {copy.seeBoard}
+            </button>
+            <button type="button" className="ghost" onClick={replayMatch}>
+              {copy.replay}
+            </button>
+            <button type="button" className="ghost" onClick={() => dispatch({ type: 'go', screen: 'modes' })}>
+              {copy.changeMode}
+            </button>
+            <button type="button" className="ghost" onClick={() => dispatch({ type: 'go', screen: 'accueil' })}>
+              {copy.home}
+            </button>
+          </section>
+        </div>
+      ) : null}
+
+      {shell.screen === 'pause' && !end ? (
         <div className="overlay">
         <section className="panel">
           <h1>{copy.pause}</h1>
@@ -999,9 +1152,36 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
             {copy.save}
           </button>
           {savedFlash ? <p className="notice">{copy.saved}</p> : null}
+          {play?.drawOffer === 'refused' ? <p className="notice">{copy.drawRefused}</p> : null}
           <button type="button" className="ghost" onClick={() => dispatch({ type: 'go', screen: 'sauvegardes' })}>
             {copy.saves}
           </button>
+          {shell.mode !== 'learn' ? (
+            <>
+              <button
+                type="button"
+                className="danger"
+                onClick={() => {
+                  chessBus.emit(CHESS_HUD_COMMAND_EVENT, { type: 'resign' });
+                  dispatch({ type: 'resume' });
+                }}
+              >
+                {copy.resign}
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  chessBus.emit(CHESS_HUD_COMMAND_EVENT, { type: 'offer-draw' });
+                  if (shell.mode === 'hotseat') {
+                    dispatch({ type: 'go', screen: 'nulle-offre' });
+                  }
+                }}
+              >
+                {copy.offerDraw}
+              </button>
+            </>
+          ) : null}
           <button type="button" className="ghost" onClick={() => dispatch({ type: 'go', screen: 'modes' })}>
             {copy.changeMode}
           </button>
@@ -1020,6 +1200,39 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
         </div>
       ) : null}
 
+      {shell.screen === 'nulle-offre' && !end ? (
+        <div className="overlay">
+          <section className="panel">
+            <h1>{copy.drawOfferTitle}</h1>
+            <p className="hint">{copy.drawOfferPeer}</p>
+            <button
+              type="button"
+              className="primary"
+              data-primary
+              onClick={() => {
+                chessBus.emit(CHESS_HUD_COMMAND_EVENT, { type: 'accept-draw' });
+                dispatch({ type: 'resume' });
+              }}
+            >
+              {copy.acceptDraw}
+            </button>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                chessBus.emit(CHESS_HUD_COMMAND_EVENT, { type: 'refuse-draw' });
+                dispatch({ type: 'resume' });
+              }}
+            >
+              {copy.refuseDraw}
+            </button>
+            <button type="button" className="ghost" onClick={() => dispatch({ type: 'go', screen: 'pause' })}>
+              {copy.cancel}
+            </button>
+          </section>
+        </div>
+      ) : null}
+
       {shell.screen === 'sauvegardes' ? (
         <section className="panel sheet">
           <header className="sheet-head">
@@ -1031,6 +1244,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
               {copy.close}
             </button>
           </header>
+          <SheetBody>
           {cabinet.interrupt ? (
             <section className="sheet-section">
               <h2>{copy.interrupted}</h2>
@@ -1072,6 +1286,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
             </section>
           ) : null}
           {!cabinet.interrupt && cabinet.voluntary.length === 0 ? <p className="hint">{copy.noSaves}</p> : null}
+          </SheetBody>
         </section>
       ) : null}
 
@@ -1106,6 +1321,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
               {copy.close}
             </button>
           </header>
+          <SheetBody>
           <section className="sheet-section">
             <h2>{copy.sound}</h2>
             <label className="field" htmlFor="vol-sfx">
@@ -1254,6 +1470,7 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
               <p className="notice">{copy.noModel}</p>
             )}
           </section>
+          </SheetBody>
         </section>
       ) : null}
 
@@ -1371,6 +1588,27 @@ function ScaleRange({
   );
 }
 
+function SheetBody({ children }: { children: ReactNode }): ReactElement {
+  const ref = useRef<HTMLDivElement>(null);
+  const [overflow, setOverflow] = useState(false);
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const measure = (): void => {
+      setOverflow(sheetBodyOverflows(node.scrollHeight, node.clientHeight));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [children]);
+  return (
+    <div ref={ref} className={overflow ? 'sheet-body is-overflow' : 'sheet-body'}>
+      {children}
+    </div>
+  );
+}
+
 function AboutSheet({
   copy,
   version,
@@ -1392,6 +1630,7 @@ function AboutSheet({
           {copy.close}
         </button>
       </header>
+      <SheetBody>
       <section className="sheet-section">
         <h2>{copy.aboutVersion}</h2>
         <p className="about-version">{version}</p>
@@ -1405,6 +1644,7 @@ function AboutSheet({
         <p>{copy.aboutCopyright}</p>
         <p>{copy.aboutProprietary}</p>
       </section>
+      </SheetBody>
     </section>
   );
 }
@@ -1465,8 +1705,9 @@ function OptionsSheet({
           {copy.close}
         </button>
       </header>
+      <SheetBody>
       <section className="sheet-section">
-        <h2>{copy.setChoice}</h2>
+      <h2>{copy.setChoice}</h2>
         <SetChoice copy={copy} selected={ambiance} onSelect={setChessAmbiance} />
       </section>
       <section className="sheet-section">
@@ -1556,6 +1797,7 @@ function OptionsSheet({
       <p className="status-line">
         {copy.render} {surface.width}×{surface.height} · {fps} {copy.fps}
       </p>
+      </SheetBody>
     </section>
   );
 }

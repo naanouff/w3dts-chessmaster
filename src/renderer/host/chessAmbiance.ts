@@ -5,17 +5,25 @@
  * @description Stored room choice, and the props plus lights each room asks the host to load.
  */
 
-import { CHESS_BOARD_BODY_HEIGHT } from '../../chess/board/chessBoard';
+import {
+  CHESS_BOARD_BEVEL_M,
+  CHESS_BOARD_BODY_HEIGHT,
+} from '../../chess/board/chessBoard';
 import { gardenStagePlacements } from './gardenStage';
+import { terraceStagePlacements, skyMoonDirection, TERRACE_SKY_HOUR } from './terraceStage';
 
-/** `atelier`, `salon`, `club`, or the garden staged by the review. */
-export type ChessAmbianceId = 'atelier' | 'salon' | 'club' | 'jardin';
+/** `atelier`, `salon`, `club`, or a review-only room (`jardin`, `terrasse`). */
+export type ChessAmbianceId = 'atelier' | 'salon' | 'club' | 'jardin' | 'terrasse';
 
 /** localStorage key. Not the graphics blob and not the shell prefs. */
 export const CHESS_AMBIANCE_KEY = 'w3dts-chess-ambiance';
 
-/** Rooms offered in Options, Atelier first. The garden stays on the review bar. */
-export const CHESS_AMBIANCES = ['atelier', 'salon', 'club'] as const;
+/** Rooms offered in Options, Atelier first. The same five as the review. */
+export const CHESS_AMBIANCES = ['atelier', 'salon', 'club', 'jardin', 'terrasse'] as const;
+
+const terraceMoon = skyMoonDirection(TERRACE_SKY_HOUR);
+/** Reach of the terrace moonlight. Only the direction is read. */
+const TERRACE_MOON_REACH = 4;
 
 /** Directional sun while the cloth plane is still the floor. */
 const CLOTH_SUN_INTENSITY = 2.65;
@@ -67,9 +75,21 @@ const LOOKS: Record<ChessAmbianceId, ChessSetLook> = {
     id: 'jardin',
     sun: 4.6,
     sunPos: [4.5, 0.85, -1.4],
-    sunColor: [1, 0.48, 0.16],
-    ambient: 0.75,
+    sunColor: [1, 0.9, 0.74],
+    ambient: 1.15,
     thumb: '/ambiances/jardin-suspendu.jpg',
+  },
+  terrasse: {
+    id: 'terrasse',
+    sun: 2.4,
+    sunPos: [
+      terraceMoon[0] * TERRACE_MOON_REACH,
+      terraceMoon[1] * TERRACE_MOON_REACH,
+      terraceMoon[2] * TERRACE_MOON_REACH,
+    ],
+    sunColor: [0.42, 0.55, 0.98],
+    ambient: 0.9,
+    thumb: '/ambiances/terrasse-hiver.jpg',
   },
 };
 
@@ -118,10 +138,53 @@ export interface ChessSetShell {
 /** Props loaded from `public/sets`. Procedural pieces and the club rail are absent. */
 const PROPS: Record<ChessAmbianceId, readonly string[]> = {
   atelier: ['table', 'plateau-toile', 'tabouret', 'softbox', 'projecteur'],
-  salon: ['table', 'napperon', 'plateau', 'lampe', 'cheminee', 'fauteuil', 'bibliotheque', 'tapis'],
-  club: ['bar', 'tabouret', 'tube', 'enseigne', 'bouteilles'],
+  salon: ['table', 'napperon', 'plateau', 'lampe', 'cheminee', 'fauteuil', 'bibliotheque', 'tapis', 'dalle'],
+  club: ['bar', 'tabouret', 'tube', 'enseigne', 'bouteilles', 'dalle'],
   jardin: ['table', 'coupe', 'dalle', 'banc', 'arrosoir', 'glycine'],
+  terrasse: ['table', 'lanterne', 'coupe', 'balustrade', 'banc', 'dalle'],
 };
+
+/** Chevron parquet module, metres on a side. */
+const SALON_TILE = 0.8;
+
+/** Concrete slab, metres on a side. */
+const CLUB_TILE = 1;
+
+/** Parquet modules across the salon floor. They do not cast. */
+function salonParquetTiles(): ChessSetPlacement[] {
+  const tiles: ChessSetPlacement[] = [];
+  for (let ix = -9; ix <= 8; ix++) {
+    for (let iz = -9; iz <= 8; iz++) {
+      tiles.push({
+        file: 'dalle',
+        anchor: 'floor',
+        x: (ix + 0.5) * SALON_TILE,
+        z: (iz + 0.5) * SALON_TILE,
+        lift: 0.008,
+        cast: false,
+      });
+    }
+  }
+  return tiles;
+}
+
+/** Concrete slabs across the club floor. They do not cast. */
+function clubConcreteTiles(): ChessSetPlacement[] {
+  const tiles: ChessSetPlacement[] = [];
+  for (let ix = -7; ix <= 6; ix++) {
+    for (let iz = -7; iz <= 6; iz++) {
+      tiles.push({
+        file: 'dalle',
+        anchor: 'floor',
+        x: (ix + 0.5) * CLUB_TILE,
+        z: (iz + 0.5) * CLUB_TILE,
+        lift: 0.008,
+        cast: false,
+      });
+    }
+  }
+  return tiles;
+}
 
 const PLACEMENTS: Record<ChessAmbianceId, readonly ChessSetPlacement[]> = {
   atelier: [
@@ -133,6 +196,7 @@ const PLACEMENTS: Record<ChessAmbianceId, readonly ChessSetPlacement[]> = {
     { file: 'projecteur', anchor: 'floor', x: -1.9, z: 0.35, yaw: Math.PI / 2 },
   ],
   salon: [
+    ...salonParquetTiles(),
     { file: 'tapis', anchor: 'floor', lift: 0.006, z: -0.2 },
     { file: 'table', anchor: 'top' },
     { file: 'napperon', anchor: 'surface' },
@@ -144,6 +208,7 @@ const PLACEMENTS: Record<ChessAmbianceId, readonly ChessSetPlacement[]> = {
     { file: 'bibliotheque', anchor: 'floor', x: -3.15, z: 0.15, yaw: Math.PI / 2 },
   ],
   club: [
+    ...clubConcreteTiles(),
     { file: 'bar', anchor: 'floor', x: 0.35, z: 3.05 },
     { file: 'tabouret', anchor: 'floor', x: -0.55, z: 1.95 },
     { file: 'tabouret', anchor: 'floor', x: 0.2, z: 1.95 },
@@ -154,10 +219,15 @@ const PLACEMENTS: Record<ChessAmbianceId, readonly ChessSetPlacement[]> = {
     { file: 'enseigne', anchor: 'floor', lift: 0.08, x: -1.7, z: 2.55 },
   ],
   jardin: gardenStagePlacements(),
+  terrasse: terraceStagePlacements(),
 };
 
-/** Millimetre of air so the slab does not z-fight the table it rests on. */
-const BOARD_TABLE_CLEARANCE = 0.001;
+/**
+ * Baked table AABBs sit about 5 mm above the cloth. Sink by that, and by the
+ * rim bevel, so the vertical face meets the top — a millimetre of air left a
+ * light gap under the contact shadow.
+ */
+const BOARD_TABLE_CLEARANCE = -0.005 - CHESS_BOARD_BEVEL_M;
 /** Salon cloth the board sits on. The napperon is about 2 cm thick. */
 const SALON_CLOTH_THICKNESS = 0.02;
 
@@ -170,6 +240,7 @@ const BOARD_Y: Record<ChessAmbianceId, number> = {
   salon: CHESS_BOARD_BODY_HEIGHT + BOARD_TABLE_CLEARANCE + SALON_CLOTH_THICKNESS,
   club: CHESS_BOARD_BODY_HEIGHT + BOARD_TABLE_CLEARANCE,
   jardin: CHESS_BOARD_BODY_HEIGHT + BOARD_TABLE_CLEARANCE,
+  terrasse: CHESS_BOARD_BODY_HEIGHT + BOARD_TABLE_CLEARANCE,
 };
 
 /** One review-stage light. A rect is shaded as a spot: the engine has no area light. */
@@ -299,13 +370,35 @@ const LIGHTS: Record<ChessAmbianceId, readonly ChessSetLight[]> = {
     },
     {
       type: 'spot',
-      color: 0xffd2a8,
-      intensity: 4,
+      color: 0xfff8f2,
+      intensity: 12,
       distance: 8,
       angle: 1,
       penumbra: 0.85,
       position: [0, 2.6, -1.8],
       target: [0, 0, 0.2],
+      cast: false,
+    },
+  ],
+  terrasse: [
+    {
+      type: 'spot',
+      color: 0xb8c8e4,
+      intensity: 1.2,
+      distance: 7,
+      angle: 0.9,
+      penumbra: 0.8,
+      position: [0, 1.6, -1.3],
+      target: [0, 0, 0],
+      cast: false,
+    },
+    {
+      type: 'point',
+      color: 0x7aa6ff,
+      intensity: 2.5,
+      distance: 10,
+      fromFloor: 0.35,
+      position: [0.85, 0, -0.55],
       cast: false,
     },
   ],
@@ -352,13 +445,25 @@ const SHELLS: Record<ChessAmbianceId, ChessSetShell> = {
     floor: [0.28, 0.12, 0.06],
     floorRoughness: 0.92,
     floorMetal: 0,
-    floorWidth: 5.4,
-    floorDepth: 5.4,
-    floorZMax: null,
+    floorWidth: 6,
+    floorDepth: 8,
+    floorZMax: 4.6,
     room: null,
     cove: null,
     glassTable: false,
     pergola: true,
+  },
+  terrasse: {
+    floor: [0.12, 0.14, 0.17],
+    floorRoughness: 0.22,
+    floorMetal: 0.22,
+    floorWidth: 6,
+    floorDepth: 12,
+    floorZMax: 6.5,
+    room: null,
+    cove: null,
+    glassTable: false,
+    pergola: false,
   },
 };
 
@@ -368,7 +473,7 @@ const SHELLS: Record<ChessAmbianceId, ChessSetShell> = {
  * @returns A known room id.
  */
 export function parseChessAmbiance(raw: string | null): ChessAmbianceId {
-  if (raw === 'atelier' || raw === 'salon' || raw === 'club' || raw === 'jardin') return raw;
+  if (raw === 'atelier' || raw === 'salon' || raw === 'club' || raw === 'jardin' || raw === 'terrasse') return raw;
   return 'atelier';
 }
 
@@ -415,6 +520,56 @@ export function chessSetPlacements(id: ChessAmbianceId): readonly ChessSetPlacem
  */
 export function chessSetShell(id: ChessAmbianceId): ChessSetShell {
   return SHELLS[id];
+}
+
+/** One local cubemap. The box is its influence. `radius` is unused while the box is set. */
+export interface ChessReflectionProbe {
+  /** Capture point, in metres. */
+  center: readonly [number, number, number];
+  boxHalf: readonly [number, number, number];
+  radius: number;
+}
+
+/** Full weight inside 0.65 of the box. The board is kept under half so it stays in that core. */
+const PROBE_CORE = 0.5;
+
+function probeBox(
+  center: readonly [number, number, number],
+  half: readonly [number, number, number],
+  boardY: number
+): readonly [number, number, number] {
+  return [
+    Math.max(half[0], Math.abs(center[0]) / PROBE_CORE),
+    Math.max(half[1], Math.abs(center[1] - boardY) / PROBE_CORE),
+    Math.max(half[2], Math.abs(center[2]) / PROBE_CORE),
+  ];
+}
+
+/**
+ * Cubemap at the middle of the room. Screen-space floor reflections stay a separate pass.
+ * @param id - Room on screen.
+ * @returns Centre, influence box, and a zero sphere radius.
+ */
+export function chessSetReflectionProbe(id: ChessAmbianceId): ChessReflectionProbe {
+  const shell = SHELLS[id];
+  const boardY = BOARD_Y[id];
+  if (shell.room) {
+    const room = shell.room;
+    const center = [0, room.height / 2, room.z] as const;
+    return {
+      center,
+      boxHalf: probeBox(center, [room.width / 2, room.height / 2, room.depth / 2], boardY),
+      radius: 0,
+    };
+  }
+  const floorZ = shell.floorZMax === null ? 0 : shell.floorZMax - shell.floorDepth / 2;
+  const height = 3;
+  const center = [0, height / 2, floorZ] as const;
+  return {
+    center,
+    boxHalf: probeBox(center, [shell.floorWidth / 2, height / 2, shell.floorDepth / 2], boardY),
+    radius: 0,
+  };
 }
 
 /** Smoked glass of the club table, matching the review MeshPhysicalMaterial. */
@@ -540,7 +695,7 @@ function linearChannel(byte: number): number {
  * Public URL of one baked prop at a texture tier.
  * @param id - Room id.
  * @param file - Prop stem, such as `table`.
- * @param textureSize - 256, 512, or 1024, the same tiers as the piece textures.
+ * @param textureSize - Bake tier (256 to 2048). Scene props pick it from texel density.
  * @returns URL under `/sets/`.
  */
 export function chessSetPropUrl(id: ChessAmbianceId, file: string, textureSize: number): string {
@@ -672,8 +827,8 @@ export function getChessAmbiance(): ChessAmbianceId {
 }
 
 /**
- * Stages a room and tells the host. Only an Options room is written to storage.
- * @param id - Room chosen in Options, or Jardin from the review bar.
+ * Stages a room and tells the host. Every Options room is written to storage.
+ * @param id - Room chosen in Options or on the review bar.
  */
 export function setChessAmbiance(id: ChessAmbianceId): void {
   const next = parseChessAmbiance(id);

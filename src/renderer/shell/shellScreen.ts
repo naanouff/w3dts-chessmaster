@@ -15,6 +15,7 @@ export type ShellScreen =
   | 'salon'
   | 'partie'
   | 'pause'
+  | 'nulle-offre'
   | 'options'
   | 'parametres'
   | 'classements'
@@ -56,7 +57,7 @@ export interface ShellPrefs {
   language: ShellLanguage;
   mode: ShellMode;
   color: ChessColor;
-  /** Slider step from 1 to 5. */
+  /** Slider step from 1 to 3. */
   level: number;
   eco: string;
 }
@@ -143,6 +144,15 @@ export function shellBlocksPlay(state: ShellState): boolean {
 }
 
 /**
+ * Whether the shell piano loop should run for this screen.
+ * Silent during a live match (including pause and draw offer).
+ * @param screen - Active shell screen.
+ */
+export function shellWantsMenuMusic(screen: ShellScreen): boolean {
+  return screen !== 'partie' && screen !== 'pause' && screen !== 'nulle-offre';
+}
+
+/**
  * Session emitted as `apply-session`. Local and online both use the peer channel.
  * Online carries the table code and the seat. The relay room is that code.
  * @param mode - Card chosen on the modes screen.
@@ -205,6 +215,85 @@ export function acceptJoinCode(code: string): boolean {
 export function rangeThumbRatio(value: number, min: number, max: number): number {
   if (max === min) return 0;
   return (value - min) / (max - min);
+}
+
+/**
+ * Whether a sheet body needs the fade, because its content is taller than the pane.
+ * @param scrollHeight - Full content height in pixels.
+ * @param clientHeight - Visible pane height in pixels.
+ */
+export function sheetBodyOverflows(scrollHeight: number, clientHeight: number): boolean {
+  if (!Number.isFinite(scrollHeight) || !Number.isFinite(clientHeight)) return false;
+  return scrollHeight > clientHeight + 1;
+}
+
+/** Why a game ended. `line` is a finished opening, not a mate. */
+export type GameEndCause =
+  | 'mate'
+  | 'flag'
+  | 'stalemate'
+  | 'insufficient'
+  | 'resign'
+  | 'agreed'
+  | 'line';
+
+export type GameEndKind = 'won' | 'lost' | 'draw';
+
+export interface GameEnd {
+  kind: GameEndKind;
+  cause: GameEndCause;
+  /** The side that lost. Null for a draw or a finished line. */
+  loser: ChessColor | null;
+}
+
+/**
+ * End card for a played game. A flag wins over mate. Null while the game continues.
+ * @param input - Local seat, side to move, clock flag, and the rules outcome.
+ */
+export function gameEndFromPlay(input: {
+  localColor: ChessColor;
+  sideToMove: ChessColor;
+  flag: ChessColor | null;
+  outcome: 'mate' | 'stalemate' | 'insufficient' | 'resign' | 'agreed' | null;
+  /** Set when `outcome` is `resign`. */
+  resignLoser?: ChessColor | null;
+}): GameEnd | null {
+  if (input.flag) {
+    return {
+      kind: input.flag === input.localColor ? 'lost' : 'won',
+      cause: 'flag',
+      loser: input.flag,
+    };
+  }
+  if (input.outcome === 'stalemate') return { kind: 'draw', cause: 'stalemate', loser: null };
+  if (input.outcome === 'insufficient') return { kind: 'draw', cause: 'insufficient', loser: null };
+  if (input.outcome === 'agreed') return { kind: 'draw', cause: 'agreed', loser: null };
+  if (input.outcome === 'resign') {
+    const loser = input.resignLoser ?? null;
+    if (!loser) return null;
+    return {
+      kind: loser === input.localColor ? 'lost' : 'won',
+      cause: 'resign',
+      loser,
+    };
+  }
+  if (input.outcome === 'mate') {
+    return {
+      kind: input.sideToMove === input.localColor ? 'lost' : 'won',
+      cause: 'mate',
+      loser: input.sideToMove,
+    };
+  }
+  return null;
+}
+
+/**
+ * A finished opening line is a win for the learner. An unfinished line has no card.
+ * @param complete - True once the book line has been played through.
+ */
+export function gameEndFromLearn(complete: boolean): GameEnd | null {
+  if (!complete) return null;
+  return { kind: 'won', cause: 'line', loser: null };
 }
 
 /**
@@ -275,7 +364,7 @@ function parseStoredMode(value: unknown): ShellMode {
 }
 
 function parseStoredLevel(value: unknown): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 5) return 2;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 3) return 2;
   return value;
 }
 
@@ -293,6 +382,9 @@ function clampPercent(value: unknown, fallback: number): number {
 function escapeShell(state: ShellState): ShellState {
   if (state.assistant && state.screen === 'partie') {
     return { ...state, assistant: false };
+  }
+  if (state.screen === 'nulle-offre') {
+    return { ...state, screen: 'pause', back: 'partie', assistant: false };
   }
   if (state.screen === 'partie') {
     return { ...state, screen: 'pause', back: 'partie', assistant: false };

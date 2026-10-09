@@ -19,9 +19,11 @@ import {
   NameComponent,
   OrbitalCameraController,
   getGameViewSurfacePixelSize,
+  PointLightComponent,
   PrimitiveFactory,
   RenderGraph,
   RenderableComponent,
+  ReflectionProbeComponent,
   SceneNode,
   TransformComponent,
   createDecalSystem,
@@ -34,8 +36,14 @@ import {
   type ProjectLoadParams,
   type ShaderGraph,
   type World,
+  scheduleReflectionProbeRebake,
 } from '@naanouff/w3dts-core';
 import { LogChannel } from '@naanouff/w3dts-logger';
+import {
+  disposeParticleEmitterGpu,
+  initializeParticleEmitters,
+  ParticleEmitterComponent,
+} from '@naanouff/w3dts-particles';
 import { WebAudioService } from '@naanouff/w3dts-audio';
 import {
   ColliderComponent,
@@ -75,6 +83,8 @@ import {
   chessBoardLabelSize,
   chessPlayP2pHint,
   chessTableSfxForPly,
+  chessScoreForLocal,
+  coachMaterial,
   clientPointToNdc,
   CHESS_CLOCK_START_S,
   ONLINE_GUEST_WAIT_MS,
@@ -83,6 +93,7 @@ import {
   SAVED_GAMES_KEY,
   acceptSavedGame,
   clocksFromWire,
+  cpuAcceptsDrawOffer,
   cpuSearchDepth,
   decodeChessWire,
   dropInterrupt,
@@ -101,6 +112,7 @@ import {
   normalizeChessHudP2pStatus,
   parseChessDemoQuery,
   parseChessHudCommand,
+  pieceHoverSquare,
   pickRayFromViewProjection,
   replaceChessDemoQueryInLocation,
   sampleBookMoveSpline,
@@ -158,6 +170,7 @@ import {
   loadChessMoveGlowTexture,
   createChessCutoutMaterial,
   createChessGhostMaterial,
+  CHESS_PIECE_HOVER_GLOW,
   chessMoveGlowRecipe,
   createChessMoveGlowMaterial,
   patchChessPhotoMaterialsFromCache,
@@ -168,7 +181,12 @@ import {
   remapChessSceneMaterialsToPhoto,
 } from './chessSceneRuntime';
 import { createWoodMaterial, loadWoodShaderGraph } from './woodLook';
-import { chessAmbienceGain, chessSfxGain, installChessTableClips } from './chessTableAudio';
+import {
+  bindChessAmbienceBeds,
+  ChessAmbienceBeds,
+  chessSfxGain,
+  installChessTableClips,
+} from './chessTableAudio';
 import { getGraphicsBenchMotion, noteGraphicsBenchPose } from '../graphics/graphicsBenchMotion';
 import { isGraphicsBenchSearch } from '../graphics/graphicsBench';
 import {
@@ -176,32 +194,54 @@ import {
   chessSetAmbient,
   chessSetBoardY,
   chessSetLook,
+  chessSetReflectionProbe,
   chessSetSunIntensity,
   getChessAmbiance,
   subscribeChessAmbiance,
+  type ChessAmbianceId,
 } from './chessAmbiance';
-import { applyRoomSky, gardenShadowBox } from './gardenStage';
+import { applyReviewFog, applyRoomSky, gardenShadowBox } from './gardenStage';
+import { terraceShadowBox } from './terraceStage';
 import {
   CHESS_REVIEW_POSES,
-  CHESS_SET_REVIEW_TEXTURE_SIZE,
+  applyReviewDof,
+  applyReviewGrade,
   chessReviewFrame,
   isChessSetReview,
   setChessReviewFrame,
   subscribeChessCameraArrival,
   subscribeChessReviewFrame,
+  subscribeReviewGrade,
   type ChessReviewFrame,
 } from './chessSetReview';
+import {
+  chessReviewColor,
+  chessReviewPiece,
+  reviewPieceCamera,
+  reviewPieceVisible,
+  subscribeChessReviewColor,
+  subscribeChessReviewPiece,
+} from './chessPieceReview';
 import { chessCameraArrival, chessCameraArrivalPose } from './chessCameraArrival';
 import {
   applyChessShadowMode,
   getChessGraphicsSettings,
-  pieceTextureSize,
+  subscribeChessGraphics,
   scaleChessGraphResources,
   shadowMapSize,
   upscaleRenderScale,
   upscaleSharpness,
 } from '../graphics/chessGraphicsSettings';
+import {
+  cigarTip,
+  hearthFlicker,
+  sceneLifeEnabled,
+  sceneLifeForRoom,
+  sceneLifeWanted,
+  subscribeSceneLife,
+} from './chessSceneLife';
 import { loadChessSet } from './spawnChessSet';
+import { sceneLifeFloorY, spawnSceneLife } from './spawnSceneLife';
 
 /** Studio cloth plane size (must match the mesh in onInit). */
 const CHESS_STUDIO_TABLE_EXTENT = 4.2;
@@ -319,6 +359,7 @@ export class ChessDemoProject extends LitAbstractProject {
   /** Board footprint in XZ, piece height in Y, including the salon lift. */
   private chessShadowAabb(): { min: [number, number, number]; max: [number, number, number] } {
     if (getChessAmbiance() === 'jardin') return gardenShadowBox();
+    if (getChessAmbiance() === 'terrasse') return terraceShadowBox();
     const half = CHESS_BOARD_MESH_EXTENT / 2;
     const lift = this.boardLift;
     return {
@@ -351,6 +392,7 @@ export class ChessDemoProject extends LitAbstractProject {
   private hoverLegalMat: Material | null = null;
   private hoverHomeMat: Material | null = null;
   private hoverIllegalMat: Material | null = null;
+  private hoverPieceMat: Material | null = null;
   private legalDropSquares = new Set<ChessSquareName>();
   private playMode: ChessPlayMode = 'cpu';
   private localColor: ChessColor = 'white';
@@ -369,6 +411,11 @@ export class ChessDemoProject extends LitAbstractProject {
   private hudClockBlack = CHESS_CLOCK_START_S;
   /** Side that ran out of time; independent of chessops (clocks are local). */
   private clockFlag: ChessColor | null = null;
+  /** Side that resigned; null while the game continues. */
+  private resignLoser: ChessColor | null = null;
+  private agreedDraw = false;
+  private drawOffer: 'none' | 'incoming' | 'refused' = 'none';
+  private cpuDepth = 2;
   private p2p: ITransport | null = null;
   private p2pStatus: ChessHudP2pStatus = 'waiting';
   private roomId = '';
@@ -433,13 +480,19 @@ export class ChessDemoProject extends LitAbstractProject {
   /** Opening fly-in. Null once the game camera is reached, and never set in the review. */
   private cameraArrival: { elapsed: number } | null = null;
   private audio: WebAudioService | null = null;
-  private ambience: { stop(): void } | null = null;
+  private ambienceBeds = new ChessAmbienceBeds();
   private audioArmed = false;
   private flagSfxPlayed = false;
   /** Pieces/meshes exist; P2P must not apply FEN until this is true. */
   private boardReady = false;
   private stopAmbiance: (() => void) | null = null;
+  private stopGrade: (() => void) | null = null;
   private stopReview: (() => void) | null = null;
+  private stopLife: (() => void) | null = null;
+  private lifeNodes: SceneNode[] = [];
+  private lifeFloorY = 0;
+  private lifeLock: Promise<void> = Promise.resolve();
+  private hearthRest = new Map<number, number>();
   private readonly reviewing = isChessSetReview(
     typeof location === 'undefined' ? '' : location.search
   );
@@ -450,6 +503,7 @@ export class ChessDemoProject extends LitAbstractProject {
   /** Salon review puts the board on the cloth. Atelier and Club stay at 0. */
   private boardLift = 0;
   private setNodes: SceneNode[] = [];
+  private probeNode: SceneNode | null = null;
   private setGen = 0;
   private setDevice: GPUDevice | null = null;
   private setResources: ProjectLoadParams['resourceManager'] | null = null;
@@ -473,10 +527,18 @@ export class ChessDemoProject extends LitAbstractProject {
       this.modePickerOpen = cmd.open;
       if (cmd.open) this.rememberInterrupt(true);
       if (cmd.open && this.world && this.grab.grabbed) this.grab.end(this.world);
+      if (!cmd.open && this.drawOffer === 'refused') {
+        this.drawOffer = 'none';
+        this.emitHud();
+      }
       return;
     }
     if (cmd.type === 'request-state') {
       this.emitHud();
+      return;
+    }
+    if (cmd.type === 'reset-match') {
+      if (this.world) this.resetMatch(this.world, true);
       return;
     }
     if (cmd.type === 'close-table') {
@@ -522,6 +584,22 @@ export class ChessDemoProject extends LitAbstractProject {
     if (cmd.type === 'coach-ghosts') {
       this.coachHorizon = cmd.horizon;
       if (this.world) this.showCoachGhosts(this.world, cmd.steps);
+      return;
+    }
+    if (cmd.type === 'resign') {
+      this.applyResign(this.playMode === 'hotseat' ? this.match.sideToMove() : this.localColor);
+      return;
+    }
+    if (cmd.type === 'offer-draw') {
+      this.offerDraw();
+      return;
+    }
+    if (cmd.type === 'accept-draw') {
+      this.acceptDraw(true);
+      return;
+    }
+    if (cmd.type === 'refuse-draw') {
+      this.refuseDraw(true);
       return;
     }
     const waitingOnline = cmd.table === 'online';
@@ -708,6 +786,8 @@ export class ChessDemoProject extends LitAbstractProject {
       resourceManager.getMaterialByName('ChessDropHoverHome') ?? this.hoverHomeMat;
     this.hoverIllegalMat =
       resourceManager.getMaterialByName('ChessDropHoverIllegal') ?? this.hoverIllegalMat;
+    this.hoverPieceMat =
+      resourceManager.getMaterialByName(CHESS_PIECE_HOVER_GLOW.name) ?? this.hoverPieceMat;
   }
 
   private rebindChessFromWorld(world: World): void {
@@ -797,6 +877,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.clockWhite = CHESS_CLOCK_START_S;
     this.clockBlack = CHESS_CLOCK_START_S;
     this.clockFlag = null;
+    this.clearManualEnd();
     this.boardReady = false;
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -993,6 +1074,7 @@ export class ChessDemoProject extends LitAbstractProject {
     for (const piece of this.match.pieces()) {
       this.spawnPiece(world, scene, piece.square, piece.role, piece.color);
     }
+    this.applyReviewPiece(world);
 
     await this.spawnLegalOverlays(world, scene, resourceManager, pbrGraph, device);
     await this.spawnSplineOverlays(world, scene, resourceManager, pbrGraph, device);
@@ -1007,7 +1089,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.syncFileRankLabels(world);
 
     this.audio = new WebAudioService();
-    void installChessTableClips(this.audio).catch(() => {
+    void installChessTableClips(this.audio, getChessAmbiance()).catch(() => {
       /* autoplay / missing context */
     });
 
@@ -1051,11 +1133,22 @@ export class ChessDemoProject extends LitAbstractProject {
         if (!live) return;
         this.aimActiveCamera(live, engine);
       });
+      const onPiece = (): void => {
+        this.cameraArrival = null;
+        const live = this.world;
+        if (!live) return;
+        this.applyReviewPiece(live);
+        this.aimActiveCamera(live, engine);
+      };
+      const stopPiece = subscribeChessReviewPiece(onPiece);
+      const stopColor = subscribeChessReviewColor(onPiece);
       const stopArrival = subscribeChessCameraArrival(() => {
         this.beginCameraArrival(true);
       });
       this.stopReview = () => {
         stopFrame();
+        stopPiece();
+        stopColor();
         stopArrival();
       };
     }
@@ -1078,7 +1171,27 @@ export class ChessDemoProject extends LitAbstractProject {
     this.stopAmbiance = subscribeChessAmbiance(() => {
       void this.applyAmbianceEnvironment(engine);
       void this.replaceChessSet();
+      void this.refreshAmbianceAudio();
     });
+    this.stopGrade?.();
+    this.stopGrade = subscribeReviewGrade(() => {
+      const id = getChessAmbiance();
+      applyReviewGrade(engine.renderGraph.getPasses(), id);
+      applyReviewGrade(engine.gameRenderGraph.getPasses(), id);
+    });
+    this.stopLife?.();
+    const stopVie = subscribeSceneLife(() => this.enqueueSceneLife());
+    let textureQuality = getChessGraphicsSettings().textureQuality;
+    const stopGraphics = subscribeChessGraphics((value) => {
+      this.enqueueSceneLife();
+      if (value.textureQuality === textureQuality) return;
+      textureQuality = value.textureQuality;
+      void this.replaceChessSet();
+    });
+    this.stopLife = () => {
+      stopVie();
+      stopGraphics();
+    };
     await this.applyAmbianceEnvironment(engine);
   }
 
@@ -1096,6 +1209,12 @@ export class ChessDemoProject extends LitAbstractProject {
     const id = getChessAmbiance();
     applyRoomSky(engine.renderGraph.getPasses(), id);
     applyRoomSky(engine.gameRenderGraph.getPasses(), id);
+    applyReviewFog(engine.renderGraph.getPasses(), id);
+    applyReviewFog(engine.gameRenderGraph.getPasses(), id);
+    applyReviewDof(engine.renderGraph.getPasses(), id);
+    applyReviewDof(engine.gameRenderGraph.getPasses(), id);
+    applyReviewGrade(engine.renderGraph.getPasses(), id);
+    applyReviewGrade(engine.gameRenderGraph.getPasses(), id);
     this.applyChessShadow(renderer);
     this.applyAmbianceSun();
   }
@@ -1135,7 +1254,7 @@ export class ChessDemoProject extends LitAbstractProject {
   }
 
   /**
-   * Moves the board and the pieces that stand on it. Captured pieces stay on the trays.
+   * Moves the board and the pieces that stand on it. Captured pieces stay on the table.
    * @param next - Metres above the default surface. Zero while the studio cloth is the floor.
    */
   private setBoardLift(next: number): void {
@@ -1176,15 +1295,17 @@ export class ChessDemoProject extends LitAbstractProject {
     const pbrGraph = this.setGraph;
     if (!scene || !world || !device || !resourceManager || !pbrGraph) return;
     const gen = ++this.setGen;
+    await this.lifeLock;
+    if (gen !== this.setGen) return;
+    this.dropSceneLife();
+    this.restoreHearth(world);
     const id = getChessAmbiance();
     let nodes: SceneNode[] | null = null;
     try {
       nodes = await loadChessSet(
         { device, world, resourceManager, pbrGraph },
         id,
-        this.reviewing
-          ? CHESS_SET_REVIEW_TEXTURE_SIZE
-          : pieceTextureSize(getChessGraphicsSettings().textureQuality)
+        getChessGraphicsSettings().textureQuality
       );
     } catch (e) {
       nodes = null;
@@ -1196,6 +1317,7 @@ export class ChessDemoProject extends LitAbstractProject {
       this.showStudioCloth(world, scene, resourceManager, pbrGraph);
       this.setBoardLift(0);
       this.applyAmbianceSun();
+      this.placeReflectionProbe(id);
       return;
     }
     this.hideStudioCloth();
@@ -1203,10 +1325,166 @@ export class ChessDemoProject extends LitAbstractProject {
     this.setNodes = nodes;
     this.setBoardLift(chessSetBoardY(id));
     this.applyAmbianceSun();
+    this.placeReflectionProbe(id);
     this.setLogger?.info(
       LogChannel.EngineLifecycle,
       `ChessDemoProject: ${id} set applied (${nodes.length} nodes).`
     );
+    this.enqueueSceneLife();
+  }
+
+  /**
+   * GPU init after the project load. Room changes call the same spawn again.
+   * @param _params - Load params. The stored engine is enough.
+   */
+  public async postLoadGpuInit(_params: ProjectLoadParams): Promise<void> {
+    this.enqueueSceneLife();
+  }
+
+  /** Queues a respawn so a room change cannot dispose emitters mid-init. */
+  private enqueueSceneLife(): void {
+    const job = this.lifeLock.then(() => this.syncSceneLife());
+    this.lifeLock = job.catch((err) => {
+      this.setLogger?.warn(LogChannel.DataLifecycle, 'ChessDemoProject: scene life skipped.', err as Error);
+    });
+  }
+
+  /** Drops the previous emitters, then spawns the room's list when the review allows it. */
+  private async syncSceneLife(): Promise<void> {
+    const world = this.world;
+    const scene = this.sceneRef;
+    const device = this.setDevice;
+    const resourceManager = this.setResources;
+    const pbrGraph = this.setGraph;
+    const engine = this.chessEngine;
+    const logger = this.setLogger;
+    if (!world || !scene || !device || !resourceManager || !pbrGraph || !engine || !logger) return;
+    this.dropSceneLife();
+    if (!this.lifeWanted()) {
+      this.restoreHearth(world);
+      return;
+    }
+    const room = getChessAmbiance();
+    const specs = sceneLifeForRoom(true, true, room);
+    this.lifeFloorY = sceneLifeFloorY(world, this.setNodes);
+    const nodes = await spawnSceneLife(
+      { device, world, resourceManager, pbrGraph, logger },
+      specs,
+      this.lifeFloorY,
+      scene
+    );
+    this.lifeNodes = nodes;
+    if (!this.lifeWanted() || getChessAmbiance() !== room) {
+      this.dropSceneLife();
+      return;
+    }
+    await initializeParticleEmitters(world, engine.webGPUContext, resourceManager, logger);
+    if (!this.lifeWanted() || getChessAmbiance() !== room) this.dropSceneLife();
+  }
+
+  /** Frees GPU buffers, then destroys the life entities. */
+  private dropSceneLife(): void {
+    const world = this.world;
+    const scene = this.sceneRef;
+    if (!world || !scene) {
+      this.lifeNodes = [];
+      return;
+    }
+    for (const node of this.lifeNodes) {
+      const emitter = world.getComponent(node.entityId, ParticleEmitterComponent);
+      if (emitter) disposeParticleEmitterGpu(emitter, world);
+      scene.remove(node);
+    }
+    this.lifeNodes = [];
+  }
+
+  /** Puts the hearth point back to the intensity written on the room. */
+  private restoreHearth(world: World): void {
+    this.applyHearth(world, null);
+    this.hearthRest.clear();
+  }
+
+  /**
+   * Scales the salon hearth. Other rooms have no light in this range.
+   * @param world - World that owns the set lights.
+   * @param factor - Multiplier, or null to restore the authored intensity.
+   */
+  private applyHearth(world: World, factor: number | null): void {
+    for (const node of this.setNodes) {
+      const light = world.getComponent(node.entityId, PointLightComponent);
+      if (!light || Math.abs(light.range - 2.2) > 0.05) continue;
+      if (!this.hearthRest.has(node.entityId)) this.hearthRest.set(node.entityId, light.intensity);
+      const rest = this.hearthRest.get(node.entityId) ?? light.intensity;
+      light.intensity = factor === null ? rest : rest * factor;
+    }
+  }
+
+  /** Review Vie, or the match preset. */
+  private lifeWanted(): boolean {
+    return sceneLifeWanted(this.reviewing, sceneLifeEnabled(), getChessGraphicsSettings().sceneLife);
+  }
+
+  /**
+   * Flickers the hearth and walks the cigar.
+   * @param world - World that owns the lights and the tip.
+   * @param time - Seconds since the engine started.
+   */
+  private tickSceneLife(world: World, time: number): void {
+    if (!this.lifeWanted()) {
+      if (this.hearthRest.size > 0) this.restoreHearth(world);
+      return;
+    }
+    const flicker = getChessAmbiance() === 'salon';
+    if (flicker) this.applyHearth(world, hearthFlicker(time));
+    else if (this.hearthRest.size > 0) this.restoreHearth(world);
+    const tip = cigarTip(time);
+    for (const node of this.lifeNodes) {
+      if (!node.name.startsWith('ChessLife-cigar-')) continue;
+      const transform = world.getComponent(node.entityId, TransformComponent);
+      if (!transform) continue;
+      vec3.set(transform.position, tip.ember[0], this.lifeFloorY + tip.ember[1], tip.ember[2]);
+      transform.updateLocalTransform();
+    }
+  }
+
+  /**
+   * One cubemap at the room centre. The floor SSR pass is left as it is.
+   * @param id - Room just applied.
+   */
+  private placeReflectionProbe(id: ChessAmbianceId): void {
+    const world = this.world;
+    const scene = this.sceneRef;
+    if (!world || !scene) return;
+    if (!getChessGraphicsSettings().reflectionProbes) {
+      if (this.probeNode) scene.remove(this.probeNode);
+      this.probeNode = null;
+      return;
+    }
+    const spec = chessSetReflectionProbe(id);
+    if (!this.probeNode) {
+      const node = new SceneNode('ChessReflectionProbe', world);
+      this.probeNode = node;
+      scene.add(node);
+      world.addComponent(
+        node.entityId,
+        new ReflectionProbeComponent({
+          radius: spec.radius,
+          boxHalfExtents: vec3.fromValues(spec.boxHalf[0], spec.boxHalf[1], spec.boxHalf[2]),
+        })
+      );
+    }
+    const transform = world.getComponent(this.probeNode.entityId, TransformComponent);
+    if (transform) {
+      vec3.set(transform.position, spec.center[0], spec.center[1], spec.center[2]);
+      transform.updateLocalTransform();
+    }
+    const probe = world.getComponent(this.probeNode.entityId, ReflectionProbeComponent);
+    if (probe) {
+      probe.radius = spec.radius;
+      vec3.set(probe.boxHalfExtents, spec.boxHalf[0], spec.boxHalf[1], spec.boxHalf[2]);
+    }
+    const engine = this.chessEngine;
+    if (engine) scheduleReflectionProbeRebake(engine as Engine);
   }
 
   private clearSetNodes(): void {
@@ -1263,6 +1541,7 @@ export class ChessDemoProject extends LitAbstractProject {
     const world = this.world;
     const engine = this.chessEngine;
     if (!world || !engine) return;
+    this.tickSceneLife(world, _totalTime);
     this.tuneGameCamera(world, engine);
     this.syncCoachCutouts(world);
 
@@ -1292,7 +1571,10 @@ export class ChessDemoProject extends LitAbstractProject {
     if (!input) return;
     const overGame = this.isPointerOverGame(input);
     const gameFocus = engine.isGameViewInputActive?.() ?? false;
-    if (!overGame && !gameFocus && !this.grab.grabbed) return;
+    if (!overGame && !gameFocus && !this.grab.grabbed) {
+      this.setDropHover(world, null);
+      return;
+    }
 
     if (input.isActionJustPressed('resetKart')) this.resetMatch(world, true);
 
@@ -1304,6 +1586,7 @@ export class ChessDemoProject extends LitAbstractProject {
     if (just) this.onSelectDown(world, engine, input);
     if (select && this.grab.grabbed) this.onSelectHold(world, engine, input, _deltaTime);
     else if (released && this.grab.grabbed) this.onSelectUp(world);
+    else if (!this.grab.grabbed) this.updatePieceHover(world, engine, input, overGame);
   }
 
   /** Keep Game main flags and FOV; sync aspect to Game panel (see pickViewProjection). */
@@ -1322,9 +1605,27 @@ export class ChessDemoProject extends LitAbstractProject {
     }
   }
 
- /** Game camera during a match. The review keeps whichever frame the bar last chose. */
+ /** Game camera during a match. A reviewed piece gets a close frame; otherwise the bar's room frame. */
   private aimActiveCamera(world: World, engine: IEngineContext): void {
+    const role = this.reviewing ? chessReviewPiece() : null;
+    if (role) {
+      const pose = reviewPieceCamera(chessSetBoardY(getChessAmbiance()), role, chessReviewColor());
+      this.placeChessCamera(world, engine, pose.eye, pose.target);
+      return;
+    }
     this.aimChessCamera(world, engine, this.reviewing ? chessReviewFrame() : 'game');
+  }
+
+  /** Hides every piece except the white one under review. The set returns when none is chosen. */
+  private applyReviewPiece(world: World): void {
+    if (!this.reviewing) return;
+    const selected = chessReviewPiece();
+    for (const [entity] of world.query<[ChessPieceComponent]>([ChessPieceComponent]).iter()) {
+      const piece = world.getComponent(entity, ChessPieceComponent);
+      const renderable = world.getComponent(entity, RenderableComponent);
+      if (!piece || !renderable) continue;
+      renderable.visible = reviewPieceVisible(selected, piece, chessReviewColor());
+    }
   }
 
   /**
@@ -1385,7 +1686,7 @@ export class ChessDemoProject extends LitAbstractProject {
    * @param fromReview - True when the review bar asks to replay it. A match start stays put in the review.
    */
   private beginCameraArrival(fromReview = false): void {
-    if (this.reviewing && !fromReview) return;
+    if (this.reviewing && (!fromReview || chessReviewPiece())) return;
     const world = this.world;
     const engine = this.chessEngine;
     if (!world || !engine) return;
@@ -1534,6 +1835,14 @@ export class ChessDemoProject extends LitAbstractProject {
       hoverIllegal.tint,
       hoverIllegal.emissive
     );
+    this.hoverPieceMat = createChessMoveGlowMaterial(
+      resourceManager,
+      pbrGraph,
+      neon,
+      CHESS_PIECE_HOVER_GLOW.name,
+      CHESS_PIECE_HOVER_GLOW.tint,
+      CHESS_PIECE_HOVER_GLOW.emissive
+    );
     this.hoverNode = new SceneNode('ChessDropHover', world, hoverMesh, this.hoverLegalMat);
     const hoverRenderable = world.getComponent(this.hoverNode.entityId, RenderableComponent);
     if (hoverRenderable) {
@@ -1669,7 +1978,11 @@ export class ChessDemoProject extends LitAbstractProject {
     }
   }
 
-  private setDropHover(world: World, square: ChessSquareName | null): void {
+  private setDropHover(
+    world: World,
+    square: ChessSquareName | null,
+    kind: 'drop' | 'piece' = 'drop'
+  ): void {
     const node = this.hoverNode;
     if (!node) return;
     const renderable = world.getComponent(node.entityId, RenderableComponent);
@@ -1679,7 +1992,9 @@ export class ChessDemoProject extends LitAbstractProject {
       renderable.visible = false;
       return;
     }
-    if (square === this.grabFrom) {
+    if (kind === 'piece') {
+      if (this.hoverPieceMat) renderable.material = this.hoverPieceMat;
+    } else if (square === this.grabFrom) {
       if (this.hoverHomeMat) renderable.material = this.hoverHomeMat;
     } else if (this.legalDropSquares.has(square)) {
       if (this.hoverLegalMat) renderable.material = this.hoverLegalMat;
@@ -1692,9 +2007,115 @@ export class ChessDemoProject extends LitAbstractProject {
     renderable.visible = true;
   }
 
+  /** Ivory square under the piece the ray would grab, before the click. */
+  private updatePieceHover(
+    world: World,
+    engine: EngineWithInput,
+    input: InputManager,
+    overGame: boolean
+  ): void {
+    if (!overGame) {
+      this.setDropHover(world, null);
+      return;
+    }
+    const rect = this.gameCanvasRect();
+    if (!rect) {
+      this.setDropHover(world, null);
+      return;
+    }
+    const vp = this.pickViewProjection(world, engine, rect);
+    if (!vp) {
+      this.setDropHover(world, null);
+      return;
+    }
+    const ndc = clientPointToNdc(input.pointer.x, input.pointer.y, rect);
+    if (!ndc) {
+      this.setDropHover(world, null);
+      return;
+    }
+    const ray = pickRayFromViewProjection(vp, ndc.ndcX, ndc.ndcY);
+    if (!ray) {
+      this.setDropHover(world, null);
+      return;
+    }
+    const hit = raycast(world, ray.origin, ray.direction, 8, { collisionMask: CHESS_GROUP_PIECE });
+    const square = hit ? this.squareByEntity.get(hit.entity) ?? null : null;
+    const piece = square ? this.match.pieceAt(square) : null;
+    const hovered = pieceHoverSquare({
+      square,
+      pieceColor: piece?.color ?? null,
+      sideToMove: this.match.sideToMove(),
+      localColor: this.localColor,
+      playMode: this.playMode,
+      gameOver: this.gameOver(),
+      cpuBusy: this.cpuBusy,
+      motionBusy: this.motionBusy,
+    });
+    this.setDropHover(world, hovered, 'piece');
+  }
+
   private gameOver(): boolean {
     if (this.playMode === 'learn') return Boolean(this.trainer?.isComplete());
-    return this.match.isEnd() || this.clockFlag !== null;
+    return (
+      this.match.isEnd() ||
+      this.clockFlag !== null ||
+      this.resignLoser !== null ||
+      this.agreedDraw
+    );
+  }
+
+  private clearManualEnd(): void {
+    this.resignLoser = null;
+    this.agreedDraw = false;
+    this.drawOffer = 'none';
+  }
+
+  private applyResign(loser: ChessColor, fromWire = false): void {
+    if (this.playMode === 'learn' || this.gameOver()) return;
+    this.resignLoser = loser;
+    this.drawOffer = 'none';
+    if (!fromWire) this.broadcastWire({ v: 1, t: 'resign', loser });
+    this.emitHud();
+  }
+
+  private offerDraw(): void {
+    if (this.playMode === 'learn' || this.gameOver()) return;
+    if (this.playMode === 'cpu' || this.playMode === 'training') {
+      const accept = cpuAcceptsDrawOffer(this.match.fen(), this.cpuDepth);
+      if (accept) {
+        this.agreedDraw = true;
+        this.drawOffer = 'none';
+      } else {
+        this.drawOffer = 'refused';
+      }
+      this.emitHud();
+      return;
+    }
+    if (this.playMode === 'hotseat') {
+      this.drawOffer = 'incoming';
+      this.emitHud();
+      return;
+    }
+    if (this.playMode === 'p2p') {
+      this.broadcastWire({ v: 1, t: 'draw-offer' });
+      this.drawOffer = 'none';
+      this.emitHud();
+    }
+  }
+
+  private acceptDraw(fromLocal: boolean): void {
+    if (this.playMode === 'learn' || this.gameOver()) return;
+    this.agreedDraw = true;
+    this.drawOffer = 'none';
+    if (fromLocal && this.playMode === 'p2p') this.broadcastWire({ v: 1, t: 'draw-accept' });
+    this.emitHud();
+  }
+
+  private refuseDraw(fromLocal: boolean): void {
+    if (this.playMode === 'learn' || this.gameOver()) return;
+    this.drawOffer = 'none';
+    if (fromLocal && this.playMode === 'p2p') this.broadcastWire({ v: 1, t: 'draw-refuse' });
+    this.emitHud();
   }
 
   private emitHud(): void {
@@ -1727,9 +2148,31 @@ export class ChessDemoProject extends LitAbstractProject {
     } else if (this.match.isStalemate()) {
       title = 'Stalemate';
       description = 'Draw — no legal moves.';
+    } else if (this.resignLoser) {
+      title = 'Resignation';
+      description = `${this.resignLoser === 'white' ? 'White' : 'Black'} resigned.`;
+    } else if (this.agreedDraw) {
+      title = 'Draw';
+      description = 'Draw agreed.';
+    } else if (this.match.isInsufficientMaterial()) {
+      title = 'Draw';
+      description = 'Insufficient material.';
     } else if (this.match.isCheck()) {
       title = `${sideLabel} in check`;
     }
+    const outcome = this.clockFlag
+      ? null
+      : this.resignLoser
+        ? 'resign'
+        : this.agreedDraw
+          ? 'agreed'
+          : this.match.isCheckmate()
+            ? 'mate'
+            : this.match.isStalemate()
+              ? 'stalemate'
+              : this.match.isInsufficientMaterial()
+                ? 'insufficient'
+                : null;
     uiBus.emit(CHESS_HUD_STATE_EVENT, {
       kind: 'play',
       mode,
@@ -1744,6 +2187,9 @@ export class ChessDemoProject extends LitAbstractProject {
       onlineRefused: this.onlineRefused,
       clocks: { whiteSeconds: this.clockWhite, blackSeconds: this.clockBlack },
       flag: this.clockFlag,
+      outcome,
+      resignLoser: this.resignLoser,
+      drawOffer: this.drawOffer,
       session: this.currentSession(),
     });
     this.emitCoachContext();
@@ -1823,6 +2269,7 @@ export class ChessDemoProject extends LitAbstractProject {
     for (const piece of this.match.pieces()) {
       this.spawnPiece(world, this.sceneRef, piece.square, piece.role, piece.color);
     }
+    this.applyReviewPiece(world);
   }
 
   private readCabinet(): SaveCabinet {
@@ -1909,9 +2356,11 @@ export class ChessDemoProject extends LitAbstractProject {
     this.trainer = mode === 'learn' ? new OpeningTrainer(this.learnEco) : null;
     if (this.trainer) this.learnEco = this.trainer.opening().eco;
     if (mode === 'cpu' || mode === 'training') {
-      this.cpu = new HeuristicChessEngine({ depth: cpuSearchDepth(cpuDepth ?? 2), thinkMs: 280 });
+      this.cpuDepth = cpuSearchDepth(cpuDepth ?? 2);
+      this.cpu = new HeuristicChessEngine({ depth: this.cpuDepth, thinkMs: 280 });
     }
     this.clearTraining();
+    this.clearManualEnd();
     this.holdForLobby = game.shellMode === 'online';
     this.pendingRestore = game.shellMode === 'local' || game.shellMode === 'online';
     this.pendingP2pBytes = null;
@@ -1995,7 +2444,8 @@ export class ChessDemoProject extends LitAbstractProject {
     this.localColor = query.localColor;
     this.learnQuiz = query.quiz;
     if (query.mode === 'cpu' || query.mode === 'training') {
-      this.cpu = new HeuristicChessEngine({ depth: query.cpuDepth ?? 2, thinkMs: 280 });
+      this.cpuDepth = query.cpuDepth ?? 2;
+      this.cpu = new HeuristicChessEngine({ depth: this.cpuDepth, thinkMs: 280 });
     }
     if (query.mode === 'training') this.trainingClock = false;
     if (query.eco) this.learnEco = query.eco;
@@ -2008,6 +2458,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.cpuGen += 1;
     this.cpuBusy = false;
     this.resetClocks();
+    this.clearManualEnd();
     this.learnMiss = false;
     this.learnLastSan = null;
     this.clearTraining();
@@ -2043,6 +2494,7 @@ export class ChessDemoProject extends LitAbstractProject {
     this.cpuGen += 1;
     this.cpuBusy = false;
     this.resetClocks();
+    this.clearManualEnd();
     this.learnMiss = false;
     this.learnLastSan = null;
     this.clearTraining();
@@ -2527,6 +2979,7 @@ export class ChessDemoProject extends LitAbstractProject {
       this.playMode === 'learn' && this.trainer?.isComplete() ? [...cue, 'win' as const] : cue;
     if (animateMover) this.pendingSfx = clips;
     else this.playSfx(clips);
+    this.updateAmbienceTension();
     this.startCameraJuice(from, to);
     this.emitHud();
     this.rememberInterrupt(false);
@@ -2609,6 +3062,7 @@ export class ChessDemoProject extends LitAbstractProject {
     if (this.clockFlag && !before && !this.flagSfxPlayed) {
       this.flagSfxPlayed = true;
       this.playSfx([this.clockFlag === this.localColor ? 'lose' : 'win']);
+      this.ambienceBeds.resetTension();
     }
   }
 
@@ -2864,6 +3318,23 @@ export class ChessDemoProject extends LitAbstractProject {
       this.applyWireClocks(msg);
       if (this.motionBusy) this.pendingFen = msg.fen;
       else this.rebuildFromFen(world, msg.fen);
+      return;
+    }
+    if (msg.t === 'resign') {
+      this.applyResign(msg.loser, true);
+      return;
+    }
+    if (msg.t === 'draw-offer') {
+      this.drawOffer = 'incoming';
+      this.emitHud();
+      return;
+    }
+    if (msg.t === 'draw-accept') {
+      this.acceptDraw(false);
+      return;
+    }
+    if (msg.t === 'draw-refuse') {
+      this.refuseDraw(false);
       return;
     }
     if (msg.t !== 'move') return;
@@ -3143,16 +3614,32 @@ export class ChessDemoProject extends LitAbstractProject {
     this.audioArmed = true;
     try {
       await this.audio.resume();
-      await installChessTableClips(this.audio);
-      if (!this.ambience && this.audio.getClip('ambience')) {
-        this.ambience = this.audio.playOneShot('ambience', {
-          loop: true,
-          volume: chessAmbienceGain(),
-        });
-      }
+      await installChessTableClips(this.audio, getChessAmbiance());
+      bindChessAmbienceBeds(this.ambienceBeds);
+      this.ambienceBeds.start(this.audio);
+      this.updateAmbienceTension();
     } catch {
       this.audioArmed = false;
     }
+  }
+
+  private async refreshAmbianceAudio(): Promise<void> {
+    if (!this.audio || !this.audioArmed) return;
+    try {
+      await this.ambienceBeds.applyAmbiance(this.audio, getChessAmbiance());
+      this.updateAmbienceTension();
+    } catch {
+      /* keep previous clips */
+    }
+  }
+
+  private updateAmbienceTension(): void {
+    if (this.match.isCheckmate() || this.clockFlag) {
+      this.ambienceBeds.resetTension();
+      return;
+    }
+    const local = chessScoreForLocal(coachMaterial(this.match), this.localColor);
+    this.ambienceBeds.setTension(local);
   }
 
   private disposeChessRuntime(): void {
@@ -3163,8 +3650,8 @@ export class ChessDemoProject extends LitAbstractProject {
     this.world = null;
     this.stopReview?.();
     this.stopReview = null;
-    this.ambience?.stop();
-    this.ambience = null;
+    this.ambienceBeds.stop();
+    bindChessAmbienceBeds(null);
     this.audio?.dispose();
     this.audio = null;
     this.audioArmed = false;

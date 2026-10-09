@@ -1,14 +1,14 @@
 # Objection et fin de partie
 
-La page cliquable [docs/mockup](mockup/index.html) reprend ce contrat. Le client ne le reçoit qu’après validation de la maquette.
+La page cliquable [docs/mockup](mockup/index.html) reprend ce contrat. La carte de fin et l’objection sont dans le client.
 
-Sprint : [CHESS-B18](sprints/CHESS-B18.md).
+Sprints : [CHESS-B18](sprints/CHESS-B18.md) (maquette), [CHESS-B24](sprints/CHESS-B24.md) (abandon, nulle, Objection en prod).
 
 Le cri et la fin de partie ne se ressemblent pas. L’objection est un cri, sans bouton. La fin est une carte en verre, comme la pause : le plateau reste visible autour.
 
 ## Objection
 
-Aujourd’hui, « Jouer le coup » en entraînement fait claquer le blason et « Objection ! » pendant 0,9 s, secoue le studio, puis coupe net. Le tiroir est déjà ouvert derrière.
+En entraînement, quand l’assistant coupe de lui-même, le blason claque et « Objection ! » s’abat, le studio tremble, puis le tiroir explique. « Jouer le coup » vert, celui recommandé, ne déclenche pas le cri.
 
 Le cri reste le nôtre : blason, dalle ambre, pas de personnage emprunté. Il dure assez pour être lu, puis il s’en va vers le tiroir.
 
@@ -20,26 +20,43 @@ Le cri reste le nôtre : blason, dalle ambre, pas de personnage emprunté. Il du
 
 ## Fin de partie
 
-Une seule carte, trois titres d’exemple.
+Une seule carte, trois titres.
 
 - **Gagné** — « Les noirs sont échec et mat. »
-- **Perdu** — « Les blancs sont échec et mat. » Le drapeau tient dans la même carte : « Les blancs ont perdu au temps. »
-- **Nulle** — « Pat. Aucun coup légal. »
+- **Perdu** — « Les blancs sont échec et mat. » Le drapeau tient dans la même carte : « Les blancs ont perdu au temps. » L’abandon aussi : « Les blancs ont abandonné. »
+- **Nulle** — « Pat. Aucun coup légal. » Matériel insuffisant : « Matériel insuffisant. » Nulle acceptée : « Nulle acceptée. »
 
 Pas de sauvegarde. Une partie finie ne s’enregistre pas, comme le dit [persistance.md](persistance.md).
 
 Boutons : Voir le plateau, Recommencer, Changer de mode, Retour à l’accueil. Voir le plateau referme la carte et laisse le résultat dans la barre, avec un bouton Résultat pour la rouvrir. Recommencer relance le même mode. Échap ne reprend pas une partie finie : il ramène à l’accueil.
 
-Dans la maquette, trois liens à côté de l’étiquette « Maquette » ouvrent ces trois états. Ils ne font pas partie de l’écran de production.
+Dans la maquette, des liens à côté de l’étiquette « Maquette » ouvrent ces états. Ils ne font pas partie de l’écran de production.
+
+## Abandon et nulle proposée
+
+Depuis Pause : Abandon et Proposer nulle.
+
+- **Abandon** — le camp local (ou le camp au trait en hotseat) perd. Carte Perdu, ligne d’abandon.
+- **Proposer nulle** —
+  - Contre l’ordinateur : le CPU accepte si l’évaluation heuristique à la profondeur courante est dans ±50 centipions, sans échec subi et sans mat forcé en un coup ; sinon il refuse et la partie continue.
+  - À deux sur le même écran : l’autre camp voit Accepter ou Refuser.
+  - Sur cet ordinateur et en ligne : le fil porte l’offre et la réponse (`p2p`).
+  - Acceptée : carte Nulle. Refusée : retour à la partie, pendules inchangées.
+
+Pas de règle des 50 coups ni de triple répétition.
 
 ```mermaid
 flowchart LR
   partie[Partie]
+  pause[Pause]
   objection[Objection]
   fin[Fin]
   plateau[PlateauFigé]
   accueil[Accueil]
   modes[Modes]
+  partie --> pause
+  pause --> partie
+  pause --> fin
   partie --> objection
   objection --> partie
   partie --> fin
@@ -52,4 +69,4 @@ flowchart LR
 
 ## Hors de ce contrat
 
-Pas d’abandon proposé, pas de compte, pas de Stockfish. Le client, le grab et les règles ne changent pas dans le sprint qui réalise cette page.
+Pas de compte, pas de Stockfish. Pas de règle des 50 coups ni de triple répétition. Recommencer relance la même partie.

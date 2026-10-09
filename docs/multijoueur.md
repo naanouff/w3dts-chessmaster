@@ -57,4 +57,14 @@ Chaque client garde `ChessMatch`. On ne réplique pas les transforms. Le fil res
 - `restore` inchangé. À la reconnexion, le plus avancé en demi-coups répond, avec les pendules.
 - Un coup illégal localement est ignoré. Un FEN en avance reconstruit la table, comme aujourd’hui.
 
-Ce n’est pas un serveur anti-triche. Pas de compte, pas de classement en ligne. L’abandon et la nulle proposés ne sont pas dans cette passe. Le mat, le pat et le drapeau finissent la partie.
+Ce n’est pas un serveur anti-triche. Pas de compte, pas de classement en ligne. Abandon et nulle proposée voyagent sur le fil (`resign`, `draw-offer`, `draw-accept`, `draw-refuse`) ; le contrat est [fin-partie.md](fin-partie.md). Le mat, le pat, le drapeau et le matériel insuffisant finissent aussi la partie.
+
+## Alpha : charge et astreinte
+
+Avant d’ouvrir les testeurs en ligne ([CHESS-B24](sprints/CHESS-B24.md) i) :
+
+1. `GET https://relay-production-01c1.up.railway.app/health` répond `ok`.
+2. Smoke de charge : au moins trois tables de deux joueurs, cinq coups chacune, sans perte de salle.
+3. Une personne d’astreinte tient la fenêtre d’ouverture. Un redémarrage du process Railway vide les salles : le brief testeurs le rappelle.
+
+**Résultat (2026-10-09).** `health` = `ok`. Smoke `tmp/smoke-relay.ps1` : 3 tables × 2 pairs, hello + 5 coups, `ok: true`, aucune salle perdue. Astreinte ouverture : **Cyril TARRIET**.

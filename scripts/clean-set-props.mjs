@@ -16,8 +16,10 @@ import {
   SET_PROPS,
   SET_TEXTURE_SIZES,
   emissiveFromAlbedo,
+  emissiveFromGlass,
   needsDraco,
   scaleOf,
+  smoothSplitNormals,
   srgbChannelToLinear,
 } from './setProps.mjs';
 
@@ -132,6 +134,26 @@ function rotateX(json, bin, radians) {
   }
 }
 
+function readFloat3(json, bin, accessorIndex) {
+  const accessor = json.accessors[accessorIndex];
+  const view = json.bufferViews[accessor.bufferView];
+  if (view.byteStride && view.byteStride !== 12) throw new Error('unexpected float3 stride');
+  const start = (view.byteOffset || 0) + (accessor.byteOffset || 0);
+  const values = new Float32Array(accessor.count * 3);
+  for (let i = 0; i < values.length; i++) values[i] = bin.readFloatLE(start + i * 4);
+  return { start, values };
+}
+
+function smoothNormals(json, bin, radians) {
+  if (!radians) return;
+  const attributes = primitive(json).attributes;
+  if (attributes.NORMAL === undefined) return;
+  const position = readFloat3(json, bin, attributes.POSITION);
+  const normal = readFloat3(json, bin, attributes.NORMAL);
+  const smoothed = smoothSplitNormals(position.values, normal.values, radians);
+  for (let i = 0; i < smoothed.length; i++) bin.writeFloatLE(smoothed[i], normal.start + i * 4);
+}
+
 function sliceView(json, bin, index) {
   const view = json.bufferViews[index];
   const start = view.byteOffset || 0;
@@ -187,6 +209,7 @@ export async function cleanGlb(file, prop, size) {
   const scale = scaleOf(position.min, position.max, prop.axis, prop.metres);
   const vertices = scalePositions(json, bin, scale);
   rotateX(json, bin, prop.pitch);
+  smoothNormals(json, bin, prop.smooth);
   if (needsDraco(vertices)) throw new Error(`${prop.file} needs Draco and this pass does not compress`);
 
   const imageBytes = json.images.map((image) => sliceView(json, bin, image.bufferView));
@@ -194,15 +217,27 @@ export async function cleanGlb(file, prop, size) {
   for (const bytes of imageBytes) encoded.push(await resizeJpeg(bytes, size));
 
   let emissiveBytes = null;
-  if (prop.emissive.mode === 'mask') {
-    const colorTexture = json.materials[0].pbrMetallicRoughness.baseColorTexture.index;
+  if (prop.emissive.mode === 'mask' || prop.emissive.mode === 'glass') {
+    const pbr = json.materials[0].pbrMetallicRoughness;
+    const colorTexture = pbr.baseColorTexture.index;
     const source = imageBytes[json.textures[colorTexture].source];
     const { data, info } = await sharp(source, { failOn: 'none' })
       .resize(size, size, { fit: 'fill', kernel: 'lanczos3' })
       .removeAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true });
-    const masked = emissiveFromAlbedo(data, EMISSIVE_LUMA_THRESHOLD);
+    let masked = emissiveFromAlbedo(data, EMISSIVE_LUMA_THRESHOLD);
+    if (prop.emissive.mode === 'glass') {
+      const mrSource = imageBytes[json.textures[pbr.metallicRoughnessTexture.index].source];
+      const mr = await sharp(mrSource, { failOn: 'none' })
+        .resize(size, size, { fit: 'fill', kernel: 'lanczos3' })
+        .removeAlpha()
+        .raw()
+        .toBuffer();
+      const metal = new Uint8Array(info.width * info.height);
+      for (let texel = 0; texel < metal.length; texel++) metal[texel] = mr[texel * 3 + 2];
+      masked = emissiveFromGlass(data, metal);
+    }
     emissiveBytes = await sharp(Buffer.from(masked), {
       raw: { width: info.width, height: info.height, channels: 3 },
     })

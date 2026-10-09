@@ -90,27 +90,39 @@ describe('set glb', () => {
   });
 
   it('keeps the cloth when one baked prop is missing', async () => {
-    const loaded = await fetchChessSetBuffers('atelier', 256, async (url) => {
+    const loaded = await fetchChessSetBuffers('atelier', 'low', async (url) => {
       if (url.endsWith('/tabouret.glb')) return null;
       return new ArrayBuffer(8);
     });
     expect(loaded).toBeNull();
   });
 
-  it('loads each prop file once', async () => {
+  it('loads each prop file once at its scene density size', async () => {
     const urls: string[] = [];
-    const loaded = await fetchChessSetBuffers('atelier', 256, async (url) => {
+    const loaded = await fetchChessSetBuffers('atelier', 'low', async (url) => {
       urls.push(url);
       return new ArrayBuffer(4);
     });
     expect(urls).toEqual([
-      '/sets/atelier/256/table.glb',
+      '/sets/atelier/1024/table.glb',
       '/sets/atelier/256/plateau-toile.glb',
       '/sets/atelier/256/tabouret.glb',
-      '/sets/atelier/256/softbox.glb',
-      '/sets/atelier/256/projecteur.glb',
+      '/sets/atelier/512/softbox.glb',
+      '/sets/atelier/1024/projecteur.glb',
     ]);
     expect(loaded?.size).toBe(5);
+  });
+
+  it('falls back to a neighbour bake size when the density pick is missing', async () => {
+    const urls: string[] = [];
+    const loaded = await fetchChessSetBuffers('atelier', 'low', async (url) => {
+      urls.push(url);
+      if (url.includes('/1024/table.glb')) return null;
+      return new ArrayBuffer(4);
+    });
+    expect(urls[0]).toBe('/sets/atelier/1024/table.glb');
+    expect(urls).toContain('/sets/atelier/512/table.glb');
+    expect(loaded?.get('table')).toBeInstanceOf(ArrayBuffer);
   });
 
   it('builds a cove with a quarter circle', () => {

@@ -11,12 +11,20 @@ import {
   GRAPHICS_BENCH_WARMUP_FRAMES,
   readGraphicsBenchProbe,
   takeInstalledBenchWorkMedian,
+  type GraphicsBenchPass,
   type GraphicsBenchWindowReport,
 } from './graphicsBench';
 import { setGraphicsBenchMotion, readGraphicsBenchPose } from './graphicsBenchMotion';
 
+function benchPassFromSearch(): GraphicsBenchPass {
+  const value = new URLSearchParams(window.location.search).get('benchPass');
+  if (value === 'motion') return 'motion';
+  if (value === 'presets') return 'presets';
+  return 'rest';
+}
+
 /**
- * Runs the rest matrix or the motion pass for the current canvas size.
+ * Runs the rest matrix, the four presets, or the motion pass for the current canvas size.
  * Frame time is the GPU-queue median, not the display interval.
  * @param engine - Running chess engine.
  * @param canvas - Game view whose client size is the window under test.
@@ -25,7 +33,7 @@ export async function runGraphicsBench(
   engine: Engine,
   canvas: HTMLCanvasElement
 ): Promise<GraphicsBenchWindowReport> {
-  const pass = new URLSearchParams(window.location.search).get('benchPass') === 'motion' ? 'motion' : 'rest';
+  const pass = benchPassFromSearch();
   const dpr = window.devicePixelRatio > 0 ? window.devicePixelRatio : 1;
   return collectGraphicsBench(pass, canvas.clientWidth, canvas.clientHeight, dpr, {
     async apply(settings) {

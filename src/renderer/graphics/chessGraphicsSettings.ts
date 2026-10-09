@@ -11,7 +11,7 @@ export type ChessResolution = '1080' | '1440' | '2160' | 'native';
 /** Spatial upscale: render under the canvas, then magnify and sharpen back to it. */
 export type ChessUpscale = 'off' | 'quality' | 'performance';
 
-/** Baked piece maps: basse 256, normale 512, haute 1024. */
+/** Subject (pawn) maps: basse 256, normale 512, haute 1024. Scene props use texel density. */
 export type ChessTextureQuality = 'low' | 'medium' | 'high';
 
 /** Off, one hard compare, or the same map with the soft filter. */
@@ -37,8 +37,16 @@ export interface ChessGraphicsSettings {
   bloom: boolean;
   /** FXAA. On everywhere: it is the pass that writes the final image. */
   antialiasing: boolean;
+  /** Height fog. On for Qualité and Natif, the same stack as the review. */
+  volume: boolean;
+  /** Disk blur around the board. On for Qualité and Natif, the same stack as the review. */
+  dof: boolean;
+  /** Local scene cubemap. Off on Fluide and Équilibré. Floor SSR stays on `reflections`. */
+  reflectionProbes: boolean;
   /** Silhouette cutout for the coach. On for every preset: it marks the piece. */
   coachOutline: boolean;
+  /** Hearth, dust and cigar. On for every preset, same as the review. */
+  sceneLife: boolean;
 }
 
 const STORAGE_KEY = 'w3dts-chess-graphics';
@@ -117,7 +125,7 @@ export function upscaleRenderScale(mode: ChessUpscale): number {
  * @returns Weight of the contrast-adaptive sharpen.
  */
 export function upscaleSharpness(mode: ChessUpscale): number {
-  return mode === 'off' ? 0 : 0.25;
+  return mode === 'off' ? 0 : 0.7;
 }
 
 /**
@@ -200,7 +208,11 @@ export const FLUID_GRAPHICS: ChessGraphicsSettings = {
   reflections: false,
   bloom: false,
   antialiasing: true,
+  volume: false,
+  dof: false,
+  reflectionProbes: false,
   coachOutline: true,
+  sceneLife: true,
 };
 
 export const GRAPHICS_PRESETS: {
@@ -231,7 +243,11 @@ export const GRAPHICS_PRESETS: {
       antialiasing: true,
 
 
+      volume: false,
+      dof: false,
+      reflectionProbes: false,
       coachOutline: true,
+      sceneLife: true,
     },
   },
   {
@@ -248,7 +264,11 @@ export const GRAPHICS_PRESETS: {
       reflections: true,
       bloom: true,
       antialiasing: true,
+      volume: true,
+      dof: true,
+      reflectionProbes: true,
       coachOutline: true,
+      sceneLife: true,
     },
   },
   {
@@ -265,9 +285,11 @@ export const GRAPHICS_PRESETS: {
       reflections: true,
       bloom: true,
       antialiasing: true,
-
-
+      volume: true,
+      dof: true,
+      reflectionProbes: true,
       coachOutline: true,
+      sceneLife: true,
     },
   },
 ];
@@ -317,12 +339,25 @@ export function coachOutlineFromStored(parsed: Partial<ChessGraphicsSettings>): 
   return true;
 }
 
-function readStoredSettings(): ChessGraphicsSettings {
+/** Written once the player picks a preset. Older saves open on the review finish. */
+const GRAPHICS_FINISH = 1;
+
+function reviewFinish(): ChessGraphicsSettings {
+  const quality = GRAPHICS_PRESETS.find((preset) => preset.id === 'qualite')?.settings;
+  return { ...(quality ?? FLUID_GRAPHICS) };
+}
+
+/**
+ * Profile a match opens on. No save, or a save from before the review finish,
+ * uses Qualité. A later choice, including Fluide, is kept.
+ * @param raw - Stored JSON, or null when nothing was saved.
+ * @returns Settings to render with.
+ */
+export function graphicsFromStored(raw: string | null): ChessGraphicsSettings {
+  if (!raw) return reviewFinish();
   try {
-    const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
-    if (!raw) return { ...FLUID_GRAPHICS };
-    const parsed = JSON.parse(raw) as Partial<ChessGraphicsSettings>;
-    if (!isResolution(parsed.resolution)) return { ...FLUID_GRAPHICS };
+    const parsed = JSON.parse(raw) as Partial<ChessGraphicsSettings> & { finish?: number };
+    if (parsed.finish !== GRAPHICS_FINISH || !isResolution(parsed.resolution)) return reviewFinish();
     const shadowMode = shadowModeFromStored(parsed);
     return {
       resolution: parsed.resolution,
@@ -336,10 +371,22 @@ function readStoredSettings(): ChessGraphicsSettings {
       reflections: parsed.reflections === true,
       bloom: parsed.bloom === true,
       antialiasing: parsed.antialiasing !== false,
+      volume: parsed.volume === true,
+      dof: parsed.dof === true,
+      reflectionProbes: parsed.reflectionProbes === true,
       coachOutline: coachOutlineFromStored(parsed),
+      sceneLife: true,
     };
   } catch {
-    return { ...FLUID_GRAPHICS };
+    return reviewFinish();
+  }
+}
+
+function readStoredSettings(): ChessGraphicsSettings {
+  try {
+    return graphicsFromStored(globalThis.localStorage?.getItem(STORAGE_KEY) ?? null);
+  } catch {
+    return graphicsFromStored(null);
   }
 }
 
@@ -370,7 +417,11 @@ function sameSettings(a: ChessGraphicsSettings, b: ChessGraphicsSettings): boole
     a.reflections === b.reflections &&
     a.bloom === b.bloom &&
     a.antialiasing === b.antialiasing &&
-    a.coachOutline === b.coachOutline
+    a.volume === b.volume &&
+    a.dof === b.dof &&
+    a.reflectionProbes === b.reflectionProbes &&
+    a.coachOutline === b.coachOutline &&
+    a.sceneLife === b.sceneLife
   );
 }
 
@@ -401,6 +452,8 @@ export function gamePassNames(value: ChessGraphicsSettings): string[] {
   if (value.ambientOcclusion) names.push('04b_HBAO', '04c_HBAO_Blur', '04d_HBAO_Apply');
   if (value.reflections) names.push('05_SSR_Floor', '05b_SSR_Composite');
   if (value.bloom) names.push('06_Bright', '06b_BlurH', '06c_BlurV', '06d_BloomAdd');
+  if (value.volume) names.push('09_Fog', '09b_FogComposite');
+  if (value.dof) names.push('10_DoF');
   if (value.antialiasing) names.push('07_FXAA');
   if (value.coachOutline) names.push('04e_CoachMask', '04f_CoachCutout');
   names.push('08_Upscale');
@@ -463,7 +516,10 @@ export function useChessGraphicsSettings(next: ChessGraphicsSettings): void {
 
 export function setChessGraphicsSettings(next: ChessGraphicsSettings): void {
   try {
-    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(next));
+    globalThis.localStorage?.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ...next, finish: GRAPHICS_FINISH })
+    );
   } catch {
     /* private mode */
   }

@@ -74,3 +74,31 @@ jobs:
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" tag -a "v${version}" -m "W3DTS ChessMaster ${version}"
           git push origin "refs/tags/v${version}"
           gh release create "v${version}" --title "${version}" --notes-file "docs/releases/${version}.md" release/*.exe
+
+  deploy-web:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:web
+      - name: Deploy renderer to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "Missing VERCEL_TOKEN, VERCEL_ORG_ID or VERCEL_PROJECT_ID; skip web deploy."
+            exit 0
+          fi
+          pnpm dlx vercel deploy out/renderer --prod --yes --token="$VERCEL_TOKEN"

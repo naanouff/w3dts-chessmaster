@@ -17,9 +17,11 @@ import {
   SET_PROPS,
   SET_TEXTURE_SIZES,
   emissiveFromAlbedo,
+  emissiveFromGlass,
   needsDraco,
   scaleOf,
   setProp,
+  smoothSplitNormals,
   srgbChannelToLinear,
 } from '../scripts/setProps.mjs';
 
@@ -122,13 +124,15 @@ function parseGlb(file: Buffer): { json: any; bin: Buffer } {
 
 describe('set prop cleanup', () => {
   it('uses the piece texture ladder plus the review master, and skips Draco below 20000 vertices', () => {
-    expect(SET_TEXTURE_SIZES).toEqual([
-      pieceTextureSize('low'),
-      pieceTextureSize('medium'),
-      pieceTextureSize('high'),
-      CHESS_SET_REVIEW_TEXTURE_SIZE,
-    ]);
-    expect(CHESS_SET_REVIEW_TEXTURE_SIZE).toBe(2048);
+    expect(SET_TEXTURE_SIZES).toEqual([256, 512, 1024, 2048]);
+    expect(SET_TEXTURE_SIZES).toEqual(
+      expect.arrayContaining([
+        pieceTextureSize('low'),
+        pieceTextureSize('medium'),
+        pieceTextureSize('high'),
+        CHESS_SET_REVIEW_TEXTURE_SIZE,
+      ])
+    );
     expect(DRACO_VERTEX_THRESHOLD).toBe(20000);
     expect(needsDraco(5894)).toBe(false);
     expect(needsDraco(20000)).toBe(true);
@@ -154,33 +158,54 @@ describe('set prop cleanup', () => {
       'projecteur',
       'cyclorama',
     ]);
-    expect(SET_PROPS.filter((prop) => prop.scene === 'salon')).toHaveLength(8);
-    expect(SET_PROPS.filter((prop) => prop.scene === 'club')).toHaveLength(7);
+    expect(SET_PROPS.filter((prop) => prop.scene === 'salon')).toHaveLength(9);
+    expect(SET_PROPS.filter((prop) => prop.scene === 'club')).toHaveLength(8);
     expect(setProp('atelier', 'table')).toMatchObject({ axis: 0, metres: 1.8 });
     expect(setProp('atelier', 'softbox')).toMatchObject({ axis: 1, metres: 1.2, emissive: { mode: 'mask' } });
     expect(setProp('atelier', 'projecteur')).toMatchObject({ axis: 1, metres: 1.6, emissive: { mode: 'mask' } });
-    expect(setProp('salon', 'lampe').emissive.mode).toBe('mask');
+    expect(setProp('salon', 'lampe').emissive).toMatchObject({ mode: 'glass', strength: 2 });
     expect(setProp('salon', 'cheminee').emissive.mode).toBe('none');
     expect(setProp('club', 'rail').emissive).toMatchObject({ mode: 'factor', color: [0, 0.95, 1] });
     expect(setProp('club', 'tube').emissive).toMatchObject({ mode: 'factor', color: [1, 1, 1] });
     expect(setProp('club', 'enseigne')).toMatchObject({ axis: 0, metres: 0.6, emissive: { mode: 'mask' } });
     expect(setProp('club', 'bouteilles')).toMatchObject({ axis: 1, metres: 0.3 });
     expect(setProp('jardin', 'table')).toMatchObject({ axis: 0, metres: 1.5, emissive: { mode: 'none' } });
-    expect(setProp('jardin', 'coupe')).toMatchObject({ axis: 0, metres: 0.18 });
+    expect(setProp('jardin', 'coupe')).toMatchObject({ axis: 0, metres: 0.18, smooth: Math.PI / 3 });
+    expect(setProp('terrasse', 'coupe').smooth).toBeUndefined();
     expect(setProp('jardin', 'dalle')).toMatchObject({ axis: 0, metres: 0.3, pitch: -Math.PI / 2 });
     expect(setProp('jardin', 'haie')).toMatchObject({ axis: 0, metres: 2 });
     expect(setProp('jardin', 'banc')).toMatchObject({ axis: 0, metres: 1.4 });
     expect(setProp('jardin', 'arrosoir')).toMatchObject({ axis: 0, metres: 0.4 });
     expect(setProp('jardin', 'glycine')).toMatchObject({ axis: 1, metres: 0.8 });
     expect(setProp('terrasse', 'table')).toMatchObject({ axis: 0, metres: 1.3, emissive: { mode: 'none' } });
-    expect(setProp('terrasse', 'lanterne')).toMatchObject({ axis: 1, metres: 0.28, emissive: { mode: 'none' } });
+    expect(setProp('terrasse', 'lanterne')).toMatchObject({ axis: 1, metres: 0.28, emissive: { mode: 'glass' } });
     expect(setProp('terrasse', 'coupe')).toMatchObject({ axis: 0, metres: 0.16 });
-    expect(setProp('terrasse', 'balustrade')).toMatchObject({ axis: 0, metres: 1.2 });
+    expect(setProp('terrasse', 'balustrade')).toMatchObject({ axis: 0, metres: 2.4 });
     expect(setProp('terrasse', 'banc')).toMatchObject({ axis: 0, metres: 1.6 });
+    expect(setProp('terrasse', 'dalle')).toMatchObject({ axis: 2, metres: 0.6, emissive: { mode: 'none' } });
+    expect(setProp('terrasse', 'dalle').pitch).toBeUndefined();
+    expect(setProp('salon', 'dalle')).toMatchObject({ axis: 0, metres: 0.8, emissive: { mode: 'none' } });
+    expect(setProp('salon', 'dalle').pitch).toBeUndefined();
+    expect(setProp('club', 'dalle')).toMatchObject({ axis: 0, metres: 1, emissive: { mode: 'none' } });
+    expect(setProp('club', 'dalle').pitch).toBeUndefined();
     for (const prop of SET_PROPS) {
       expect(prop.metres).toBeGreaterThan(0);
       if (prop.emissive.mode !== 'none') expect(prop.emissive.strength).toBeGreaterThan(0);
     }
+  });
+
+  it('lights neutral glass and leaves verdigris dark', () => {
+    const rgb = new Uint8Array([
+      120, 122, 118,
+      40, 110, 100,
+      20, 20, 22,
+    ]);
+    const metal = new Uint8Array([10, 10, 5]);
+    const out = emissiveFromGlass(rgb, metal);
+    expect(out[0]).toBeGreaterThan(200);
+    expect(out[1]).toBeGreaterThan(out[2]);
+    expect(out[3]).toBe(0);
+    expect(out[6]).toBe(0);
   });
 
   it('converts sRGB cyan toward linear', () => {
@@ -206,6 +231,51 @@ describe('set prop cleanup', () => {
     const meta = await sharp(jpeg).metadata();
     expect(meta.width).toBe(8);
     expect(meta.height).toBe(8);
+  });
+
+  it('averages garden bowl normals under a 60 degree crease and keeps a sharp lip', () => {
+    const twenty = Math.PI / 9;
+    const positions = new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    const normals = new Float32Array([1, 0, 0, Math.cos(twenty), Math.sin(twenty), 0, 0, 1, 0]);
+    const out = smoothSplitNormals(positions, normals, Math.PI / 3);
+    const bisector = twenty / 2;
+    expect(out[0]).toBeCloseTo(Math.cos(bisector));
+    expect(out[1]).toBeCloseTo(Math.sin(bisector));
+    expect(out[2]).toBeCloseTo(0);
+    expect(out[3]).toBeCloseTo(Math.cos(bisector));
+    expect(out[4]).toBeCloseTo(Math.sin(bisector));
+    expect(out[6]).toBeCloseTo(0);
+    expect(out[7]).toBeCloseTo(1);
+    expect(out[8]).toBeCloseTo(0);
+  });
+
+  it('writes the smoothed bowl normals into the baked garden mesh', async () => {
+    const twenty = Math.PI / 9;
+    const positions = Buffer.alloc(9 * 4);
+    const xyz = [0, 0, 0, 0, 0, 0, 1, 0, 0];
+    xyz.forEach((value, index) => positions.writeFloatLE(value, index * 4));
+    const normals = Buffer.alloc(9 * 4);
+    const raw = [1, 0, 0, Math.cos(twenty), Math.sin(twenty), 0, 0, 1, 0];
+    raw.forEach((value, index) => normals.writeFloatLE(value, index * 4));
+    const source = await sampleGlb();
+    const parsed = parseGlb(source);
+    const bin = Buffer.concat([
+      positions,
+      normals,
+      parsed.bin.subarray(positions.length + normals.length),
+    ]);
+    parsed.json.buffers[0].byteLength = bin.length;
+    parsed.json.accessors[0].min = [0, 0, 0];
+    parsed.json.accessors[0].max = [1, 0, 0];
+    const cleaned = await cleanGlb(glbChunk(parsed.json, bin), setProp('jardin', 'coupe'), 8);
+    const baked = parseGlb(cleaned);
+    const view = baked.json.bufferViews[baked.json.accessors[baked.json.meshes[0].primitives[0].attributes.NORMAL].bufferView];
+    const start = view.byteOffset ?? 0;
+    const bisector = twenty / 2;
+    expect(baked.bin.readFloatLE(start)).toBeCloseTo(Math.cos(bisector));
+    expect(baked.bin.readFloatLE(start + 4)).toBeCloseTo(Math.sin(bisector));
+    expect(baked.bin.readFloatLE(start + 24)).toBeCloseTo(0);
+    expect(baked.bin.readFloatLE(start + 28)).toBeCloseTo(1);
   });
 
   it('lays the garden tile on its worn face', async () => {
