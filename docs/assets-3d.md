@@ -28,7 +28,7 @@ Douze GLB, 21 à 29 Mo chacun, liens durs vers `Print/Models/Echecs`. Chaque mes
 - couleur 4096, JPEG, environ 8 à 11 Mo
 - ORM 2048, JPEG, environ 1,1 à 1,6 Mo
 
-Le sujet (pion) garde une densité haute : 256 / 512 / 1024. Reine, roi et plateau prennent un cran de plus (512 / 1024 / 2048). Les props de scène partent au huitième de cette densité, plafonnés à 2048 ; seuls les paliers réellement demandés de Fluide à Qualité sont gardés dans `public/sets`. Couleur et ORM sont lossy (qualité 82 et 80). Les normales restent en WebP lossless. Voir [texelDensity.ts](../src/renderer/graphics/texelDensity.ts). `pnpm prune:public` retire le reste avant `pnpm dist` et `pnpm build:web`.
+Le sujet (pion) garde une densité haute : 256 / 512 / 1024. Reine, roi et plateau prennent un cran de plus (512 / 1024 / 2048). Les props de scène partent au huitième de cette densité, plafonnés à 2048 ; seuls les paliers réellement demandés de Fluide à Qualité sont versionnés dans `public/sets` (`pnpm ship:set-props`). Couleur et ORM sont lossy (qualité 82 et 80). Les normales restent en WebP lossless. Voir [texelDensity.ts](../src/renderer/graphics/texelDensity.ts). `pnpm prune:public` retire le reste avant `pnpm dist` et `pnpm build:web`.
 
 On ne décime pas les maillages Staunton : le cavalier et les profils tournés se lisent dans la silhouette. On ne réencode pas les maîtres 4K.
 

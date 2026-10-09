@@ -28,7 +28,6 @@ docs/raw_assets/**/*.ogg
 docs/raw_assets/**/*.mp3
 docs/raw_assets/**/*.aiff
 docs/raw_assets/**/*.aif
-public/sets
 docs/game-textures
 tmp/
 .vercel

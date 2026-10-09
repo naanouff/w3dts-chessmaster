@@ -310,7 +310,7 @@ Sept meshes sont dans `docs/raw_assets/jardin/`. Même contrat que l’atelier :
 
 ## Props nettoyés
 
-`pnpm clean:set-props` lit les maîtres et écrit `docs/raw_assets/<ambiance>/baked/<taille>/<prop>.glb`. Les tailles sont 256, 512, 1024 et 2048 ; le client en choisit une par prop via la densité de scène. Ces GLB restent hors git.
+`pnpm clean:set-props` lit les maîtres et écrit `docs/raw_assets/<ambiance>/baked/<taille>/<prop>.glb`. Les tailles sont 256, 512, 1024 et 2048 ; le client en choisit une par prop via la densité de scène. Les maîtres et le dossier `baked/` restent hors git. `pnpm ship:set-props` copie dans `public/sets/` les seuls paliers demandés de Fluide à Qualité ; ce dossier est versionné pour les builds.
 
 L’échelle est celle des tableaux ci-dessus. Le facteur métallique reste 1 : la texture commande. Pas de Draco : le plus lourd de l’atelier, du salon et du club a moins de 6 000 sommets, et ceux du jardin restent sous 14 000. Le poids est dans les JPEG.
 

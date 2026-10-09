@@ -21,6 +21,7 @@
     "docs": "typedoc",
     "bake:piece-textures": "node scripts/bake-piece-textures.mjs",
     "clean:set-props": "node scripts/clean-set-props.mjs",
+    "ship:set-props": "node scripts/ship-set-props.mjs",
     "check": "tsc --noEmit",
     "bench:graphics": "node scripts/profile-graphics.mjs",
     "bench:graphics:presets": "node scripts/profile-graphics.mjs --presets"

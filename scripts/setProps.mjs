@@ -190,6 +190,20 @@ export function emissiveFromGlass(rgb, metal) {
   return out;
 }
 
+/**
+ * Props the client fetches from `public/sets`. Procedural pieces (cyclorama,
+ * club glass table, rail, garden hedge) stay out of this list.
+ * Keep in sync with `chessSetProps` — `tests/setAssets.test.ts` checks both.
+ * @type {Record<string, readonly string[]>}
+ */
+export const SET_RUNTIME_PROPS = {
+  atelier: ['table', 'plateau-toile', 'tabouret', 'softbox', 'projecteur'],
+  salon: ['table', 'napperon', 'plateau', 'lampe', 'cheminee', 'fauteuil', 'bibliotheque', 'tapis', 'dalle'],
+  club: ['bar', 'tabouret', 'tube', 'enseigne', 'bouteilles', 'dalle'],
+  jardin: ['table', 'coupe', 'dalle', 'banc', 'arrosoir', 'glycine'],
+  terrasse: ['table', 'lanterne', 'coupe', 'balustrade', 'banc', 'dalle'],
+};
+
 /** @type {SetProp[]} */
 export const SET_PROPS = [
   { scene: 'atelier', file: 'table', axis: 0, metres: 1.8, emissive: { mode: 'none' } },
