@@ -12,7 +12,9 @@ Sur cet ordinateur ne change pas : seconde fenêtre, canal local.
 
 En ligne, pas de seconde fenêtre. L’hôte reste au salon, code visible, jusqu’à l’invité. L’invité reste au salon le temps du hello. Les deux passent en partie quand les sièges sont d’accord. Les pendules restent gelées tant que le second joueur n’a pas rejoint.
 
-La couleur de l’hôte fait foi. L’invité prend l’autre. Il n’ouvre pas la partie jouable avant ce hello. Quitter la table ferme la liaison. L’autre voit le départ, les pendules gèlent, le salon se rouvre.
+La couleur de l’hôte fait foi. L’invité prend l’autre. Il n’ouvre pas la partie jouable avant ce hello. Chaque siège voit ses pièces au premier plan (caméra miroitée sur Z pour le noir). Quitter la table ferme la liaison. L’autre voit le départ, les pendules gèlent, le salon se rouvre.
+
+Le découpage caméra est [CHESS-B26](sprints/CHESS-B26.md).
 
 Restaurer une partie en ligne reste le parcours de [persistance.md](persistance.md) : salon, nouveau code, message `restore` à la connexion. L’ancien code n’est pas réutilisé.
 
