@@ -33,19 +33,18 @@
 @fragment
 fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let texelSize = 1.0 / resolution;
-    // The offset direction is hard-coded for horizontal blur.
     let offsetDir = vec2<f32>(1.0, 0.0);
-    // The weights for a 5x5 Gaussian kernel, pre-calculated for efficiency.
-    let weights = array<f32, 5>(0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
-    // The first sample is the center pixel, with the highest weight.
-    var result = textureSample(t, s, uv) * weights[0];
-
-    // Loop to sample neighboring pixels to the left and right.
-    for (var i: u32 = 1u; i < 5u; i = i + 1u) {
-        let sampleOffset = texelSize * offsetDir * f32(i) * radius;
-        // Add the weighted colors from both sides of the center pixel.
-        result += (textureSample(t, s, uv + sampleOffset) + textureSample(t, s, uv - sampleOffset)) * weights[i];
+    // One texel per tap. Spacing the taps by `radius` stamped a grid of the neon.
+    // `radius` is the gaussian sigma, in texels of this half-resolution buffer.
+    let sigma = max(radius, 0.5);
+    let taps = i32(ceil(sigma * 3.0));
+    var result = vec4<f32>(0.0);
+    var weightSum = 0.0;
+    for (var i: i32 = -taps; i <= taps; i = i + 1) {
+        let x = f32(i);
+        let w = exp(-0.5 * (x * x) / (sigma * sigma));
+        result += textureSample(t, s, uv + texelSize * offsetDir * x) * w;
+        weightSum += w;
     }
-
-    return result;
+    return result / max(weightSum, 1e-5);
 }

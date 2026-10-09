@@ -89,6 +89,19 @@ describe('coach prompts', () => {
     expect(text).toContain('opponent piece');
     expect(text).toContain(line?.sans[0]);
   });
+
+  it('asks for simple, pedagogical, almost formal French', () => {
+    const french = buildMistakeMessages(HANGING, [], 'Ke2', null, 'fr')
+      .map((message) => message.content)
+      .join('\n');
+    expect(french).toContain('simple words a student can follow');
+    expect(french).toContain('almost formal French');
+    expect(french).toContain('Address the student with vous');
+    const english = buildMistakeMessages(HANGING, [], 'Ke2', null, 'en')
+      .map((message) => message.content)
+      .join('\n');
+    expect(english).not.toContain('almost formal French');
+  });
 });
 
 describe('coach dialogue', () => {
@@ -220,6 +233,12 @@ describe('coach marks', () => {
     expect(moved[2]).toBeCloseTo(-0.005);
     expect(moved[0]).toBeCloseTo(0);
     expect(moved[1]).toBeCloseTo(0);
+  });
+
+  it('clears the piece by two centimetres from whichever camera is looking', () => {
+    const moved = coachMaskPosition([0, 0.05, 0], [1, 0.4, 0.2]);
+    const offset = Math.hypot(moved[0], moved[1] - 0.05, moved[2]);
+    expect(offset).toBeCloseTo(0.02);
   });
 
 });

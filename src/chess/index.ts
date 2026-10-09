@@ -10,13 +10,16 @@ export { ChessMatch } from './rules/ChessMatch';
 export type { IChessEngine, ChessEngineMove } from './rules/IChessEngine';
 export { HeuristicChessEngine } from './rules/HeuristicChessEngine';
 export type { HeuristicChessEngineOptions } from './rules/HeuristicChessEngine';
+export { cpuAcceptsDrawOffer } from './rules/cpuDrawOffer';
 export {
   encodeChessWire,
   decodeChessWire,
   chessPlyFromFen,
   decideChessFenSync,
+  decideOnlineHello,
 } from './net/chessWire';
-export type { ChessWireMessage, ChessFenSyncDecision } from './net/chessWire';
+export type { ChessWireMessage, ChessFenSyncDecision, OnlineHelloDecision } from './net/chessWire';
+export { CHESS_RELAY_PRODUCTION_URL, ONLINE_GUEST_WAIT_MS, chessRelayUrl, guestWaitExpired } from './net/chessRelayUrl';
 export {
   parseChessDemoQuery,
   cpuSearchDepth,
@@ -26,8 +29,8 @@ export {
   chessDemoQueryToParams,
   replaceChessDemoQueryInLocation,
 } from './play/parseChessDemoQuery';
-export { CHESS_CLOCK_START_S, clocksFromWire, stepChessClock } from './play/chessClock';
-export type { ChessClocks, ClockGate } from './play/chessClock';
+export { CHESS_CLOCK_START_S, clocksFromWire, peerClockWaiting, stepChessClock } from './play/chessClock';
+export type { ChessClocks, ClockGate, PeerClockWait } from './play/chessClock';
 export {
   CHESS_SAVES_EVENT,
   SAVED_GAMES_KEY,
@@ -55,6 +58,7 @@ export {
 } from './play/chessHudState';
 export type {
   ChessHudCommand,
+  ChessHudDrawOffer,
   ChessHudLearnState,
   ChessHudPlayMode,
   ChessHudPlayState,
@@ -114,10 +118,21 @@ export {
   easeSmoothstep,
   CHESS_PIECE_TRAVEL_LIFT_Y,
 } from './board/pieceTravel';
-export { assignCemeterySlot, cemeterySlotIsOffBoard } from './board/cemeterySlots';
+export {
+  assignCemeterySlot,
+  cemeterySlotIsOffBoard,
+  CHESS_CEMETERY_SURFACE_Y,
+} from './board/cemeterySlots';
 export type { CemeterySlotPose } from './board/cemeterySlots';
 export { chessTableSfxForPly } from './play/chessTableSfx';
 export type { ChessTableSfxId, ChessTableSfxCue } from './play/chessTableSfx';
+export {
+  chessAudioTensionStep,
+  chessScoreForLocal,
+  CHESS_AUDIO_TENSION_ENTER,
+  CHESS_AUDIO_TENSION_EXIT,
+} from './play/chessAudioTension';
+export type { ChessAudioTensionBand, ChessAudioBedGains } from './play/chessAudioTension';
 export {
   CHESS_GROUP_BOARD,
   CHESS_GROUP_PIECE,
@@ -138,7 +153,11 @@ export {
   isChessLatheRole,
 } from './gproc/chessPieceGraphs';
 export type { ChessLatheRole } from './gproc/chessPieceGraphs';
-export { buildChessBoardBodyMesh, applyChessBoardWorldUvs } from './geometry/boardBody';
+export {
+  buildChessBoardBodyMesh,
+  applyChessBoardWorldUvs,
+  splitChessBoardPlayingSurface,
+} from './geometry/boardBody';
 export { createChessBoardGraph } from './gproc/chessBoardGraph';
 export { executeChessGProcToMesh, bakeChessMeshMaps } from './gproc/executeChessGProc';
 export {
@@ -170,6 +189,7 @@ export {
   viewProjectionLookAt,
 } from './grab/pickRay';
 export { MouseGrabController, type ChessGrabState } from './grab/MouseGrabController';
+export { pieceHoverSquare, type PieceHoverInput } from './grab/pieceHover';
 export { lockChessPieceTilt, seatChessPieceUpright, setChessPieceHeld } from './physics/piecePose';
 export { ChessPieceComponent } from './ecs/ChessPieceComponent';
 export {

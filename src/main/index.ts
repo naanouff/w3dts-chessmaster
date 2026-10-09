@@ -3,6 +3,8 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { registerCoachIpc } from './coachIpc';
+import { reviewSearchFromArgv } from './reviewArgv';
+import { graphicsBenchLaunch, GRAPHICS_BENCH_CHROMIUM_FLAGS } from './graphicsBenchLaunch';
 import { loadWindowBounds, saveWindowBounds, type WindowBounds } from './windowBounds';
 
 const APP_SCHEME = 'app';
@@ -77,13 +79,20 @@ function rememberWindow(win: BrowserWindow): void {
   saveWindowBounds(boundsFile(), bounds);
 }
 
-function createWindow(search = ''): BrowserWindow {
+function createWindow(
+  search = '',
+  size?: { width: number; height: number }
+): BrowserWindow {
   const persist = search.length === 0;
   const stored = persist ? loadWindowBounds(boundsFile(), screen.getPrimaryDisplay().workArea) : null;
   const win = new BrowserWindow({
     ...(stored
       ? { x: stored.x, y: stored.y, width: stored.width, height: stored.height }
-      : { width: 1280, height: 800 }),
+      : {
+          width: size?.width ?? 1280,
+          height: size?.height ?? 800,
+          ...(size ? { useContentSize: true } : {}),
+        }),
     title: 'W3DTS ChessMaster',
     icon: windowIcon(),
     backgroundColor: '#0e1014',
@@ -97,6 +106,18 @@ function createWindow(search = ''): BrowserWindow {
   });
   if (stored?.maximized) win.maximize();
   win.setMenu(null);
+  if (search.includes('bench=graphics')) {
+    win.webContents.on('render-process-gone', (_event, details) => {
+      process.stderr.write(`[bench] render-process-gone reason=${details.reason} exit=${details.exitCode}\n`);
+    });
+    win.webContents.on('console-message', (event) => {
+      const details = event as unknown as { message?: string; level?: string | number };
+      const level = details.level;
+      if (typeof details.message !== 'string' || details.message.length === 0) return;
+      if (level !== 'warning' && level !== 'error' && level !== 2 && level !== 3) return;
+      process.stderr.write(`[renderer] ${details.message}\n`);
+    });
+  }
   if (persist) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = (): void => {
@@ -116,10 +137,28 @@ function createWindow(search = ''): BrowserWindow {
 
 let peerWindow: BrowserWindow | null = null;
 
+const graphicsBench = graphicsBenchLaunch(process.env);
+if (graphicsBench) {
+  app.setPath('userData', path.resolve(__dirname, '../..', graphicsBench.userDataDir));
+  app.on('child-process-gone', (_event, details) => {
+    process.stderr.write(
+      `[bench] child-process-gone type=${details.type} reason=${details.reason} exit=${details.exitCode}\n`
+    );
+  });
+  for (const flag of GRAPHICS_BENCH_CHROMIUM_FLAGS) {
+    app.commandLine.appendSwitch(flag.slice(2));
+  }
+}
+
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   if (!process.env.ELECTRON_RENDERER_URL) registerAppProtocol();
   ipcMain.handle('app-version', () => app.getVersion());
+  ipcMain.handle('bench-report', (_event, json: unknown) => {
+    if (!graphicsBench || typeof json !== 'string') return;
+    process.stdout.write(`GRAPHICS_BENCH ${json}\n`);
+    app.quit();
+  });
   registerCoachIpc();
   ipcMain.handle('open-peer-window', (_event, search: unknown) => {
     if (peerWindow && !peerWindow.isDestroyed()) {
@@ -132,7 +171,11 @@ app.whenReady().then(() => {
       peerWindow = null;
     });
   });
-  createWindow();
+  if (graphicsBench) {
+    createWindow(graphicsBench.search, { width: graphicsBench.width, height: graphicsBench.height });
+  } else {
+    createWindow(reviewSearchFromArgv(process.argv));
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

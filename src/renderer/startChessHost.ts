@@ -6,9 +6,11 @@ import {
   type IModelLoaderService,
 } from '@naanouff/w3dts-core';
 import { Logger } from '@naanouff/w3dts-logger';
+import { createParticleSystem } from '@naanouff/w3dts-particles';
 import { chessBus } from './bus';
 import { ChessDemoProject } from './host/ChessDemoProject';
 import { applyChessGraphics, attachChessGraphics, getChessGraphicsSettings } from './graphics/chessGraphicsSettings';
+import { isGraphicsBenchSearch, paceBenchFramesToGpu } from './graphics/graphicsBench';
 
 const emptyLoader: IModelLoaderService = {
   async load() {
@@ -66,6 +68,9 @@ async function bootChessHost(): Promise<Engine> {
 
   const logger = new Logger(chessBus);
   await GPUManager.initialize(logger);
+  if (isGraphicsBenchSearch(window.location.search)) {
+    window.requestAnimationFrame = paceBenchFramesToGpu(GPUManager.instance.device);
+  }
   setMsaaSampleCount(1);
 
   const hidden = document.createElement('canvas');
@@ -75,11 +80,12 @@ async function bootChessHost(): Promise<Engine> {
   hidden.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;pointer-events:none;';
   document.body.appendChild(hidden);
 
-  const engine = await new EngineBuilder(hidden)
+  const builder = new EngineBuilder(hidden)
     .setUIBus(chessBus)
     .setLogger(logger)
-    .withModelLoader(emptyLoader)
-    .build();
+    .withModelLoader(emptyLoader);
+  builder.addPreComputeSystemFactory((context) => createParticleSystem({ device: context.device }));
+  const engine = await builder.build();
 
   engine.director.register(new ChessDemoProject());
   await engine.start('ChessDemoProject');

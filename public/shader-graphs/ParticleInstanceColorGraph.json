@@ -1,0 +1,242 @@
+{
+  "id": "ParticleInstanceColorGraph_v1",
+  "name": "Particle Instance Color",
+  "properties": {
+    "baseColor": { "type": "vec3f", "defaultValue": [1, 1, 1], "name": "Tint" },
+    "baseColorTexture": { "type": "texture_2d", "defaultValue": null, "name": "Particle Texture" },
+    "alpha": { "type": "f32", "defaultValue": 1.0, "name": "Alpha Scale" },
+    "alphaCutoff": { "type": "f32", "defaultValue": 0.02, "name": "Alpha Cutoff" }
+  },
+  "nodes": [
+    {
+      "id": "vcolor",
+      "type": "VertexColor",
+      "stage": "fragment",
+      "inputs": [],
+      "outputs": [{ "id": "color", "name": "Color", "dataType": "vec4f" }]
+    },
+    {
+      "id": "split",
+      "type": "SplitVec4",
+      "stage": "fragment",
+      "inputs": [{ "id": "in", "name": "In", "dataType": "vec4f" }],
+      "outputs": [
+        { "id": "x", "name": "R", "dataType": "f32" },
+        { "id": "y", "name": "G", "dataType": "f32" },
+        { "id": "z", "name": "B", "dataType": "f32" },
+        { "id": "w", "name": "A", "dataType": "f32" }
+      ]
+    },
+    {
+      "id": "combine_rgb",
+      "type": "CombineVec3",
+      "stage": "common",
+      "inputs": [
+        { "id": "x", "name": "X", "dataType": "f32" },
+        { "id": "y", "name": "Y", "dataType": "f32" },
+        { "id": "z", "name": "Z", "dataType": "f32" }
+      ],
+      "outputs": [{ "id": "out", "name": "Out", "dataType": "vec3f" }]
+    },
+    {
+      "id": "uv_node",
+      "type": "GetUV",
+      "stage": "fragment",
+      "inputs": [],
+      "outputs": [{ "id": "uv", "name": "UV", "dataType": "vec2f" }]
+    },
+    {
+      "id": "tex_prop",
+      "type": "Property",
+      "stage": "common",
+      "data": { "propertyName": "baseColorTexture" },
+      "inputs": [],
+      "outputs": [{ "id": "out", "name": "Out", "dataType": "texture_2d" }]
+    },
+    {
+      "id": "tex_sample",
+      "type": "TextureSample",
+      "stage": "fragment",
+      "inputs": [
+        { "id": "texture", "name": "Texture", "dataType": "texture_2d" },
+        { "id": "uv", "name": "UV", "dataType": "vec2f" }
+      ],
+      "outputs": [
+        { "id": "rgba", "name": "RGBA", "dataType": "vec4f" },
+        { "id": "rgb", "name": "RGB", "dataType": "vec3f" }
+      ]
+    },
+    {
+      "id": "split_tex",
+      "type": "SplitVec4",
+      "stage": "fragment",
+      "inputs": [{ "id": "in", "name": "In", "dataType": "vec4f" }],
+      "outputs": [
+        { "id": "x", "name": "R", "dataType": "f32" },
+        { "id": "y", "name": "G", "dataType": "f32" },
+        { "id": "z", "name": "B", "dataType": "f32" },
+        { "id": "w", "name": "A", "dataType": "f32" }
+      ]
+    },
+    {
+      "id": "tint_prop",
+      "type": "Property",
+      "stage": "common",
+      "data": { "propertyName": "baseColor" },
+      "inputs": [],
+      "outputs": [{ "id": "out", "name": "Out", "dataType": "vec3f" }]
+    },
+    {
+      "id": "multiply_tex_tint",
+      "type": "Multiply",
+      "stage": "common",
+      "inputs": [
+        { "id": "a", "name": "A", "dataType": "vec3f" },
+        { "id": "b", "name": "B", "dataType": "vec3f" }
+      ],
+      "outputs": [{ "id": "out", "name": "Out", "dataType": "vec3f" }]
+    },
+    {
+      "id": "multiply_inst",
+      "type": "Multiply",
+      "stage": "common",
+      "inputs": [
+        { "id": "a", "name": "A", "dataType": "vec3f" },
+        { "id": "b", "name": "B", "dataType": "vec3f" }
+      ],
+      "outputs": [{ "id": "out", "name": "Out", "dataType": "vec3f" }]
+    },
+    {
+      "id": "alpha_prop",
+      "type": "Property",
+      "stage": "common",
+      "data": { "propertyName": "alpha" },
+      "inputs": [],
+      "outputs": [{ "id": "out", "name": "Out", "dataType": "f32" }]
+    },
+    {
+      "id": "multiply_tex_a",
+      "type": "Multiply",
+      "stage": "common",
+      "inputs": [
+        { "id": "a", "name": "A", "dataType": "f32" },
+        { "id": "b", "name": "B", "dataType": "f32" }
+      ],
+      "outputs": [{ "id": "out", "name": "Out", "dataType": "f32" }]
+    },
+    {
+      "id": "multiply_alpha",
+      "type": "Multiply",
+      "stage": "common",
+      "inputs": [
+        { "id": "a", "name": "A", "dataType": "f32" },
+        { "id": "b", "name": "B", "dataType": "f32" }
+      ],
+      "outputs": [{ "id": "out", "name": "Out", "dataType": "f32" }]
+    },
+    {
+      "id": "cutoff_prop",
+      "type": "Property",
+      "stage": "common",
+      "data": { "propertyName": "alphaCutoff" },
+      "inputs": [],
+      "outputs": [{ "id": "out", "name": "Out", "dataType": "f32" }]
+    },
+    {
+      "id": "master",
+      "type": "UnlitMasterNode",
+      "stage": "fragment",
+      "inputs": [
+        { "id": "albedo", "name": "Albedo", "dataType": "vec3f" },
+        { "id": "alpha", "name": "Alpha", "dataType": "f32" },
+        { "id": "alpha_cutoff", "name": "Cutoff", "dataType": "f32" }
+      ],
+      "outputs": []
+    }
+  ],
+  "connections": [
+    { "fromNodeId": "vcolor", "fromSocketId": "color", "toNodeId": "split", "toSocketId": "in" },
+    { "fromNodeId": "split", "fromSocketId": "x", "toNodeId": "combine_rgb", "toSocketId": "x" },
+    { "fromNodeId": "split", "fromSocketId": "y", "toNodeId": "combine_rgb", "toSocketId": "y" },
+    { "fromNodeId": "split", "fromSocketId": "z", "toNodeId": "combine_rgb", "toSocketId": "z" },
+    {
+      "fromNodeId": "tex_prop",
+      "fromSocketId": "out",
+      "toNodeId": "tex_sample",
+      "toSocketId": "texture"
+    },
+    { "fromNodeId": "uv_node", "fromSocketId": "uv", "toNodeId": "tex_sample", "toSocketId": "uv" },
+    {
+      "fromNodeId": "tex_sample",
+      "fromSocketId": "rgba",
+      "toNodeId": "split_tex",
+      "toSocketId": "in"
+    },
+    {
+      "fromNodeId": "tex_sample",
+      "fromSocketId": "rgb",
+      "toNodeId": "multiply_tex_tint",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "tint_prop",
+      "fromSocketId": "out",
+      "toNodeId": "multiply_tex_tint",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "multiply_tex_tint",
+      "fromSocketId": "out",
+      "toNodeId": "multiply_inst",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "combine_rgb",
+      "fromSocketId": "out",
+      "toNodeId": "multiply_inst",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "multiply_inst",
+      "fromSocketId": "out",
+      "toNodeId": "master",
+      "toSocketId": "albedo"
+    },
+    {
+      "fromNodeId": "split_tex",
+      "fromSocketId": "w",
+      "toNodeId": "multiply_tex_a",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "split",
+      "fromSocketId": "w",
+      "toNodeId": "multiply_tex_a",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "multiply_tex_a",
+      "fromSocketId": "out",
+      "toNodeId": "multiply_alpha",
+      "toSocketId": "a"
+    },
+    {
+      "fromNodeId": "alpha_prop",
+      "fromSocketId": "out",
+      "toNodeId": "multiply_alpha",
+      "toSocketId": "b"
+    },
+    {
+      "fromNodeId": "multiply_alpha",
+      "fromSocketId": "out",
+      "toNodeId": "master",
+      "toSocketId": "alpha"
+    },
+    {
+      "fromNodeId": "cutoff_prop",
+      "fromSocketId": "out",
+      "toNodeId": "master",
+      "toSocketId": "alpha_cutoff"
+    }
+  ]
+}

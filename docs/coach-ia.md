@@ -54,13 +54,13 @@ Les clics de la maquette restent locaux. Échap ferme le tiroir avant d’ouvrir
 
 L’objection juge le coup avec la même profondeur que les fantômes. Jouer le coup vert, celui affiché, ne la déclenche pas. Les fantômes d’après sont recalculés après la réplique adverse.
 
-Quand l’assistant coupe la partie de lui-même, ce n’est pas un tiroir qui s’ouvre en silence. Le blason bondit, le plateau tremble, et le mot « Objection ! » claque au centre. Le tiroir dit tout de suite pourquoi la partie s’arrête, que le liseré rouge est le coup faible, que le fantôme vert est le coup recommandé, et qu’on peut annuler pour réessayer. Ensuite le modèle parle dans la langue de l’interface, en deux phrases courtes. La réponse s’affiche dans une bulle collée à droite, juste à gauche du tiroir. Une page ne coupe pas une phrase. Précédent et Suivant n’apparaissent que s’il y a une page de ce côté. À la dernière page, Passer devient Fermer. L’étudiant peut aussi stopper la partie sans ce cri. Dans les deux cas la réplique en cours est annulée, et rien ne part tant qu’il n’a pas repris.
+Quand l’assistant coupe la partie de lui-même, ce n’est pas un tiroir qui s’ouvre en silence. Le blason bondit, le plateau tremble, et le mot « Objection ! » claque au centre. Le tiroir dit tout de suite pourquoi la partie s’arrête, que le liseré rouge est le coup faible, que le fantôme vert est le coup recommandé, et qu’on peut annuler pour réessayer. Ensuite le modèle parle dans la langue de l’interface, en deux phrases courtes. En français, le ton est simple et pédagogique, dans un registre presque soutenu : le vouvoiement, des phrases correctes, sans familiarité. Les phrases fixes de l’accueil et de l’objection ont le même ton. La réponse s’affiche dans une bulle collée à droite, juste à gauche du tiroir. Une page ne coupe pas une phrase. Précédent et Suivant n’apparaissent que s’il y a une page de ce côté. À la dernière page, Passer devient Fermer. L’étudiant peut aussi stopper la partie sans ce cri. Dans les deux cas la réplique en cours est annulée, et rien ne part tant qu’il n’a pas repris.
 
 Les 10 minutes sont coupées. Le bouton « Remettre les 10 minutes » les rallume. « Couper les 10 minutes » les fige de nouveau. Tant qu’elles sont coupées, la pendule n’apparaît pas et ne tombe pas à zéro.
 
 Annuler mon coup retire son dernier coup, et la réplique du CPU si elle a déjà été jouée. La partie reste en pause.
 
-Expliquer mon erreur compare ce coup à une ligne de 1 à 5 demi-coups cherchée depuis la position d’avant. Stratégie cherche la même profondeur depuis la position actuelle. Le modèle reçoit les SAN. L’étudiant voit des fantômes colorés sur les cases d’arrivée, pas les noms de cases. Le vert est le prochain coup de l’élève. Les coups de l’adversaire ne sont pas posés sur le plateau. Le liseré de la même couleur est le contour complet de la pièce encore sur sa case : une passe de masque, testée contre la profondeur de la scène, puis une passe de contour. Il est épinglé au moment où la ligne est tracée. Une pièce qui part, ou qui arrive ensuite sur une case de la ligne, ne le garde pas. Fluide ne lance pas ces passes. Elles partent d’Équilibré, et un réglage déjà enregistré qui n’est pas Fluide les reçoit aussi. Sans modèle, les fantômes restent.
+Expliquer mon erreur compare ce coup à une ligne de 1 à 5 demi-coups cherchée depuis la position d’avant. Stratégie cherche la même profondeur depuis la position actuelle. Le modèle reçoit les SAN. L’étudiant voit des fantômes colorés sur les cases d’arrivée, pas les noms de cases. Le vert est le prochain coup de l’élève. Les coups de l’adversaire ne sont pas posés sur le plateau. Le liseré de la même couleur est le contour complet de la pièce encore sur sa case : une passe de masque, puis une passe de contour. Le masque est fondu, pas opaque : un mesh opaque est groupé avec les pièces et cette passe ne le dessine pas. Il a sa propre profondeur, vidée à chaque image, sinon la pièce le cache. Il a aussi une cible de normales, sinon le shader de pièce, qui en écrit une, ne dessine pas. Il est épinglé au moment où la ligne est tracée. Une pièce qui part, ou qui arrive ensuite sur une case de la ligne, ne le garde pas. Ces passes tournent sur tous les profils, y compris Fluide et un Fluide déjà enregistré qui les omettait. Sans modèle, les fantômes restent.
 
 La recherche est bornée en nœuds. Ce n’est pas Stockfish.
 
@@ -76,6 +76,23 @@ L’appel part du processus main. Le renderer est sandboxé ([`src/main/index.ts
 Le preload expose `coachSettings`, `coachSaveSettings`, `coachProbe`, `coachLaunch`, `coachOpenDownload`, `coachModels`, `coachChat` et `coachCancel`. Réglages dans `userData/coach-settings.json`. Le getter renvoie l’URL, le modèle, le fournisseur et `hasKey`, jamais la clé. `fetch` natif, timeout 60 s, annulation. La forme HTTP vit dans un module sans Electron, couvert par Vitest.
 
 Le présentateur est le tiroir de la coque, pas un second panneau sur le HUD.
+
+## Installation Ollama (Windows)
+
+Pour l’alpha, le coach **sans modèle** reste le cas nominal. Cette section est pour les volontaires qui veulent brancher un modèle local. Sprint : [CHESS-B24](sprints/CHESS-B24.md).
+
+1. Installer Ollama depuis [ollama.com/download](https://ollama.com/download). Redémarrer si l’installateur le demande.
+2. Ouvrir un terminal et tirer le modèle par défaut du client :
+
+```bash
+ollama pull llama3.2
+```
+
+3. Vérifier que le service répond : `ollama list` doit montrer `llama3.2`, ou ouvrir `http://127.0.0.1:11434` dans le navigateur (réponse courte du serveur).
+4. Lancer ChessMaster. Ouvrir **Paramètres** → section assistant. Si Ollama tourne, le client le détecte et choisit `llama3.2` (ou le premier modèle disponible). Sinon : bouton pour lancer Ollama, ou lien de téléchargement s’il est absent.
+5. En partie ou en entraînement, ouvrir le tiroir **Assistant** → **Expliquer**. Une réponse en une ou deux phrases confirme le branchement. Si rien ne vient : Ollama est arrêté, le modèle manque, ou un pare-feu bloque `127.0.0.1:11434`.
+
+API distante (URL + modèle + clé) reste un choix replié dans Paramètres. La clé ne revient pas à l’écran.
 
 ## Hors de ce palier
 

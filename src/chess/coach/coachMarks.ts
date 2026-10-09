@@ -45,11 +45,12 @@ export function coachErrorColor(): readonly [number, number, number] {
   return ERROR_COLOR;
 }
 
-/** Metres. Enough to win against the piece itself, not against a piece in front. */
-export const COACH_MASK_BIAS = 0.005;
+/** Metres. Far enough that an orbit still leaves the shell in front of its own piece. */
+export const COACH_MASK_BIAS = 0.02;
 
 /**
- * Moves a mask a few millimetres toward the camera so its front faces pass the depth test.
+ * Moves the mask toward the camera so its front faces pass the depth test.
+ * The offset follows the camera that is looking, not a fixed game pose.
  * A piece that is actually behind another stays hidden, so its contour is not drawn in the gap.
  * @param piece - World position of the piece, in metres.
  * @param camera - World position of the camera, in metres.

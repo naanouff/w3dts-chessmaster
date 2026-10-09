@@ -7,15 +7,37 @@
  */
 
 import { parseFen } from 'chessops/fen';
-import type { ChessSquareName } from '../rules/chessTypes';
+import type { ChessColor, ChessSquareName } from '../rules/chessTypes';
+
+export type ChessWireClocks = { whiteSeconds: number; blackSeconds: number };
 
 export type ChessWireMessage =
-  | { v: 1; t: 'move'; from: ChessSquareName; to: ChessSquareName; fen: string }
+  | ({ v: 1; t: 'move'; from: ChessSquareName; to: ChessSquareName; fen: string } & Partial<ChessWireClocks>)
   | { v: 1; t: 'reset'; fen: string }
-  | { v: 1; t: 'sync'; fen: string }
-  | { v: 1; t: 'restore'; fen: string; whiteSeconds: number; blackSeconds: number };
+  | ({ v: 1; t: 'sync'; fen: string } & Partial<ChessWireClocks>)
+  | { v: 1; t: 'restore'; fen: string; whiteSeconds: number; blackSeconds: number }
+  | {
+      v: 1;
+      t: 'hello';
+      host: boolean;
+      color: ChessColor;
+      fen: string;
+      whiteSeconds: number;
+      blackSeconds: number;
+    }
+  | { v: 1; t: 'resign'; loser: ChessColor }
+  | { v: 1; t: 'draw-offer' }
+  | { v: 1; t: 'draw-accept' }
+  | { v: 1; t: 'draw-refuse' };
 
 export type ChessFenSyncDecision = 'apply' | 'ignore' | 'reply';
+
+/** What a received hello means for the local seat. Host color wins. */
+export type OnlineHelloDecision =
+  | { kind: 'adopt'; localColor: ChessColor }
+  | { kind: 'ready' }
+  | { kind: 'refuse' }
+  | { kind: 'ignore' };
 
 function isSquareName(value: unknown): value is ChessSquareName {
   return typeof value === 'string' && /^[a-h][1-8]$/.test(value);
@@ -34,8 +56,19 @@ export function decodeChessWire(bytes: Uint8Array): ChessWireMessage | null {
   }
   if (!raw || typeof raw !== 'object') return null;
   const rec = raw as Record<string, unknown>;
-  if (rec.v !== 1 || typeof rec.fen !== 'string') return null;
-  if (rec.t === 'reset' || rec.t === 'sync') return { v: 1, t: rec.t, fen: rec.fen };
+  if (rec.v !== 1) return null;
+  if (rec.t === 'resign' && isColor(rec.loser)) return { v: 1, t: 'resign', loser: rec.loser };
+  if (rec.t === 'draw-offer') return { v: 1, t: 'draw-offer' };
+  if (rec.t === 'draw-accept') return { v: 1, t: 'draw-accept' };
+  if (rec.t === 'draw-refuse') return { v: 1, t: 'draw-refuse' };
+  if (typeof rec.fen !== 'string') return null;
+  const clocks = wireClocks(rec.whiteSeconds, rec.blackSeconds);
+  if (clocks === null) return null;
+  if (rec.t === 'reset') return { v: 1, t: 'reset', fen: rec.fen };
+  if (rec.t === 'sync') return { v: 1, t: 'sync', fen: rec.fen, ...clocks };
+  if (rec.t === 'hello' && typeof rec.host === 'boolean' && isColor(rec.color) && hasClocks(clocks)) {
+    return { v: 1, t: 'hello', host: rec.host, color: rec.color, fen: rec.fen, ...clocks };
+  }
   if (
     rec.t === 'restore' &&
     typeof rec.whiteSeconds === 'number' &&
@@ -52,9 +85,28 @@ export function decodeChessWire(bytes: Uint8Array): ChessWireMessage | null {
     };
   }
   if (rec.t === 'move' && isSquareName(rec.from) && isSquareName(rec.to)) {
-    return { v: 1, t: 'move', from: rec.from, to: rec.to, fen: rec.fen };
+    return { v: 1, t: 'move', from: rec.from, to: rec.to, fen: rec.fen, ...clocks };
   }
   return null;
+}
+
+function isColor(value: unknown): value is ChessColor {
+  return value === 'white' || value === 'black';
+}
+
+function hasClocks(clocks: ChessWireClocks | Record<string, never>): clocks is ChessWireClocks {
+  return 'whiteSeconds' in clocks;
+}
+
+function wireClocks(
+  white: unknown,
+  black: unknown
+): ChessWireClocks | Record<string, never> | null {
+  const present = typeof white === 'number' || typeof black === 'number';
+  if (!present) return {};
+  if (typeof white !== 'number' || typeof black !== 'number') return null;
+  if (!Number.isFinite(white) || !Number.isFinite(black)) return null;
+  return { whiteSeconds: white, blackSeconds: black };
 }
 
 /**
@@ -81,4 +133,22 @@ export function decideChessFenSync(localFen: string, remoteFen: string): ChessFe
   if (remotePly > localPly) return 'apply';
   if (remotePly < localPly) return 'reply';
   return 'ignore';
+}
+
+/**
+ * Seat agreement for an online table. The host color wins. Two hosts refuse.
+ * A guest hello does not change the host. A guest ignores another guest.
+ * @param localSeat - Seat chosen when this window created or joined the table.
+ * @param remoteHost - True when the other window created the table.
+ * @param remoteColor - Color announced by a host hello.
+ */
+export function decideOnlineHello(
+  localSeat: 'host' | 'guest',
+  remoteHost: boolean,
+  remoteColor: ChessColor
+): OnlineHelloDecision {
+  if (localSeat === 'host' && remoteHost) return { kind: 'refuse' };
+  if (remoteHost) return { kind: 'adopt', localColor: remoteColor === 'white' ? 'black' : 'white' };
+  if (localSeat === 'host') return { kind: 'ready' };
+  return { kind: 'ignore' };
 }

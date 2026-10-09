@@ -88,4 +88,13 @@ describe('ChessMatch', () => {
     match.tryMove('e2', 'e4');
     expect(match.moveFromSan('e5')).toEqual({ from: 'e7', to: 'e5' });
   });
+
+  it('detects insufficient material as an end without mate or stalemate', () => {
+    const match = ChessMatch.fromFen('8/8/8/4k3/8/8/8/4K3 w - - 0 1');
+    expect(match.isInsufficientMaterial()).toBe(true);
+    expect(match.isEnd()).toBe(true);
+    expect(match.isCheckmate()).toBe(false);
+    expect(match.isStalemate()).toBe(false);
+    expect(ChessMatch.starting().isInsufficientMaterial()).toBe(false);
+  });
 });

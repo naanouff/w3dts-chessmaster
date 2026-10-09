@@ -16,8 +16,10 @@ import {
   SET_PROPS,
   SET_TEXTURE_SIZES,
   emissiveFromAlbedo,
+  emissiveFromGlass,
   needsDraco,
   scaleOf,
+  smoothSplitNormals,
   srgbChannelToLinear,
 } from './setProps.mjs';
 
@@ -86,6 +88,72 @@ function scalePositions(json, bin, scale) {
   return accessor.count;
 }
 
+function rotateX(json, bin, radians) {
+  if (!radians) return;
+  const c = Math.cos(radians);
+  const s = Math.sin(radians);
+  const attributes = primitive(json).attributes;
+  for (const semantic of ['POSITION', 'NORMAL']) {
+    const index = attributes[semantic];
+    if (index === undefined) continue;
+    const accessor = json.accessors[index];
+    if (accessor.componentType !== 5126 || accessor.type !== 'VEC3') {
+      throw new Error(`${semantic} is not float3`);
+    }
+    const view = json.bufferViews[accessor.bufferView];
+    if (view.byteStride && view.byteStride !== 12) throw new Error(`unexpected ${semantic} stride`);
+    const start = (view.byteOffset || 0) + (accessor.byteOffset || 0);
+    let minX = Infinity;
+    let minY = Infinity;
+    let minZ = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    let maxZ = -Infinity;
+    for (let i = 0; i < accessor.count; i++) {
+      const at = start + i * 12;
+      const x = bin.readFloatLE(at);
+      const y = bin.readFloatLE(at + 4);
+      const z = bin.readFloatLE(at + 8);
+      const turnedY = y * c - z * s;
+      const turnedZ = y * s + z * c;
+      bin.writeFloatLE(x, at);
+      bin.writeFloatLE(turnedY, at + 4);
+      bin.writeFloatLE(turnedZ, at + 8);
+      if (semantic !== 'POSITION') continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, turnedY);
+      minZ = Math.min(minZ, turnedZ);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, turnedY);
+      maxZ = Math.max(maxZ, turnedZ);
+    }
+    if (semantic === 'POSITION') {
+      accessor.min = [minX, minY, minZ];
+      accessor.max = [maxX, maxY, maxZ];
+    }
+  }
+}
+
+function readFloat3(json, bin, accessorIndex) {
+  const accessor = json.accessors[accessorIndex];
+  const view = json.bufferViews[accessor.bufferView];
+  if (view.byteStride && view.byteStride !== 12) throw new Error('unexpected float3 stride');
+  const start = (view.byteOffset || 0) + (accessor.byteOffset || 0);
+  const values = new Float32Array(accessor.count * 3);
+  for (let i = 0; i < values.length; i++) values[i] = bin.readFloatLE(start + i * 4);
+  return { start, values };
+}
+
+function smoothNormals(json, bin, radians) {
+  if (!radians) return;
+  const attributes = primitive(json).attributes;
+  if (attributes.NORMAL === undefined) return;
+  const position = readFloat3(json, bin, attributes.POSITION);
+  const normal = readFloat3(json, bin, attributes.NORMAL);
+  const smoothed = smoothSplitNormals(position.values, normal.values, radians);
+  for (let i = 0; i < smoothed.length; i++) bin.writeFloatLE(smoothed[i], normal.start + i * 4);
+}
+
 function sliceView(json, bin, index) {
   const view = json.bufferViews[index];
   const start = view.byteOffset || 0;
@@ -140,6 +208,8 @@ export async function cleanGlb(file, prop, size) {
   const position = json.accessors[primitive(json).attributes.POSITION];
   const scale = scaleOf(position.min, position.max, prop.axis, prop.metres);
   const vertices = scalePositions(json, bin, scale);
+  rotateX(json, bin, prop.pitch);
+  smoothNormals(json, bin, prop.smooth);
   if (needsDraco(vertices)) throw new Error(`${prop.file} needs Draco and this pass does not compress`);
 
   const imageBytes = json.images.map((image) => sliceView(json, bin, image.bufferView));
@@ -147,15 +217,27 @@ export async function cleanGlb(file, prop, size) {
   for (const bytes of imageBytes) encoded.push(await resizeJpeg(bytes, size));
 
   let emissiveBytes = null;
-  if (prop.emissive.mode === 'mask') {
-    const colorTexture = json.materials[0].pbrMetallicRoughness.baseColorTexture.index;
+  if (prop.emissive.mode === 'mask' || prop.emissive.mode === 'glass') {
+    const pbr = json.materials[0].pbrMetallicRoughness;
+    const colorTexture = pbr.baseColorTexture.index;
     const source = imageBytes[json.textures[colorTexture].source];
     const { data, info } = await sharp(source, { failOn: 'none' })
       .resize(size, size, { fit: 'fill', kernel: 'lanczos3' })
       .removeAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true });
-    const masked = emissiveFromAlbedo(data, EMISSIVE_LUMA_THRESHOLD);
+    let masked = emissiveFromAlbedo(data, EMISSIVE_LUMA_THRESHOLD);
+    if (prop.emissive.mode === 'glass') {
+      const mrSource = imageBytes[json.textures[pbr.metallicRoughnessTexture.index].source];
+      const mr = await sharp(mrSource, { failOn: 'none' })
+        .resize(size, size, { fit: 'fill', kernel: 'lanczos3' })
+        .removeAlpha()
+        .raw()
+        .toBuffer();
+      const metal = new Uint8Array(info.width * info.height);
+      for (let texel = 0; texel < metal.length; texel++) metal[texel] = mr[texel * 3 + 2];
+      masked = emissiveFromGlass(data, metal);
+    }
     emissiveBytes = await sharp(Buffer.from(masked), {
       raw: { width: info.width, height: info.height, channels: 3 },
     })
@@ -213,7 +295,7 @@ function sliceViewFrom(bin, view) {
 
 async function main() {
   for (const size of SET_TEXTURE_SIZES) {
-    for (const scene of ['atelier', 'salon', 'club']) {
+    for (const scene of ['atelier', 'salon', 'club', 'jardin', 'terrasse']) {
       mkdirSync(join(root, 'docs/raw_assets', scene, 'baked', String(size)), { recursive: true });
     }
   }

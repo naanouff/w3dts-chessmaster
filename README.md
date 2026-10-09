@@ -14,7 +14,8 @@ Une table d’échecs en 3D. On saisit les pièces et on les pose.
 
 - Contre l’ordinateur.
 - À deux, la même souris.
-- Une seconde fenêtre sur ce poste, avec un code de table.
+- Une seconde fenêtre sur ce poste.
+- Deux machines, avec un code de table.
 - Une courte ouverture à apprendre.
 
 Les classements affichés sont des exemples.

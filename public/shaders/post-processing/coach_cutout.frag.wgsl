@@ -21,13 +21,13 @@ fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let texel = 1.0 / vec2<f32>(textureDimensions(maskTex));
     var found = vec4<f32>(0.0);
     var best = 1000.0;
-    for (var y: i32 = -4; y <= 4; y++) {
-        for (var x: i32 = -4; x <= 4; x++) {
+    for (var y: i32 = -8; y <= 8; y++) {
+        for (var x: i32 = -8; x <= 8; x++) {
             if (x == 0 && y == 0) {
                 continue;
             }
             let dist = f32(x * x + y * y);
-            if (dist > 16.0 || dist >= best) {
+            if (dist > 64.0 || dist >= best) {
                 continue;
             }
             let hit = maskAt(uv + vec2<f32>(f32(x), f32(y)) * texel);

@@ -1,0 +1,6 @@
+{
+  "assets": [
+    { "id": "fire-realistic", "graphUrl": "/particles/library/fire-realistic.json" },
+    { "id": "smoke-realistic", "graphUrl": "/particles/library/smoke-realistic.json" }
+  ]
+}

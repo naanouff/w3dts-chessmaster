@@ -3,6 +3,7 @@
  * @description CHESS-B10: shell navigation without a DOM or a GPU.
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { cpuSearchDepth } from '../src/chess/index';
 import { chessMixVolume } from '../src/renderer/host/chessTableAudio';
@@ -14,16 +15,74 @@ import {
   initialShell,
   parseShellPrefs,
   rangeThumbRatio,
+  gameEndFromLearn,
+  gameEndFromPlay,
+  sheetBodyOverflows,
   reduceShell,
+  opensLocalPeerWindow,
   peerResumeSearch,
   shellBlocksPlay,
   shellSession,
+  shellWantsMenuMusic,
   type ShellState,
 } from '../src/renderer/shell/shellScreen';
 
 function game(): ShellState {
   return reduceShell(reduceShell(initialShell(false), { type: 'play' }), { type: 'start' });
 }
+
+describe('shell glass', () => {
+  it('whitens the liquid glass so dark ink stays readable', () => {
+    const css = readFileSync(new URL('../src/renderer/shell/shell.css', import.meta.url), 'utf8');
+    const match = css.match(/--glass:\s*rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*([0-9.]+)\s*\)/);
+    expect(match).not.toBeNull();
+    expect(Number(match?.[1])).toBe(0.25);
+  });
+
+  it('paints shell text black', () => {
+    const css = readFileSync(new URL('../src/renderer/shell/shell.css', import.meta.url), 'utf8');
+    expect(css).toMatch(/--ink:\s*#000\b/);
+    expect(css).toMatch(/--muted:\s*rgba\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\.62\s*\)/);
+  });
+});
+
+describe('shell shadow choice', () => {
+  const catalogs = ['fr', 'en', 'de', 'it', 'es', 'ru', 'zh', 'ja'];
+
+  it('names soft shadows in every catalog and drops the cascade count', () => {
+    for (const id of catalogs) {
+      const source = readFileSync(
+        new URL(`../src/renderer/shell/copy/${id}.ts`, import.meta.url),
+        'utf8'
+      );
+      expect(source).toContain('shadowSoft:');
+      expect(source).not.toContain('shadowCascade');
+    }
+    const shell = readFileSync(
+      new URL('../src/renderer/shell/ChessShell.tsx', import.meta.url),
+      'utf8'
+    );
+    expect(shell).toContain("id: 'soft'");
+    expect(shell).not.toContain('shadowCascades');
+    const menu = readFileSync(
+      new URL('../src/renderer/ui/ChessGraphicsMenu.tsx', import.meta.url),
+      'utf8'
+    );
+    expect(menu).toContain("['soft', 'Douce']");
+    expect(menu).not.toContain('SHADOW_CASCADE_OPTIONS');
+  });
+});
+
+describe('shellWantsMenuMusic', () => {
+  it('plays on menu screens and stays silent in a live match', () => {
+    expect(shellWantsMenuMusic('accueil')).toBe(true);
+    expect(shellWantsMenuMusic('modes')).toBe(true);
+    expect(shellWantsMenuMusic('parametres')).toBe(true);
+    expect(shellWantsMenuMusic('partie')).toBe(false);
+    expect(shellWantsMenuMusic('pause')).toBe(false);
+    expect(shellWantsMenuMusic('nulle-offre')).toBe(false);
+  });
+});
 
 describe('shell screen', () => {
   it('starts on the welcome screen', () => {
@@ -54,6 +113,13 @@ describe('shell screen', () => {
     expect(state.screen).toBe('partie');
     expect(state.assistant).toBe(false);
     expect(reduceShell(state, { type: 'escape' }).screen).toBe('pause');
+  });
+
+  it('returns from the draw-offer screen to pause on escape', () => {
+    const pause = reduceShell(game(), { type: 'escape' });
+    const offer = reduceShell(pause, { type: 'go', screen: 'nulle-offre' });
+    expect(offer.screen).toBe('nulle-offre');
+    expect(reduceShell(offer, { type: 'escape' }).screen).toBe('pause');
   });
 
   it('returns to the previous screen on escape', () => {
@@ -116,10 +182,30 @@ describe('shell screen', () => {
     expect(shellBlocksPlay(reduceShell(playing, { type: 'escape' }))).toBe(true);
   });
 
+  it('keeps an online table in the lobby until the seats agree', () => {
+    let state = reduceShell(initialShell(false), { type: 'play' });
+    state = reduceShell(state, { type: 'set-mode', mode: 'online' });
+    state = reduceShell(state, { type: 'start' });
+    state = reduceShell(state, { type: 'create-table', code: 'AB12' });
+    expect(state.screen).toBe('salon');
+    expect(reduceShell(state, { type: 'peer-ready' }).screen).toBe('partie');
+    expect(reduceShell(game(), { type: 'peer-ready' }).screen).toBe('partie');
+  });
+
+  it('opens a second window for the same machine and not for an online table', () => {
+    expect(opensLocalPeerWindow('local')).toBe(true);
+    expect(opensLocalPeerWindow(undefined)).toBe(true);
+    expect(opensLocalPeerWindow('online')).toBe(false);
+  });
+
   it('maps local and online play onto the existing peer session', () => {
     const color = 'white' as const;
     expect(shellSession('local', color, 'C50', 2).mode).toBe('p2p');
-    expect(shellSession('online', color, 'C50', 2).mode).toBe('p2p');
+    expect(shellSession('online', color, 'C50', 2, { room: 'AB12', seat: 'host' })).toMatchObject({
+      mode: 'p2p',
+      room: 'AB12',
+      seat: 'host',
+    });
     expect(shellSession('hotseat', color, 'C50', 2).mode).toBe('hotseat');
     expect(shellSession('learn', color, 'C50', 2).quiz).toBe(true);
   });
@@ -147,6 +233,71 @@ describe('shell screen', () => {
     expect(bootCrestInset(1)).toBe('0%');
   });
 
+  it('marks a sheet body only when its content is taller than the pane', () => {
+    expect(sheetBodyOverflows(200, 100)).toBe(true);
+    expect(sheetBodyOverflows(101, 100)).toBe(false);
+    expect(sheetBodyOverflows(100, 100)).toBe(false);
+    expect(sheetBodyOverflows(Number.NaN, 100)).toBe(false);
+  });
+
+  it('names a mate, a flag, a stalemate, and an unfinished game', () => {
+    expect(
+      gameEndFromPlay({ localColor: 'white', sideToMove: 'black', flag: null, outcome: 'mate' })
+    ).toEqual({ kind: 'won', cause: 'mate', loser: 'black' });
+    expect(
+      gameEndFromPlay({ localColor: 'white', sideToMove: 'white', flag: null, outcome: 'mate' })
+    ).toEqual({ kind: 'lost', cause: 'mate', loser: 'white' });
+    expect(
+      gameEndFromPlay({ localColor: 'black', sideToMove: 'white', flag: 'white', outcome: 'mate' })
+    ).toEqual({ kind: 'won', cause: 'flag', loser: 'white' });
+    expect(
+      gameEndFromPlay({ localColor: 'white', sideToMove: 'white', flag: 'white', outcome: null })
+    ).toEqual({ kind: 'lost', cause: 'flag', loser: 'white' });
+    expect(
+      gameEndFromPlay({ localColor: 'white', sideToMove: 'black', flag: null, outcome: 'stalemate' })
+    ).toEqual({ kind: 'draw', cause: 'stalemate', loser: null });
+    expect(
+      gameEndFromPlay({
+        localColor: 'white',
+        sideToMove: 'white',
+        flag: null,
+        outcome: 'insufficient',
+      })
+    ).toEqual({ kind: 'draw', cause: 'insufficient', loser: null });
+    expect(
+      gameEndFromPlay({
+        localColor: 'white',
+        sideToMove: 'black',
+        flag: null,
+        outcome: 'resign',
+        resignLoser: 'white',
+      })
+    ).toEqual({ kind: 'lost', cause: 'resign', loser: 'white' });
+    expect(
+      gameEndFromPlay({
+        localColor: 'black',
+        sideToMove: 'white',
+        flag: null,
+        outcome: 'resign',
+        resignLoser: 'white',
+      })
+    ).toEqual({ kind: 'won', cause: 'resign', loser: 'white' });
+    expect(
+      gameEndFromPlay({
+        localColor: 'white',
+        sideToMove: 'black',
+        flag: null,
+        outcome: 'agreed',
+      })
+    ).toEqual({ kind: 'draw', cause: 'agreed', loser: null });
+    expect(gameEndFromPlay({ localColor: 'white', sideToMove: 'white', flag: null, outcome: null })).toBeNull();
+  });
+
+  it('treats a finished opening line as a win', () => {
+    expect(gameEndFromLearn(true)).toEqual({ kind: 'won', cause: 'line', loser: null });
+    expect(gameEndFromLearn(false)).toBeNull();
+  });
+
   it('places a slider thumb from the minimum to the maximum', () => {
     expect(rangeThumbRatio(1, 1, 5)).toBe(0);
     expect(rangeThumbRatio(5, 1, 5)).toBe(1);
@@ -166,7 +317,7 @@ describe('shell screen', () => {
     const stored = JSON.stringify({
       mode: 'learn',
       color: 'black',
-      level: 5,
+      level: 3,
       eco: 'C60',
       sfx: 10,
       ambience: 20,
@@ -175,7 +326,7 @@ describe('shell screen', () => {
     expect(parseShellPrefs(stored)).toMatchObject({
       mode: 'learn',
       color: 'black',
-      level: 5,
+      level: 3,
       eco: 'C60',
       sfx: 10,
       ambience: 20,
@@ -191,6 +342,13 @@ describe('shell screen', () => {
       language: 'fr',
     });
     expect(defaultShellPrefs()).toMatchObject({ mode: 'cpu', color: 'white', level: 2, eco: 'C50' });
+  });
+
+  it('clamps a stored CPU level above 3 down to the default level 2', () => {
+    expect(parseShellPrefs(JSON.stringify({ level: 4 })).level).toBe(2);
+    expect(parseShellPrefs(JSON.stringify({ level: 5 })).level).toBe(2);
+    expect(parseShellPrefs(JSON.stringify({ level: 1 })).level).toBe(1);
+    expect(parseShellPrefs(JSON.stringify({ level: 3 })).level).toBe(3);
   });
 
   it('keeps the eight shell languages and drops an unknown one', () => {

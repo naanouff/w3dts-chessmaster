@@ -6,10 +6,10 @@
 .shell {
   --accent: #e8b86d;
   --accent-ink: #1a140c;
-  --ink: #2c261f;
-  --muted: rgba(44, 38, 31, 0.62);
+  --ink: #000;
+  --muted: rgba(0, 0, 0, 0.62);
   --danger: #9a3d3d;
-  --glass: rgba(255, 255, 255, 0.07);
+  --glass: rgba(255, 255, 255, 0.25);
   --glass-highlight:
     inset 1px 1px 0 rgba(255, 255, 255, 0.75),
     inset -1px -1px 0 rgba(255, 255, 255, 0.18),
@@ -137,18 +137,64 @@
 }
 
 .shell .sheet {
+  display: flex;
+  flex-direction: column;
   margin-top: 4vh;
   margin-bottom: 4vh;
   max-height: calc(100% - 8vh);
+  overflow: hidden;
+  padding-right: 0.7rem;
+}
+
+.shell .sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
+  padding-right: 0.65rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(44, 38, 31, 0.35) transparent;
+}
+
+.shell .sheet-body::-webkit-scrollbar {
+  width: 0.35rem;
+}
+
+.shell .sheet-body::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+}
+
+.shell .sheet-body::-webkit-scrollbar-track {
+  background: transparent;
+  margin-block: 0.4rem;
+}
+
+.shell .sheet-body::-webkit-scrollbar-thumb {
+  background: rgba(44, 38, 31, 0.28);
+  border-radius: 999px;
+}
+
+.shell .sheet-body::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+.shell .sheet-body.is-overflow {
+  padding-bottom: 1.4rem;
+  mask-image: linear-gradient(#000 calc(100% - 1.5rem), transparent);
+}
+
+.shell .sheet-body > :first-child {
+  margin-top: 0;
 }
 
 .shell .sheet-head {
   display: flex;
+  flex: none;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: var(--space);
+  padding-right: 0.75rem;
 }
 
 .shell .sheet-head h1,
@@ -431,6 +477,65 @@
   background-image: none;
   box-shadow: none;
   animation: none;
+}
+
+.shell .set-choice {
+  flex-wrap: nowrap;
+  width: 100%;
+  min-width: 0;
+  gap: 0.55rem;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+}
+
+.shell .set-choice button {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  gap: 0.35rem;
+  padding: 0.35rem 0.35rem 0.45rem;
+  background: var(--control-well);
+  box-shadow: var(--glass-highlight);
+}
+
+.shell .set-choice button:hover,
+.shell .set-choice button.is-selected {
+  background-color: var(--control-well);
+  background-image: none;
+  animation: none;
+}
+
+.shell .set-choice button.is-selected {
+  box-shadow: var(--glass-highlight), 0 0 0 2px var(--accent);
+}
+
+.shell .set-choice img {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 4.75rem;
+  object-fit: cover;
+  object-position: center 58%;
+  border-radius: calc(var(--radius-control) - 6px);
+  filter: grayscale(1);
+  pointer-events: none;
+  transition: filter 420ms ease;
+}
+
+.shell .set-choice button:hover img,
+.shell .set-choice button.is-selected img {
+  filter: grayscale(0);
+}
+
+.shell .set-choice span {
+  font-size: 0.82rem;
+  text-align: center;
 }
 
 .shell .cards {
@@ -897,6 +1002,31 @@
   margin: 0;
 }
 
+.shell .fin-card {
+  width: min(24rem, calc(100% - 2rem));
+  text-align: center;
+}
+
+.shell .fin-crest {
+  display: block;
+  width: min(8rem, 36vw);
+  height: auto;
+  margin: 0 auto 0.35rem;
+}
+
+.shell .fin-card.is-lost .fin-crest {
+  filter: grayscale(1);
+}
+
+.shell .fin-card.is-won h1 {
+  color: #8a5a12;
+}
+
+.shell .fin-card h1,
+.shell .fin-card p {
+  text-align: center;
+}
+
 @keyframes shell-caustic {
   0%,
   100% {
@@ -983,44 +1113,83 @@
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 0.6rem;
+  gap: 0.4rem;
   pointer-events: none;
-  background: transparent;
+  background: rgba(255, 244, 220, 0.28);
 }
 
 .shell .objection img {
-  width: 8.5rem;
-  height: 8.5rem;
+  width: 7.5rem;
+  height: auto;
   object-fit: contain;
-  animation: coach-slam 0.45s ease-out;
+  animation: objection-crest 0.42s cubic-bezier(0.15, 1.3, 0.35, 1) both;
 }
 
-.shell .objection p {
+.shell .objection-word {
   margin: 0;
-  color: var(--accent);
-  font-size: 4.2rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  padding: 0.02em 0.22em 0.08em;
   transform: rotate(-7deg);
-  text-shadow: 0 10px 24px rgba(26, 20, 12, 0.35);
-  animation: coach-slam 0.45s ease-out;
+  background: var(--accent);
+  color: var(--accent-ink, #1a140c);
+  font-size: clamp(3.2rem, 11vw, 7.5rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.9;
+  animation: objection-slam 0.38s cubic-bezier(0.12, 1.45, 0.32, 1) both;
+}
+
+.shell .objection-line {
+  margin: 0.2rem 0 0;
+  max-width: 16rem;
+  text-align: center;
+  color: var(--ink, #1a140c);
+  font-size: 1.05rem;
+  animation: objection-line 0.4s ease 0.28s both;
+}
+
+.shell .objection.is-leaving {
+  animation: objection-leave 0.45s ease forwards;
 }
 
 body.is-shaken {
   animation: coach-shake 0.42s linear;
 }
 
-@keyframes coach-slam {
+@keyframes objection-crest {
   0% {
-    transform: scale(1.8) rotate(-16deg);
+    transform: translateY(-42vh) scale(0.55);
     opacity: 0;
   }
-  70% {
-    transform: scale(0.94) rotate(-6deg);
+  72% {
+    transform: translateY(0) scale(1.08);
     opacity: 1;
   }
   100% {
-    transform: scale(1) rotate(-7deg);
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes objection-line {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+}
+
+@keyframes objection-leave {
+  to {
+    transform: translate(32vw, -34vh) scale(0.14);
+    opacity: 0;
+  }
+}
+
+@keyframes objection-slam {
+  0% {
+    transform: rotate(-7deg) scale(2.6);
+    opacity: 0;
+  }
+  70% {
     opacity: 1;
   }
 }
@@ -1051,8 +1220,11 @@ body.is-shaken {
   .shell .scale-thumb,
   .shell .scale-mark.is-catch,
   .shell .boot,
+  .shell .set-choice img,
+  .shell .objection,
   .shell .objection img,
-  .shell .objection p,
+  .shell .objection-word,
+  .shell .objection-line,
   body.is-shaken {
     transition: none;
     animation: none;

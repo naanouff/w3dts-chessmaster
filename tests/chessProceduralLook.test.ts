@@ -12,6 +12,7 @@ import {
   ShaderGraphCompiler,
   ShaderLoader,
   STANDARD_MESH_VERTEX_FLOATS,
+  usesTransparentRenderQueue,
   validateShaderGraphShape,
   type Mesh,
   type ShaderGraph,
@@ -22,6 +23,13 @@ import {
   createBrushedSteelProceduralPBRGraph,
   createMarbleProceduralPBRGraph,
 } from '../src/chess/index';
+import {
+  CHESS_MOVE_GLOW_RECIPES,
+  CHESS_PIECE_HOVER_GLOW,
+  chessBoardCheckerPlacement,
+  chessBoardSurfaceMaterials,
+  chessCutoutMaterial,
+} from '../src/renderer/host/chessLook';
 
 const repoPublic = join(dirname(fileURLToPath(import.meta.url)), '../public');
 const shaderDir = join(repoPublic, 'shader-graphs');
@@ -31,15 +39,16 @@ const STRIDE = STANDARD_MESH_VERTEX_FLOATS;
 const mockLogger = { warn: vi.fn(), error: vi.fn(), debug: vi.fn(), info: vi.fn() } as never;
 
 (ShaderLoader as unknown as { load: (path: string) => Promise<string> }).load = async (path: string) => {
-  const rel = path.replace(/^\/shaders\//, '');
+  // Core cache-busts some templates (`main_shader.wgsl?v=cluster1`).
+  const rel = path.replace(/^\/shaders\//, '').replace(/[?#].*$/, '');
   const filePath = join(shadersRoot, rel);
   try {
     return readFileSync(filePath, 'utf-8');
   } catch {
-    if (path.endsWith('graph_vertex.vert.wgsl')) {
+    if (rel.endsWith('graph_vertex.vert.wgsl')) {
       return `// vertex\n// [[VERTEX_FUNCTION_BODY]]\n// [[VERTEX_MASTER_NODE_LOGIC]]`;
     }
-    if (path.endsWith('main_shader.wgsl')) {
+    if (rel.endsWith('main_shader.wgsl')) {
       return `{{graph_id}}\n// [[DEFINES]]\n// [[UTILITY_FUNCTIONS]]\n// [[MATERIAL_UNIFORMS_STRUCT]]\n// [[TEXTURE_BINDINGS]]\n// [[FUNCTION_BODY]]`;
     }
     return '';
@@ -136,5 +145,55 @@ describe('chess procedural look', () => {
     );
     // Convex chamfered slab: RGB maps are nearly flat; height (A) still spans the body.
     expect(colorSpread(board, 3)).toBeGreaterThan(0.5);
+  });
+
+  it('keeps a move square bright enough to bloom without flooding the square', () => {
+    for (const recipe of CHESS_MOVE_GLOW_RECIPES) {
+      const peak = Math.max(...recipe.emissive);
+      expect(peak).toBeGreaterThan(1);
+      expect(peak).toBeLessThanOrEqual(2.5);
+    }
+  });
+
+  it('keeps the piece hover glow warm ivory under the bloom threshold', () => {
+    expect(CHESS_MOVE_GLOW_RECIPES.some((recipe) => recipe.name === CHESS_PIECE_HOVER_GLOW.name)).toBe(
+      false
+    );
+    expect(CHESS_PIECE_HOVER_GLOW.tint[0]).toBeGreaterThan(CHESS_PIECE_HOVER_GLOW.tint[2]);
+    expect(Math.max(...CHESS_PIECE_HOVER_GLOW.emissive)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('board surface materials', () => {
+  it('uses the photo wood checker and the gold plinth when the PBR maps load', () => {
+    const photo = { top: 'wood-pbr', gold: 'gold-pbr' };
+    const fallback = { top: 'canvas', rim: 'wood-graph' };
+    expect(chessBoardSurfaceMaterials(photo, fallback)).toEqual({
+      top: 'wood-pbr',
+      rim: 'gold-pbr',
+    });
+  });
+
+  it('uses the painted checker only when the PBR maps are missing', () => {
+    const fallback = { top: 'canvas', rim: 'wood-graph' };
+    expect(chessBoardSurfaceMaterials(null, fallback)).toEqual(fallback);
+  });
+
+  it('puts the photo checker on the piece bases without shadowing itself', () => {
+    expect(chessBoardCheckerPlacement()).toEqual({
+      y: 0.001,
+      castShadow: false,
+      doubleSided: true,
+    });
+  });
+});
+
+describe('coach cutout', () => {
+  it('queues the coach mask so the cutout pass can draw it', () => {
+    const material = chessCutoutMaterial('ChessCutout-0', [0.15, 0.95, 0.28]);
+    expect(material.properties.get('tag')).toBe('coach_mask');
+    expect(material.properties.get('opacity')).toBe(1);
+    // Opaque meshes are batched and never reach a custom queue. Blend enters that queue.
+    expect(usesTransparentRenderQueue(material)).toBe(true);
   });
 });

@@ -156,6 +156,35 @@ export default function ChessGraphicsMenu(): ReactElement {
                     );
                   })}
                 </div>
+                <p className="scv-chess-label scv-chess-mt">Upscale</p>
+                <div className="scv-chess-color-row">
+                  {(
+                    [
+                      ['off', 'Sans'],
+                      ['quality', 'Qualité'],
+                      ['performance', 'Performance'],
+                    ] as const
+                  ).map(([mode, label]) => {
+                    const selected = settings.upscale === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        className="scv-chess-color-btn"
+                        style={{
+                          background: selected
+                            ? 'rgba(232,184,109,0.16)'
+                            : 'rgba(255,255,255,0.05)',
+                          border: `1px solid ${selected ? AMBER : 'rgba(255,255,255,0.12)'}`,
+                          color: selected ? AMBER : '#e8eaed',
+                        }}
+                        onClick={() => patch({ upscale: mode })}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
                 <p className="scv-chess-label scv-chess-mt">Textures des pièces</p>
                 <div className="scv-chess-color-row">
                   {TEXTURE_QUALITY_OPTIONS.map((option) => {
@@ -179,14 +208,35 @@ export default function ChessGraphicsMenu(): ReactElement {
                     );
                   })}
                 </div>
-                <label className="scv-chess-check">
-                  <input
-                    type="checkbox"
-                    checked={settings.shadows}
-                    onChange={(ev) => patch({ shadows: ev.target.checked })}
-                  />
-                  Ombres
-                </label>
+                <p className="scv-chess-label scv-chess-mt">Ombres</p>
+                <div className="scv-chess-color-row">
+                  {(
+                    [
+                      ['off', 'Sans'],
+                      ['hard', 'Dure'],
+                      ['soft', 'Douce'],
+                    ] as const
+                  ).map(([mode, label]) => {
+                    const selected = settings.shadowMode === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        className="scv-chess-color-btn"
+                        style={{
+                          background: selected
+                            ? 'rgba(232,184,109,0.16)'
+                            : 'rgba(255,255,255,0.05)',
+                          border: `1px solid ${selected ? AMBER : 'rgba(255,255,255,0.12)'}`,
+                          color: selected ? AMBER : '#e8eaed',
+                        }}
+                        onClick={() => patch({ shadowMode: mode, shadows: mode !== 'off' })}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
                 <label className="scv-chess-check">
                   <input
                     type="checkbox"

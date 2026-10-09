@@ -20,6 +20,9 @@
  * @group(0) @binding(2)
  */
 @group(0) @binding(2) var<uniform> exposure: f32;
+@group(0) @binding(3) var<uniform> contrast: f32;
+/** One keeps the graded color. Zero is grey. */
+@group(0) @binding(4) var<uniform> saturation: f32;
 
 /**
  * Applies an approximation of the ACES filmic tone mapping curve.
@@ -46,8 +49,9 @@ fn fs_main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     // Apply exposure before tone mapping to adjust brightness.
     hdrColor = hdrColor * exposure;
 
-    // Apply the tone mapping function to convert from HDR to LDR.
-    let finalColor = ACESFitted(hdrColor);
-
-    return vec4(finalColor, 1.0);
+    let mapped = ACESFitted(hdrColor);
+    let graded = (mapped - vec3<f32>(0.5)) * contrast + vec3<f32>(0.5);
+    let luma = dot(graded, vec3<f32>(0.2126, 0.7152, 0.0722));
+    let colored = mix(vec3<f32>(luma), graded, saturation);
+    return vec4<f32>(clamp(colored, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
 }

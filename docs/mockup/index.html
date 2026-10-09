@@ -12,7 +12,18 @@
       <div class="studio-board" id="studio-board" aria-hidden="true"></div>
     </div>
 
-    <p class="mock-tag">Maquette CHESS-B8</p>
+    <div class="mock-corner">
+      <p class="mock-tag">Maquette CHESS-B8</p>
+      <nav class="mock-ends" aria-label="Exemples de fin">
+        <span>Fin</span>
+        <button type="button" data-end="won">Gagné</button>
+        <button type="button" data-end="lost">Perdu</button>
+        <button type="button" data-end="resign">Abandon</button>
+        <button type="button" data-end="draw">Pat</button>
+        <button type="button" data-end="insufficient">Matériel</button>
+        <button type="button" data-end="drawAccepted">Nulle OK</button>
+      </nav>
+    </div>
 
     <section class="boot is-on" data-screen="chargement" role="status" aria-label="Préparation du studio">
       <div class="boot-crest">
@@ -33,6 +44,7 @@
           <button type="button" data-go="classements">Classements</button>
           <button type="button" data-go="options">Options</button>
           <button type="button" data-go="parametres">Paramètres</button>
+          <a class="text-link" href="./audio.html">Revue audio</a>
           <button type="button" data-go="propos">À propos</button>
         </nav>
       </section>
@@ -83,6 +95,7 @@
           <p class="clock" id="clock">10:00</p>
           <p class="link-chip" id="link-chip" hidden></p>
           <button type="button" class="ghost" id="play-move" hidden>Jouer le coup</button>
+          <button type="button" class="ghost" id="reopen-fin" hidden>Résultat</button>
           <button type="button" class="ghost" id="open-assistant">Assistant</button>
           <button type="button" class="primary" id="open-pause" data-primary>Pause</button>
         </header>
@@ -129,10 +142,33 @@
             <button type="button" class="ghost" id="save-game">Sauvegarder</button>
             <p class="notice" id="save-confirm" hidden>Partie sauvegardée</p>
             <button type="button" class="ghost" data-go="sauvegardes">Sauvegardes</button>
+            <button type="button" class="danger" id="resign">Abandon</button>
+            <button type="button" class="ghost" id="offer-draw">Proposer nulle</button>
             <button type="button" class="ghost" id="change-mode">Changer de mode</button>
             <button type="button" class="ghost" data-go="options">Options</button>
             <button type="button" class="danger" id="leave-table" hidden>Quitter la table</button>
             <button type="button" class="ghost" id="home">Retour à l’accueil</button>
+          </section>
+        </div>
+        <div class="overlay" id="nulle-offre" data-screen="nulle-offre" hidden>
+          <section class="panel" aria-labelledby="nulle-title">
+            <h1 id="nulle-title">Proposer nulle</h1>
+            <p class="hint" id="nulle-blurb"></p>
+            <button type="button" class="primary" id="nulle-accept" data-primary>Accepter</button>
+            <button type="button" class="ghost" id="nulle-refuse">Refuser</button>
+            <button type="button" class="ghost" id="nulle-cancel">Annuler</button>
+          </section>
+        </div>
+        <div class="overlay" id="fin" data-screen="fin" hidden>
+          <section class="panel fin-card is-won" id="fin-card" aria-labelledby="fin-title">
+            <img class="fin-crest" src="./crest.webp" alt="" />
+            <h1 id="fin-title">Gagné</h1>
+            <p id="fin-line"></p>
+            <p class="hint" id="fin-flag" hidden>Les blancs ont perdu au temps.</p>
+            <button type="button" class="primary" id="see-board" data-primary>Voir le plateau</button>
+            <button type="button" class="ghost" id="replay">Recommencer</button>
+            <button type="button" class="ghost" id="fin-modes">Changer de mode</button>
+            <button type="button" class="ghost" id="fin-home">Retour à l’accueil</button>
           </section>
         </div>
       </section>
@@ -144,6 +180,7 @@
           </div>
           <button type="button" class="ghost" id="propos-back" data-primary>Fermer</button>
         </header>
+        <div class="sheet-body">
         <section class="sheet-section">
           <h2>Version</h2>
           <p class="about-version">0.1.0</p>
@@ -160,6 +197,7 @@
           <p>ChessMaster &amp; W3DTS copyright Cyril TARRIET</p>
           <p>Logiciel propriétaire. Tous droits réservés.</p>
         </section>
+        </div>
       </section>
 
       <section class="panel sheet" data-screen="options" hidden aria-labelledby="options-title">
@@ -170,6 +208,11 @@
           </div>
           <button type="button" class="ghost" id="options-back" data-primary>Fermer</button>
         </header>
+        <div class="sheet-body">
+        <section class="sheet-section">
+          <h2>Choix de l’ambiance</h2>
+          <div class="choice" id="sets"></div>
+        </section>
         <section class="sheet-section">
           <h2>Préréglage</h2>
           <div class="choice" id="presets"></div>
@@ -178,19 +221,23 @@
           <h2>Image</h2>
           <p class="field">Résolution</p>
           <div class="choice" id="resolutions"></div>
+          <p class="field">Upscale</p>
+          <div class="choice" id="upscale"></div>
           <p class="field">Textures des pièces</p>
           <div class="choice" id="textures"></div>
         </section>
         <section class="sheet-section">
           <h2>Effets</h2>
+          <p class="field">Ombres</p>
+          <div class="choice" id="shadow-mode"></div>
           <div class="toggle-grid">
-            <label class="check"><span>Ombres</span><input type="checkbox" id="opt-shadows" /></label>
             <label class="check"><span>Occlusion ambiante</span><input type="checkbox" id="opt-ao" /></label>
             <label class="check"><span>Reflets du plateau</span><input type="checkbox" id="opt-reflections" /></label>
             <label class="check"><span>Bloom</span><input type="checkbox" id="opt-bloom" /></label>
           </div>
         </section>
         <p class="status-line" id="render-line"></p>
+        </div>
       </section>
 
       <section class="panel sheet" data-screen="parametres" hidden aria-labelledby="param-title">
@@ -201,6 +248,7 @@
           </div>
           <button type="button" class="ghost" id="param-back">Fermer</button>
         </header>
+        <div class="sheet-body">
         <section class="sheet-section">
           <h2>Son</h2>
           <label class="field" for="vol-sfx">Volume des coups <span id="vol-sfx-val"></span></label>
@@ -213,6 +261,7 @@
             <input id="vol-amb" type="range" min="0" max="100" step="any" />
             <span class="scale-thumb" style="--at:0.4" aria-hidden="true"></span>
           </div>
+          <button type="button" class="ghost" data-go="son" style="margin-top:0.75rem">Écouter les lits</button>
         </section>
         <section class="sheet-section">
           <h2>Langue</h2>
@@ -247,6 +296,52 @@
           <p class="notice" id="key-state" hidden>Clé enregistrée</p>
           <button type="button" class="primary" id="save-settings" data-primary>Enregistrer</button>
         </section>
+        </div>
+      </section>
+
+      <section class="panel sheet" data-screen="son" hidden aria-labelledby="son-title">
+        <header class="sheet-head">
+          <div>
+            <h1 id="son-title">Son</h1>
+            <p class="hint">Écoute des lits, de la tension et des prises par ambiance. Hors client.</p>
+          </div>
+          <button type="button" class="ghost" id="son-back">Fermer</button>
+        </header>
+        <div class="sheet-body">
+          <section class="sheet-section">
+            <h2>Ambiance</h2>
+            <div class="choice" id="son-sets"></div>
+          </section>
+          <section class="sheet-section">
+            <h2>Tension</h2>
+            <div class="choice" id="son-tension"></div>
+            <p class="hint" id="son-tension-hint">Neutre : lit calm seul.</p>
+          </section>
+          <section class="sheet-section">
+            <h2>Coups</h2>
+            <div class="son-shots" id="son-shots">
+              <button type="button" data-son-shot="drop">Drop</button>
+              <button type="button" data-son-shot="capture">Capture</button>
+              <button type="button" data-son-shot="check">Échec</button>
+              <button type="button" data-son-shot="win">Gain</button>
+              <button type="button" data-son-shot="lose">Perte</button>
+            </div>
+          </section>
+          <section class="sheet-section">
+            <h2>Volumes</h2>
+            <label class="field" for="son-vol-sfx">Volume des coups <span id="son-vol-sfx-val"></span></label>
+            <div class="scale is-float">
+              <input id="son-vol-sfx" type="range" min="0" max="100" step="any" />
+              <span class="scale-thumb" style="--at:0.8" aria-hidden="true"></span>
+            </div>
+            <label class="field" for="son-vol-amb">Volume d’ambiance <span id="son-vol-amb-val"></span></label>
+            <div class="scale is-float">
+              <input id="son-vol-amb" type="range" min="0" max="100" step="any" />
+              <span class="scale-thumb" style="--at:0.4" aria-hidden="true"></span>
+            </div>
+            <p class="hint" id="son-status">Les WAV viennent de docs/raw_assets/audio-review/.</p>
+          </section>
+        </div>
       </section>
 
       <section class="panel sheet" data-screen="sauvegardes" hidden aria-labelledby="saves-title">
@@ -257,6 +352,7 @@
           </div>
           <button type="button" class="ghost" id="saves-back" data-primary>Fermer</button>
         </header>
+        <div class="sheet-body">
         <section class="sheet-section" id="save-interrupt">
           <h2>Partie interrompue</h2>
           <div class="save-row">
@@ -279,6 +375,7 @@
           </div>
         </section>
         <p class="hint" id="saves-empty" hidden>Aucune partie gardée.</p>
+        </div>
       </section>
 
       <section class="panel wide" data-screen="classements" hidden aria-labelledby="rank-title">
@@ -293,7 +390,8 @@
 
     <div id="objection" class="objection" hidden>
       <img src="./crest.webp" alt="" />
-      <p>Objection&nbsp;!</p>
+      <p class="objection-word">Objection&nbsp;!</p>
+      <p class="objection-line">Ce n’est pas le coup le plus net.</p>
     </div>
     <script src="./mockup.js"></script>
   </body>

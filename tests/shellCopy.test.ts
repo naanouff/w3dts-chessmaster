@@ -75,6 +75,13 @@ describe('shell copy', () => {
     expect(Object.keys(copy.openings).sort()).toEqual(ECO_OPENINGS.map((opening) => opening.eco).sort());
   });
 
+  it('addresses the student in simple, almost formal French', () => {
+    const copy = shellCopy('fr');
+    const speech = `${copy.ghostHint} ${copy.objectionLesson} ${copy.trainingWelcome}`;
+    expect(speech).toMatch(/\bvous\b/);
+    expect(speech).not.toMatch(/\b(tu|ton|ta|tes|toi)\b/);
+  });
+
   it('falls back to French for an unknown language', () => {
     expect(shellCopy('pt')).toEqual(shellCopy('fr'));
   });

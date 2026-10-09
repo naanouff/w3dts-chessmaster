@@ -21,6 +21,8 @@ struct LightData {
     
     // x=innerCos or area width, y=outerCos or area height, z=shadowIndex, w=padding
     params: vec4<f32>,
+    // Area-light tangent and shape. Keeps the 20-float stride of core 0.0.37.
+    tangentAndShape: vec4<f32>,
 };
 
 struct LightBuffer {
@@ -44,6 +46,7 @@ struct FrameUniforms {
     ambientLightIntensity: f32,
     debugViewMode: u32,
     totalTime: f32,
+    shadowFilter: f32,
     cascadeSplits: vec4<f32>, 
 };
 
@@ -100,7 +103,9 @@ fn fs_main(input: VertexOutput, @builtin(front_facing) is_front: bool) -> Fragme
     // [[FUNCTION_BODY]]
 
     var final_alpha_out = final_alpha;
-    if (ALPHA_MODE == 1u) { // OPAQUE
+    // Opaque coverage is 1. A value above that is emissive energy for the bright pass,
+    // and forcing it back to 1 would make every neon bloom like a specular highlight: not at all.
+    if (ALPHA_MODE == 1u && final_alpha <= 1.0) {
         final_alpha_out = 1.0;
     }
 

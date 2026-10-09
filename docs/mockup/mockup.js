@@ -19,11 +19,23 @@ const MODES = [
 ];
 
 const PRESETS = {
-  fluide: { title: 'Fluide', resolution: '1080', textures: 'low', shadows: true, ao: false, reflections: false, bloom: false },
-  equilibre: { title: 'Équilibré', resolution: '1440', textures: 'medium', shadows: true, ao: false, reflections: false, bloom: true },
-  qualite: { title: 'Qualité', resolution: '2160', textures: 'high', shadows: true, ao: true, reflections: true, bloom: true },
-  natif: { title: 'Natif', resolution: 'native', textures: 'high', shadows: true, ao: true, reflections: true, bloom: true },
+  fluide: { title: 'Fluide', resolution: '1080', textures: 'low', upscale: 'off', shadows: true, shadowMode: 'hard', ao: false, reflections: false, bloom: false },
+  equilibre: { title: 'Équilibré', resolution: '1440', textures: 'medium', upscale: 'off', shadows: true, shadowMode: 'soft', ao: false, reflections: false, bloom: true },
+  qualite: { title: 'Qualité', resolution: '2160', textures: 'high', upscale: 'quality', shadows: true, shadowMode: 'soft', ao: true, reflections: true, bloom: true },
+  natif: { title: 'Natif', resolution: 'native', textures: 'high', upscale: 'quality', shadows: true, shadowMode: 'soft', ao: true, reflections: true, bloom: true },
 };
+
+const UPSCALE_MODES = [
+  { id: 'off', label: 'Sans' },
+  { id: 'quality', label: 'Qualité' },
+  { id: 'performance', label: 'Performance' },
+];
+
+const SHADOW_MODES = [
+  { id: 'off', label: 'Sans' },
+  { id: 'hard', label: 'Dure' },
+  { id: 'soft', label: 'Douce' },
+];
 
 const RESOLUTIONS = [
   { id: '1080', label: '1080p', size: '1920×1080' },
@@ -36,6 +48,14 @@ const TEXTURES = [
   { id: 'low', label: 'Basse' },
   { id: 'medium', label: 'Normale' },
   { id: 'high', label: 'Haute' },
+];
+
+const SETS = [
+  { id: 'atelier', label: 'Atelier', thumb: '../ambiances/atelier-kontrast.png' },
+  { id: 'salon', label: 'Salon', thumb: '../ambiances/salon-de-minuit.png' },
+  { id: 'club', label: 'Club', thumb: '../ambiances/club-neon.png' },
+  { id: 'jardin', label: 'Jardin', thumb: '../ambiances/jardin-suspendu.jpg' },
+  { id: 'terrasse', label: 'Terrasse', thumb: '../ambiances/terrasse-hiver.jpg' },
 ];
 
 const RANKS = {
@@ -83,6 +103,7 @@ const state = {
   trainingHeld: false,
   horizon: 3,
   objecting: false,
+  ending: null,
   hasModel: false,
   hasKey: false,
   provider: 'local',
@@ -90,9 +111,35 @@ const state = {
   ambience: 40,
   language: 'fr',
   graphics: { ...PRESETS.fluide, preset: 'fluide' },
+  set: 'atelier',
+  tension: 'calm',
   rank: 'local',
   interrupt: true,
   voluntary: ['local', 'online'],
+};
+
+/** Relative to docs/mockup/ — WAVs live under docs/raw_assets/audio-review/. */
+const SON_ROOT = '../raw_assets/audio-review';
+
+const SON_TENSION = [
+  { id: 'calm', label: 'Neutre', hint: 'Lit calm seul.' },
+  { id: 'edge', label: 'Avantage', hint: 'Calm + couche edge (hum clair).' },
+  { id: 'pressure', label: 'Pression', hint: 'Calm + couche pressure (hum sombre).' },
+];
+
+const SON_GAINS = {
+  calm: { calm: 0.5, edge: 0, pressure: 0, music: 1.1, musicEdge: 0, musicPressure: 0 },
+  edge: { calm: 0.325, edge: 0.275, pressure: 0, music: 0, musicEdge: 0.9, musicPressure: 0 },
+  pressure: { calm: 0.325, edge: 0, pressure: 0.3, music: 0, musicEdge: 0, musicPressure: 0.56 },
+};
+
+const SON_BED_LAYERS = ['calm', 'edge', 'pressure', 'music', 'musicEdge', 'musicPressure'];
+
+const sonLab = {
+  ctx: null,
+  master: null,
+  beds: { calm: null, edge: null, pressure: null, music: null, musicEdge: null, musicPressure: null },
+  buffers: new Map(),
 };
 
 const $ = (id) => document.getElementById(id);
@@ -100,19 +147,25 @@ const $ = (id) => document.getElementById(id);
 function show(screen, back) {
   if (back) state.back = back;
   state.screen = screen;
-  if (screen !== 'partie' && screen !== 'pause') state.assistant = false;
+  if (screen !== 'partie' && screen !== 'pause' && screen !== 'nulle-offre') state.assistant = false;
   if (screen === 'partie' && state.reopenAssistant) {
     state.assistant = true;
     state.reopenAssistant = false;
   }
   document.querySelectorAll('[data-screen]').forEach((node) => {
-    const on = node.dataset.screen === screen || (screen === 'pause' && node.dataset.screen === 'partie');
+    const on =
+      node.dataset.screen === screen ||
+      ((screen === 'pause' || screen === 'fin' || screen === 'nulle-offre') &&
+        node.dataset.screen === 'partie');
     node.hidden = !on;
     node.classList.toggle('is-on', node.dataset.screen === screen);
   });
   $('pause').hidden = screen !== 'pause';
+  $('nulle-offre').hidden = screen !== 'nulle-offre';
+  $('fin').hidden = screen !== 'fin';
   $('assistant').hidden = !(screen === 'partie' && state.assistant);
   $('leave-table').hidden = !(state.mode === 'online' && state.linkOpen);
+  if (screen === 'nulle-offre') paintDrawOffer();
   paint();
   const root =
     state.assistant && screen === 'partie'
@@ -128,8 +181,140 @@ function paint() {
   paintPartie();
   paintOptions();
   paintSettings();
+  paintSon();
   paintRanks();
   paintSaves();
+  paintSheetScroll();
+}
+
+function sonHitUrl(kind) {
+  if (kind === 'check' || kind === 'win' || kind === 'lose') {
+    return `${SON_ROOT}/state/${kind}.wav`;
+  }
+  return `${SON_ROOT}/hits/${state.set}/${kind}.wav`;
+}
+
+function sonBedUrl(layer) {
+  if (layer === 'calm') return `${SON_ROOT}/beds/${state.set}/calm.wav`;
+  if (layer === 'music') return `${SON_ROOT}/beds/${state.set}/music.wav`;
+  if (layer === 'musicEdge') return `${SON_ROOT}/beds/${state.set}/music-edge.wav`;
+  if (layer === 'musicPressure') return `${SON_ROOT}/beds/${state.set}/music-pressure.wav`;
+  return `${SON_ROOT}/beds/shared/${layer}.wav`;
+}
+
+async function sonEnsureContext() {
+  if (!sonLab.ctx) {
+    sonLab.ctx = new AudioContext();
+    sonLab.master = sonLab.ctx.createGain();
+    sonLab.master.connect(sonLab.ctx.destination);
+  }
+  if (sonLab.ctx.state === 'suspended') await sonLab.ctx.resume();
+  return sonLab.ctx;
+}
+
+async function sonLoadBuffer(url) {
+  if (sonLab.buffers.has(url)) return sonLab.buffers.get(url);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const raw = await res.arrayBuffer();
+  const ctx = await sonEnsureContext();
+  const buffer = await ctx.decodeAudioData(raw.slice(0));
+  sonLab.buffers.set(url, buffer);
+  return buffer;
+}
+
+function sonStopBeds() {
+  for (const key of Object.keys(sonLab.beds)) {
+    sonLab.beds[key]?.stop?.();
+    sonLab.beds[key] = null;
+  }
+}
+
+async function sonRestartBeds() {
+  const status = $('son-status');
+  try {
+    await sonEnsureContext();
+    sonStopBeds();
+    const gains = SON_GAINS[state.tension] || SON_GAINS.calm;
+    const master = (state.ambience / 100) * 0.045;
+    if (master <= 0) {
+      if (status) status.textContent = 'Ambiance à 0 — lits muets.';
+      return;
+    }
+    for (const layer of SON_BED_LAYERS) {
+      const g = gains[layer];
+      if (g <= 0) continue;
+      const buffer = await sonLoadBuffer(sonBedUrl(layer));
+      const src = sonLab.ctx.createBufferSource();
+      const gain = sonLab.ctx.createGain();
+      src.buffer = buffer;
+      src.loop = true;
+      gain.gain.value = master * g;
+      src.connect(gain);
+      gain.connect(sonLab.master);
+      src.start();
+      sonLab.beds[layer] = src;
+    }
+    if (status) status.textContent = `Lit ${state.set} · tension ${state.tension}.`;
+  } catch (err) {
+    if (status) {
+      status.textContent = `Fichier manquant ou inaccessible (${err.message}). Ouvrir la maquette via un serveur local si file:// bloque fetch.`;
+    }
+  }
+}
+
+async function sonPlayShot(kind) {
+  const status = $('son-status');
+  try {
+    await sonEnsureContext();
+    const buffer = await sonLoadBuffer(sonHitUrl(kind));
+    const src = sonLab.ctx.createBufferSource();
+    const gain = sonLab.ctx.createGain();
+    const bases = { drop: 0.55, capture: 0.7, check: 0.4, win: 0.55, lose: 0.5 };
+    src.buffer = buffer;
+    gain.gain.value = (state.sfx / 100) * (bases[kind] ?? 0.5);
+    src.connect(gain);
+    gain.connect(sonLab.master);
+    src.start();
+    if (status) status.textContent = `${kind} · ${state.set}.`;
+  } catch (err) {
+    if (status) status.textContent = `Coup ${kind} : ${err.message}`;
+  }
+}
+
+function paintSon() {
+  const sets = $('son-sets');
+  const tension = $('son-tension');
+  if (!sets || !tension) return;
+  sets.innerHTML = SETS.map(
+    (item) =>
+      `<button type="button" class="${state.set === item.id ? 'is-selected' : ''}" data-son-set="${item.id}"><img src="${item.thumb}" alt="" /><span>${item.label}</span></button>`
+  ).join('');
+  tension.innerHTML = SON_TENSION.map(
+    (item) =>
+      `<button type="button" class="${state.tension === item.id ? 'is-selected' : ''}" data-son-tension="${item.id}">${item.label}</button>`
+  ).join('');
+  const hint = SON_TENSION.find((item) => item.id === state.tension);
+  const hintEl = $('son-tension-hint');
+  if (hintEl && hint) hintEl.textContent = hint.hint;
+  const sfx = $('son-vol-sfx');
+  const amb = $('son-vol-amb');
+  if (sfx) {
+    sfx.value = String(state.sfx);
+    placeRangeThumb(sfx);
+    $('son-vol-sfx-val').textContent = `${Math.round(state.sfx)}`;
+  }
+  if (amb) {
+    amb.value = String(state.ambience);
+    placeRangeThumb(amb);
+    $('son-vol-amb-val').textContent = `${Math.round(state.ambience)}`;
+  }
+}
+
+function paintSheetScroll() {
+  document.querySelectorAll('.sheet-body').forEach((node) => {
+    node.classList.toggle('is-overflow', node.scrollHeight > node.clientHeight + 1);
+  });
 }
 
 function paintSaves() {
@@ -177,7 +362,7 @@ function paintModes() {
  */
 function levelScale(value) {
   const min = 1;
-  const max = 5;
+  const max = 3;
   const marks = [];
   for (let step = min; step <= max; step += 1) {
     marks.push(
@@ -333,7 +518,6 @@ function modeTitle() {
 }
 
 function paintPartie() {
-  $('mode-label').textContent = modeTitle();
   const chip = $('link-chip');
   const online = state.mode === 'online';
   chip.hidden = !online;
@@ -345,9 +529,19 @@ function paintPartie() {
   $('coach-horizon-label').textContent = `Profondeur ${state.horizon}`;
   const horizon = $('coach-horizon');
   if (horizon && horizon.value !== String(state.horizon)) horizon.value = String(state.horizon);
-  $('play-move').hidden = !training || state.objecting;
-  if (training && state.trainingHeld) $('turn-label').textContent = 'Partie arrêtée';
-  else $('turn-label').textContent = state.color === 'black' ? 'Les noirs jouent' : 'Les blancs jouent';
+  const ended = Boolean(state.ending);
+  $('play-move').hidden = !training || state.objecting || ended;
+  $('open-pause').hidden = ended;
+  $('clock').hidden = ended;
+  $('reopen-fin').hidden = !ended || state.screen === 'fin';
+  if (ended) {
+    $('turn-label').textContent = state.ending.title;
+    $('mode-label').textContent = state.ending.line;
+  } else {
+    $('mode-label').textContent = modeTitle();
+    if (training && state.trainingHeld) $('turn-label').textContent = 'Partie arrêtée';
+    else $('turn-label').textContent = state.color === 'black' ? 'Les noirs jouent' : 'Les blancs jouent';
+  }
   paintGhosts();
 }
 
@@ -375,7 +569,13 @@ function paintOptions() {
   const graphics = state.graphics;
   rememberChoiceThumb($('presets'));
   rememberChoiceThumb($('resolutions'));
+  rememberChoiceThumb($('upscale'));
   rememberChoiceThumb($('textures'));
+  rememberChoiceThumb($('shadow-mode'));
+  $('sets').innerHTML = SETS.map(
+    (item) =>
+      `<button type="button" class="${state.set === item.id ? 'is-selected' : ''}" data-set="${item.id}"><img src="${item.thumb}" alt="" /><span>${item.label}</span></button>`
+  ).join('');
   $('presets').innerHTML = Object.entries(PRESETS)
     .map(
       ([id, preset]) =>
@@ -386,18 +586,27 @@ function paintOptions() {
     (item) =>
       `<button type="button" class="${graphics.resolution === item.id ? 'is-selected' : ''}" data-resolution="${item.id}">${item.label}</button>`
   ).join('');
+  $('upscale').innerHTML = UPSCALE_MODES.map(
+    (item) =>
+      `<button type="button" class="${graphics.upscale === item.id ? 'is-selected' : ''}" data-upscale="${item.id}">${item.label}</button>`
+  ).join('');
   $('textures').innerHTML = TEXTURES.map(
     (item) =>
       `<button type="button" class="${graphics.textures === item.id ? 'is-selected' : ''}" data-texture="${item.id}">${item.label}</button>`
   ).join('');
-  $('opt-shadows').checked = graphics.shadows;
+  $('shadow-mode').innerHTML = SHADOW_MODES.map(
+    (item) =>
+      `<button type="button" class="${graphics.shadowMode === item.id ? 'is-selected' : ''}" data-shadow="${item.id}">${item.label}</button>`
+  ).join('');
   $('opt-ao').checked = graphics.ao;
   $('opt-reflections').checked = graphics.reflections;
   $('opt-bloom').checked = graphics.bloom;
   $('render-line').textContent = `Rendu ${resolutionSize()} · 60 img/s`;
   placeChoiceThumb($('presets'));
   placeChoiceThumb($('resolutions'));
+  placeChoiceThumb($('upscale'));
   placeChoiceThumb($('textures'));
+  placeChoiceThumb($('shadow-mode'));
 }
 
 function paintSettings() {
@@ -523,23 +732,101 @@ function leaveTable() {
   show('salon', 'modes');
 }
 
+const ENDINGS = {
+  won: { title: 'Gagné', line: 'Les noirs sont échec et mat.', flag: false },
+  lost: { title: 'Perdu', line: 'Les blancs sont échec et mat.', flag: true },
+  resign: { title: 'Perdu', line: 'Les blancs ont abandonné.', flag: false },
+  draw: { title: 'Nulle', line: 'Pat. Aucun coup légal.', flag: false },
+  insufficient: { title: 'Nulle', line: 'Matériel insuffisant.', flag: false },
+  drawAccepted: { title: 'Nulle', line: 'Nulle acceptée.', flag: false },
+};
+
+function finCardClass(kind) {
+  if (kind === 'won') return 'is-won';
+  if (kind === 'lost' || kind === 'resign') return 'is-lost';
+  return 'is-draw';
+}
+
+function paintDrawOffer() {
+  const cpu = state.mode === 'cpu' || state.mode === 'training';
+  const blurb = $('nulle-blurb');
+  const accept = $('nulle-accept');
+  const refuse = $('nulle-refuse');
+  if (cpu) {
+    blurb.textContent =
+      'Contre l’ordinateur : accepte si l’évaluation est dans ±50 centipions. La maquette simule les deux réponses.';
+    accept.textContent = 'L’ordinateur accepte';
+    refuse.textContent = 'L’ordinateur refuse';
+  } else {
+    blurb.textContent = 'L’autre camp voit cette offre. Accepter ou refuser.';
+    accept.textContent = 'Accepter';
+    refuse.textContent = 'Refuser';
+  }
+}
+
+let objectionTimers = [];
+
+function clearObjectionTimers() {
+  objectionTimers.forEach((id) => window.clearTimeout(id));
+  objectionTimers = [];
+}
+
+function dismissObjection() {
+  clearObjectionTimers();
+  state.objecting = false;
+  const cry = $('objection');
+  cry.hidden = true;
+  cry.classList.remove('is-leaving');
+  $('studio').classList.remove('is-shaken');
+  paintPartie();
+}
+
 function raiseObjection() {
-  if (state.mode !== 'training' || state.screen !== 'partie' || state.objecting) return;
+  if (state.mode !== 'training' || state.screen !== 'partie' || state.objecting || state.ending) return;
   state.objecting = true;
   state.trainingHeld = true;
   state.assistant = true;
   $('assistant').hidden = false;
-  $('objection').hidden = false;
-  $('studio').classList.add('is-shaken');
-  $('coach-body').textContent = 'Le coup joué n’est pas le fantôme le plus net.';
+  $('coach-body').textContent = 'Ce n’est pas le coup le plus net.';
   paintPartie();
-  window.setTimeout(() => {
+  if (reduceMotion) {
     state.objecting = false;
-    $('objection').hidden = true;
-    $('studio').classList.remove('is-shaken');
     paintPartie();
-    if (state.assistant) $('coach-stop').focus();
-  }, 900);
+    $('coach-stop').focus();
+    return;
+  }
+  const cry = $('objection');
+  cry.classList.remove('is-leaving');
+  cry.hidden = false;
+  $('studio').classList.add('is-shaken');
+  objectionTimers = [
+    window.setTimeout(() => cry.classList.add('is-leaving'), 1600),
+    window.setTimeout(() => {
+      dismissObjection();
+      if (state.assistant) $('coach-stop').focus();
+    }, 2050),
+  ];
+}
+
+function openEnding(kind) {
+  const ending = ENDINGS[kind];
+  if (!ending) return;
+  dismissObjection();
+  state.ending = ending;
+  state.assistant = false;
+  const card = $('fin-card');
+  card.classList.remove('is-won', 'is-lost', 'is-draw');
+  card.classList.add(finCardClass(kind));
+  $('fin-title').textContent = ending.title;
+  $('fin-line').textContent = ending.line;
+  $('fin-flag').hidden = !ending.flag;
+  show('fin');
+}
+
+function replayGame() {
+  state.ending = null;
+  state.trainingHeld = false;
+  show('partie');
 }
 
 function askCoach(kind) {
@@ -585,13 +872,15 @@ function saveSettings() {
 function matchPreset() {
   const graphics = state.graphics;
   const found = Object.entries(PRESETS).find(([, preset]) =>
-    ['resolution', 'textures', 'shadows', 'ao', 'reflections', 'bloom'].every((key) => preset[key] === graphics[key])
+    ['resolution', 'textures', 'upscale', 'shadows', 'shadowMode', 'ao', 'reflections', 'bloom'].every(
+      (key) => preset[key] === graphics[key]
+    )
   );
   graphics.preset = found ? found[0] : '';
 }
 
 document.addEventListener('click', (event) => {
-  const target = event.target instanceof Element ? event.target.closest('[data-go], [data-mode], [data-color], [data-opening], [data-host-color], [data-preset], [data-resolution], [data-texture], [data-lang], [data-provider], [data-rank], button') : null;
+  const target = event.target instanceof Element ? event.target.closest('[data-go], [data-mode], [data-color], [data-opening], [data-host-color], [data-set], [data-son-set], [data-son-tension], [data-son-shot], [data-preset], [data-resolution], [data-upscale], [data-texture], [data-shadow], [data-lang], [data-provider], [data-rank], button') : null;
   if (!target) return;
   if (target.dataset.level) {
     const input = $('level');
@@ -604,7 +893,9 @@ document.addEventListener('click', (event) => {
   if (target.dataset.go) {
     const destination = target.dataset.go;
     const back = state.screen === 'pause' ? 'pause' : state.screen;
+    if (state.screen === 'son' && destination !== 'son') sonStopBeds();
     show(destination, destination === 'accueil' ? 'accueil' : back);
+    if (destination === 'son') void sonRestartBeds();
     return;
   }
   if (target.dataset.mode) {
@@ -627,14 +918,43 @@ document.addEventListener('click', (event) => {
     paintSalon();
     return;
   }
+  if (target.dataset.set) {
+    state.set = target.dataset.set;
+    paintOptions();
+    return;
+  }
+  if (target.dataset.sonSet) {
+    state.set = target.dataset.sonSet;
+    paintSon();
+    void sonRestartBeds();
+    return;
+  }
+  if (target.dataset.sonTension) {
+    state.tension = target.dataset.sonTension;
+    paintSon();
+    void sonRestartBeds();
+    return;
+  }
+  if (target.dataset.sonShot) {
+    void sonPlayShot(target.dataset.sonShot);
+    return;
+  }
   if (target.dataset.preset) {
     state.graphics = { ...PRESETS[target.dataset.preset], preset: target.dataset.preset };
     paintOptions();
     return;
   }
-  if (target.dataset.resolution || target.dataset.texture) {
+  if (target.dataset.shadow) {
+    state.graphics.shadowMode = target.dataset.shadow;
+    state.graphics.shadows = target.dataset.shadow !== 'off';
+    matchPreset();
+    paintOptions();
+    return;
+  }
+  if (target.dataset.resolution || target.dataset.texture || target.dataset.upscale) {
     if (target.dataset.resolution) state.graphics.resolution = target.dataset.resolution;
     if (target.dataset.texture) state.graphics.textures = target.dataset.texture;
+    if (target.dataset.upscale) state.graphics.upscale = target.dataset.upscale;
     matchPreset();
     paintOptions();
     return;
@@ -647,6 +967,10 @@ document.addEventListener('click', (event) => {
   if (target.dataset.provider) {
     state.provider = target.dataset.provider;
     paintSettings();
+    return;
+  }
+  if (target.dataset.end) {
+    openEnding(target.dataset.end);
     return;
   }
   if (target.dataset.rank) {
@@ -673,6 +997,20 @@ document.addEventListener('click', (event) => {
   if (id === 'sim-opponent') connectThenPlay();
   if (id === 'join-table') joinTable();
   if (id === 'play-move') raiseObjection();
+  if (id === 'see-board') {
+    show('partie');
+    $('reopen-fin').focus();
+  }
+  if (id === 'reopen-fin' && state.ending) show('fin');
+  if (id === 'replay') replayGame();
+  if (id === 'fin-modes') {
+    state.ending = null;
+    show('modes', 'accueil');
+  }
+  if (id === 'fin-home') {
+    state.ending = null;
+    show('accueil');
+  }
   if (id === 'open-assistant') {
     state.assistant = true;
     $('assistant').hidden = false;
@@ -697,6 +1035,11 @@ document.addEventListener('click', (event) => {
   if (id === 'open-pause') show('pause', 'partie');
   if (id === 'resume') show('partie');
   if (id === 'save-game') $('save-confirm').hidden = false;
+  if (id === 'resign') openEnding('resign');
+  if (id === 'offer-draw') show('nulle-offre', 'pause');
+  if (id === 'nulle-accept') openEnding('drawAccepted');
+  if (id === 'nulle-refuse') show('partie');
+  if (id === 'nulle-cancel') show('pause', 'partie');
   if (id === 'home-restore' || id === 'restore-interrupt') show('partie');
   if (id === 'discard-interrupt') {
     state.interrupt = false;
@@ -705,7 +1048,8 @@ document.addEventListener('click', (event) => {
   if (id === 'change-mode') show('modes', 'pause');
   if (id === 'leave-table') leaveTable();
   if (id === 'home') show('accueil');
-  if (id === 'options-back' || id === 'param-back' || id === 'rank-back' || id === 'propos-back' || id === 'saves-back') {
+  if (id === 'options-back' || id === 'param-back' || id === 'rank-back' || id === 'propos-back' || id === 'saves-back' || id === 'son-back') {
+    if (id === 'son-back') sonStopBeds();
     show(state.back || 'accueil');
   }
   if (id === 'coach-explain') askCoach('explain');
@@ -761,8 +1105,18 @@ document.addEventListener('input', (event) => {
     $('vol-amb-val').textContent = `${Math.round(state.ambience)}`;
     placeRangeThumb(target);
   }
-  if (target.id === 'opt-shadows' || target.id === 'opt-ao' || target.id === 'opt-reflections' || target.id === 'opt-bloom') {
-    state.graphics.shadows = $('opt-shadows').checked;
+  if (target.id === 'son-vol-sfx') {
+    state.sfx = Number(target.value);
+    $('son-vol-sfx-val').textContent = `${Math.round(state.sfx)}`;
+    placeRangeThumb(target);
+  }
+  if (target.id === 'son-vol-amb') {
+    state.ambience = Number(target.value);
+    $('son-vol-amb-val').textContent = `${Math.round(state.ambience)}`;
+    placeRangeThumb(target);
+    if (state.screen === 'son') void sonRestartBeds();
+  }
+  if (target.id === 'opt-ao' || target.id === 'opt-reflections' || target.id === 'opt-bloom') {
     state.graphics.ao = $('opt-ao').checked;
     state.graphics.reflections = $('opt-reflections').checked;
     state.graphics.bloom = $('opt-bloom').checked;
@@ -775,10 +1129,17 @@ document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
   if (state.screen === 'chargement') return;
   if (state.objecting) {
-    state.objecting = false;
-    $('objection').hidden = true;
-    $('studio').classList.remove('is-shaken');
-    paintPartie();
+    dismissObjection();
+    if (state.assistant) $('coach-stop').focus();
+    return;
+  }
+  if (state.ending && (state.screen === 'fin' || state.screen === 'partie')) {
+    state.ending = null;
+    show('accueil');
+    return;
+  }
+  if (state.screen === 'nulle-offre') {
+    show('pause', 'partie');
     return;
   }
   if (state.assistant && state.screen === 'partie') {
@@ -809,11 +1170,15 @@ document.addEventListener('keydown', (event) => {
     state.screen === 'parametres' ||
     state.screen === 'classements' ||
     state.screen === 'propos' ||
-    state.screen === 'sauvegardes'
+    state.screen === 'sauvegardes' ||
+    state.screen === 'son'
   ) {
+    if (state.screen === 'son') sonStopBeds();
     show(state.back || 'accueil');
   }
 });
+
+window.addEventListener('resize', paintSheetScroll);
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const bootMs = reduceMotion ? 0 : 2400;

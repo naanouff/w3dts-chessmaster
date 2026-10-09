@@ -33,7 +33,16 @@ export type ChessHudCommand =
   | { type: 'training-resume' }
   | { type: 'training-undo' }
   | { type: 'training-clock'; on: boolean }
-  | { type: 'coach-ghosts'; steps: CoachGhostStep[]; horizon: number };
+  | { type: 'coach-ghosts'; steps: CoachGhostStep[]; horizon: number }
+  | { type: 'close-table' }
+  | { type: 'reset-match' }
+  | { type: 'resign' }
+  | { type: 'offer-draw' }
+  | { type: 'accept-draw' }
+  | { type: 'refuse-draw' };
+
+/** Peer draw offer waiting for a local answer. */
+export type ChessHudDrawOffer = 'none' | 'incoming' | 'refused';
 
 export type ChessHudP2pStatus = 'waiting' | 'connecting' | 'connected' | 'disconnected';
 
@@ -58,8 +67,18 @@ export interface ChessHudPlayState {
   sideToMove: ChessColor;
   cpuThinking: boolean;
   p2pStatus: ChessHudP2pStatus | null;
+  /** Online seats agreed. The lobby may enter the game. */
+  onlineReady: boolean;
+  /** Online table refused: missing, full, or two hosts. */
+  onlineRefused: boolean;
   clocks: { whiteSeconds: number; blackSeconds: number };
   flag: ChessColor | null;
+  /** Checkmate, stalemate, insufficient, resign, or agreed draw. A flag stays on `flag` and leaves this null. */
+  outcome: 'mate' | 'stalemate' | 'insufficient' | 'resign' | 'agreed' | null;
+  /** Side that resigned when `outcome` is `resign`. */
+  resignLoser: ChessColor | null;
+  /** Incoming draw offer from the peer, or a refused CPU offer. */
+  drawOffer: ChessHudDrawOffer;
   session: ChessDemoQuery;
 }
 
@@ -164,6 +183,13 @@ function parsePlay(raw: Record<string, unknown>): ChessHudPlayState | null {
   const clocksRaw = isRecord(raw.clocks) ? raw.clocks : {};
   const flag = raw.flag === null || raw.flag === undefined ? null : parseColor(raw.flag);
   if (raw.flag !== null && raw.flag !== undefined && flag === null) return null;
+  const outcome = parseOutcome(raw.outcome);
+  if (outcome === undefined) return null;
+  const resignLoser =
+    raw.resignLoser === null || raw.resignLoser === undefined ? null : parseColor(raw.resignLoser);
+  if (raw.resignLoser !== null && raw.resignLoser !== undefined && resignLoser === null) return null;
+  const drawOffer = parseDrawOffer(raw.drawOffer);
+  if (drawOffer === undefined) return null;
   return {
     kind: 'play',
     mode,
@@ -174,11 +200,16 @@ function parsePlay(raw: Record<string, unknown>): ChessHudPlayState | null {
     sideToMove,
     cpuThinking: raw.cpuThinking === true,
     p2pStatus: mode === 'p2p' ? parseP2pStatus(raw.p2pStatus) : null,
+    onlineReady: raw.onlineReady === true,
+    onlineRefused: raw.onlineRefused === true,
     clocks: {
       whiteSeconds: Math.max(0, parseFiniteNumber(clocksRaw.whiteSeconds)),
       blackSeconds: Math.max(0, parseFiniteNumber(clocksRaw.blackSeconds)),
     },
     flag,
+    outcome,
+    resignLoser,
+    drawOffer,
     session: parseChessDemoSession(raw.session) ?? { mode, localColor, quiz: false },
   };
 }
@@ -260,7 +291,35 @@ export function parseChessHudCommand(raw: unknown): ChessHudCommand | null {
     const horizon = typeof raw.horizon === 'number' ? Math.min(5, Math.max(1, Math.floor(raw.horizon))) : 3;
     return { type: 'coach-ghosts', steps: steps.slice(0, 5), horizon };
   }
+  if (raw.type === 'close-table') return { type: 'close-table' };
+  if (raw.type === 'reset-match') return { type: 'reset-match' };
+  if (raw.type === 'resign') return { type: 'resign' };
+  if (raw.type === 'offer-draw') return { type: 'offer-draw' };
+  if (raw.type === 'accept-draw') return { type: 'accept-draw' };
+  if (raw.type === 'refuse-draw') return { type: 'refuse-draw' };
   return null;
+}
+
+function parseOutcome(
+  raw: unknown
+): 'mate' | 'stalemate' | 'insufficient' | 'resign' | 'agreed' | null | undefined {
+  if (raw === undefined || raw === null) return null;
+  if (
+    raw === 'mate' ||
+    raw === 'stalemate' ||
+    raw === 'insufficient' ||
+    raw === 'resign' ||
+    raw === 'agreed'
+  ) {
+    return raw;
+  }
+  return undefined;
+}
+
+function parseDrawOffer(raw: unknown): ChessHudDrawOffer | undefined {
+  if (raw === undefined || raw === null || raw === 'none') return 'none';
+  if (raw === 'incoming' || raw === 'refused') return raw;
+  return undefined;
 }
 
 function parseTable(value: unknown): SavedShellMode | undefined {

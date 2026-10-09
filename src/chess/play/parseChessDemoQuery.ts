@@ -17,6 +17,10 @@ export interface ChessDemoQuery {
   quiz: boolean;
   /** Heuristic depth for a CPU session. Absent means the project default. */
   cpuDepth?: number;
+  /** Online table code. The relay uses it as the room id. */
+  room?: string;
+  /** Online seat. The host color wins. */
+  seat?: 'host' | 'guest';
 }
 
 /**
@@ -79,12 +83,16 @@ export function parseChessDemoSession(raw: unknown): ChessDemoQuery | null {
   const localColor: ChessColor = colorRaw === 'black' ? 'black' : 'white';
   const ecoRaw = typeof rec.eco === 'string' ? rec.eco.trim() : '';
   const cpuDepth = typeof rec.cpuDepth === 'number' ? cpuSearchDepth(rec.cpuDepth) : undefined;
+  const room = typeof rec.room === 'string' ? rec.room.trim() : '';
+  const seat = rec.seat === 'host' || rec.seat === 'guest' ? rec.seat : undefined;
   return {
     mode,
     localColor,
     ...(ecoRaw ? { eco: ecoRaw } : {}),
     quiz: rec.quiz === true,
     ...(cpuDepth !== undefined ? { cpuDepth } : {}),
+    ...(room ? { room } : {}),
+    ...(seat ? { seat } : {}),
   };
 }
 

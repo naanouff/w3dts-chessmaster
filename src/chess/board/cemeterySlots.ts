@@ -5,6 +5,7 @@
  */
 
 import {
+  CHESS_BOARD_BODY_HEIGHT,
   CHESS_BOARD_EXTENT,
   CHESS_BOARD_MESH_EXTENT,
   CHESS_BOARD_SURFACE_Y,
@@ -17,6 +18,12 @@ import type { ChessColor } from '../rules/chessTypes';
 const RAIL_GAP = CHESS_SQUARE_SIZE * 0.7;
 const SLOT_PITCH = CHESS_SQUARE_SIZE * 0.52;
 
+/**
+ * Local Y for captured pieces on the table (or salon cloth), not the playing surface.
+ * The host adds the ambiance board lift, so the feet meet the table top under the slab.
+ */
+export const CHESS_CEMETERY_SURFACE_Y = CHESS_BOARD_SURFACE_Y - CHESS_BOARD_BODY_HEIGHT;
+
 export interface CemeterySlotPose {
   x: number;
   y: number;
@@ -26,7 +33,7 @@ export interface CemeterySlotPose {
 /**
  * Two rails along ±X, outside {@link CHESS_BOARD_MESH_EXTENT}.
  * White pieces captured (removed from White) sit on −X; black on +X.
- * Slots fill toward +Z in capture order.
+ * Slots fill toward +Z in capture order. Y is the table top under the board body.
  */
 export function assignCemeterySlot(capturedColor: ChessColor, slotIndex: number): CemeterySlotPose {
   const meshHalf = CHESS_BOARD_MESH_EXTENT / 2;
@@ -35,7 +42,7 @@ export function assignCemeterySlot(capturedColor: ChessColor, slotIndex: number)
   const z0 = -CHESS_BOARD_EXTENT / 2 + CHESS_SQUARE_SIZE * 0.15;
   return {
     x,
-    y: CHESS_BOARD_SURFACE_Y,
+    y: CHESS_CEMETERY_SURFACE_Y,
     z: z0 + slotIndex * SLOT_PITCH,
   };
 }

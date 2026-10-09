@@ -461,6 +461,20 @@ if (anisotropy != 0.0) {
 
 const MAX_REFLECTION_LOD: f32 = 4.0;
 var prefilteredColor = textureSampleLevel(prefilterMap, iblSampler, R_vec, roughnessIbl * MAX_REFLECTION_LOD).rgb;
+if (reflectionProbes.count > 0u) {
+    let probe = reflectionProbes.probes[0];
+    let probeCenter = probe.centerRadius.xyz;
+    let probeBox = probe.boxHalf.xyz;
+    let probeWeight = reflectionProbeWeight(input.world_position, probeCenter, probe.centerRadius.w, probeBox);
+    if (probeWeight > 0.0) {
+        var probeDir = R_vec;
+        if (probeBox.x > 1e-3 && probeBox.y > 1e-3 && probeBox.z > 1e-3) {
+            probeDir = normalize(boxParallaxDir(R_vec, input.world_position, probeCenter, probeBox));
+        }
+        let captured = textureSampleLevel(probePrefilter, iblSampler, probeDir, 0, roughnessIbl * MAX_REFLECTION_LOD).rgb;
+        prefilteredColor = mix(prefilteredColor, captured, probeWeight);
+    }
+}
 let specularIBL = prefilteredColor * FssEss;
 // Clearcoat IBL follows clearcoat normal Nc (MultiTest Clearcoat Normal). Keep a stable
 // face-on intensity so clearcoatTexture checkmarks stay readable (pure F0=0.04 is too dim).
@@ -548,6 +562,12 @@ let glassAlpha = mix(edgeGlassAlpha, 1.0, transmissionAmt);
 var final_alpha = mix(alpha, glassAlpha, transmissionAmt);
 if (ALPHA_MODE == 2u) {
     final_alpha = 1.0;
+}
+let emission_peak = max(emission.r, max(emission.g, emission.b));
+// Peak, not luminance: a magenta neon has almost no green, so Rec.709 puts it under the cut
+// while a white specular on a pawn sails over it. The shell keeps this only when it exceeds 1.
+if (emission_peak > 1.0) {
+    final_alpha = emission_peak;
 }
 
 // Export roughness for floor SSR (Kart/Chess). NPR hatch uses toon_master shadow in .a instead.

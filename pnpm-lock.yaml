@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@naanouff/w3dts-core': 0.0.37
+
 importers:
 
   .:
@@ -15,8 +18,8 @@ importers:
         specifier: 0.0.19
         version: 0.0.19(@webgpu/types@0.1.74)
       '@naanouff/w3dts-core':
-        specifier: 0.0.36
-        version: 0.0.36(@webgpu/types@0.1.74)
+        specifier: 0.0.37
+        version: 0.0.37(@webgpu/types@0.1.74)
       '@naanouff/w3dts-gproc':
         specifier: 0.2.8
         version: 0.2.8(@gltf-transform/core@4.5.1)(@gltf-transform/extensions@4.5.1)(@gltf-transform/functions@4.5.1(@types/node@22.20.5))(@webgpu/types@0.1.74)(esbuild-wasm@0.27.7)
@@ -32,6 +35,9 @@ importers:
       '@naanouff/w3dts-multiplayer-p2p':
         specifier: 0.0.18
         version: 0.0.18
+      '@naanouff/w3dts-particles':
+        specifier: 0.1.5
+        version: 0.1.5(@webgpu/types@0.1.74)
       '@naanouff/w3dts-physics':
         specifier: 0.0.28
         version: 0.0.28(@webgpu/types@0.1.74)
@@ -75,6 +81,9 @@ importers:
       electron-vite:
         specifier: ^3.1.0
         version: 3.1.0(vite@5.4.21(@types/node@22.20.5))
+      ffmpeg-static:
+        specifier: ^5.3.0
+        version: 5.3.0
       sharp:
         specifier: ^0.35.5
         version: 0.35.5(@types/node@22.20.5)
@@ -184,6 +193,10 @@ packages:
 
   '@badrap/result@0.2.13':
     resolution: {integrity: sha512-Qvyzz0dmGY0h8pwvBFo1BznAKf5Y5NXIDiqhPALWtfU7oHbAToCtPu4FlYQ3uysskSWLx8GUiyhe0nv0nDd/7Q==}
+
+  '@derhuerst/http-basic@8.2.4':
+    resolution: {integrity: sha512-F9rL9k9Xjf5blCz8HsJRO4diy111cayL2vkY2XE4r4t3n0yPXVYy3KD3nJ1qbrSn9743UWSXH4IwuCa/HWlGFw==}
+    engines: {node: '>=6.0.0'}
 
   '@electron/asar@3.4.1':
     resolution: {integrity: sha512-i4/rNPRS84t0vSRa2HorerGRXWyF4vThfHesw0dmcWHp+cspK743UanA0suA5Q5y8kzY2y6YKrvbIUn69BCAiA==}
@@ -768,8 +781,8 @@ packages:
   '@naanouff/w3dts-audio@0.0.19':
     resolution: {integrity: sha512-8zxCadsHPnJzFzHI8syQf8AtDC635qqCqoYrB2J3l/Wtl09yqdVtjOFQdIPYywALpDpeUbo5tTDN6j03qbCZKg==}
 
-  '@naanouff/w3dts-core@0.0.36':
-    resolution: {integrity: sha512-1TSlhoMRIxrn8m8HCp2uXNWsO4GqaRJmaEaL7VWrxDsG+e2lbiojAZDPyyU9aT3zf6CQwWhwzngToY6Q6ilHfg==}
+  '@naanouff/w3dts-core@0.0.37':
+    resolution: {integrity: sha512-HPyOzVoTkolmd+ghWasfLENcP9x2/eFM9LwEsOQTHM+m6A3fQ81PGmuvYSsXxH97qviiRB9Wzt621KLeUSS3zQ==}
     peerDependencies:
       '@webgpu/types': ^0.1.40
 
@@ -787,6 +800,9 @@ packages:
 
   '@naanouff/w3dts-multiplayer-p2p@0.0.18':
     resolution: {integrity: sha512-LlIqVxc1sXUIy4D6lUK/dOjBhaX8rpA35sOlF1CtMdHjPSGsR4kolbP+NRxN57Elm6BXTqjdfp32jYTqLSVQcw==}
+
+  '@naanouff/w3dts-particles@0.1.5':
+    resolution: {integrity: sha512-Qk0Nbk/XOzC/hYSgSda/hrGHP9yTAo+niccFTAQMkPLxOS9cHhB3kJf3mm69v5UNq93UjChWjssRceqCWmibwQ==}
 
   '@naanouff/w3dts-physics@0.0.28':
     resolution: {integrity: sha512-N/tt2cUYNCC6X1RznMxhQ91Zc57zEkfkSn2gLb7IpBTAS7hQXyr9BFgN8kISKzj72gKLXc0l9/Y9ajrxPYYP8w==}
@@ -1031,6 +1047,9 @@ packages:
   '@types/ndarray@1.1.0':
     resolution: {integrity: sha512-go+C6vHBUuO9jH6Tj6qEZ63JEGoMSxFdmd+6QAtthGD6xumBfIz3RbNDDs2aoRVLf9naH8lk5jnWy2UHHKgYQQ==}
 
+  '@types/node@10.17.60':
+    resolution: {integrity: sha512-F0KIgDJfy2nA3zMLmWGKxcH2ZVEtCZXHHdOQs2gSaQ27+lNeEfGxzkIw90aXswATX7AZ33tahPbzy6KAfUreVw==}
+
   '@types/node@22.20.5':
     resolution: {integrity: sha512-U2+DNr+wSjpsTS/wZGYHq7GcwfuSmKiKvoPvK22zwTlRhU91yOniN4qRR5KhIjvif7ysw/dz/hKmfDH0Ris4aA==}
 
@@ -1102,6 +1121,10 @@ packages:
   abbrev@4.0.0:
     resolution: {integrity: sha512-a1wflyaL0tHtJSmLSOVybYhy22vRih4eduhhrkcjgrWGnRfrZtovJ2FRjxuTtkkj47O/baf0R86QU5OuYpz8fA==}
     engines: {node: ^20.17.0 || >=22.9.0}
+
+  agent-base@6.0.2:
+    resolution: {integrity: sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ==}
+    engines: {node: '>= 6.0.0'}
 
   agent-base@7.1.4:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
@@ -1234,6 +1257,9 @@ packages:
   caniuse-lite@1.0.30001814:
     resolution: {integrity: sha512-/Uaf1lAzr59XcMpW0o96WoEfr+VXK2OX4U9AgFoiSHsVJ4HppnIFUjtYzsyDH2+tgANaQb2/oxYGwCPapN1FpA==}
 
+  caseless@0.12.0:
+    resolution: {integrity: sha512-4tYFyifaFfGacoiObjJegolkwSU4xQNGbVgUiNYVUxbQ2x2lUsFvY4hVgVzGiIe6WLOPqycWXA40l+PWsxthUw==}
+
   chai@5.3.3:
     resolution: {integrity: sha512-4zNhdJD/iOjSH0A05ea+Ke6MU5mmpQcbQsSOkgdaUMJ9zTlDTD/GYlwohmIE2u0gaxHYiVHEn1Fw9mZ/ktJWgw==}
     engines: {node: '>=18'}
@@ -1300,6 +1326,10 @@ packages:
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
+
+  concat-stream@2.0.0:
+    resolution: {integrity: sha512-MWufYdFw53ccGjCA+Ol7XJYpAlW6/prSMzuPOTRnJGcGzuhLn4Scrz7qf6o8bROZ514ltazcIFJZevcfbo0x7A==}
+    engines: {'0': node >= 6.0}
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
@@ -1534,6 +1564,10 @@ packages:
   fflate@0.8.3:
     resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
 
+  ffmpeg-static@5.3.0:
+    resolution: {integrity: sha512-H+K6sW6TiIX6VGend0KQwthe+kaceeH/luE8dIZyOP35ik7ahYojDuqlTV1bOrtEwl01sy2HFNGQfi5IDJvotg==}
+    engines: {node: '>=16'}
+
   filelist@1.0.6:
     resolution: {integrity: sha512-5giy2PkLYY1cP39p17Ech+2xlpTRL9HLspOfEgm0L6CwBXBTgsK5ou0JtzYuepxkaQ/tvhCFIJ5uXo0OrM2DxA==}
 
@@ -1655,9 +1689,16 @@ packages:
     resolution: {integrity: sha512-T1gkAiYYDWYx3V5Bmyu7HcfcvL7mUrTWiM6yOfa3PIphViJ/gFPbvidQ+veqSOHci/PxBcDabeUNCzpOODJZig==}
     engines: {node: '>= 14'}
 
+  http-response-object@3.0.2:
+    resolution: {integrity: sha512-bqX0XTF6fnXSQcEJ2Iuyr75yVakyjIDCqroJQ/aHfSdlM743Cwqoi2nDYMzLGWUcuTWGWy8AAvOKXTfiv6q9RA==}
+
   http2-wrapper@1.0.3:
     resolution: {integrity: sha512-V+23sDMr12Wnz7iTcDeJr3O6AIxlnvT/bmaAAAP/Xda35C90p9599p0F1eHR/N1KILWSoWVAiOMFjBBXaXSMxg==}
     engines: {node: '>=10.19.0'}
+
+  https-proxy-agent@5.0.1:
+    resolution: {integrity: sha512-dFcAjpTQFgoLMzC2VwU+C/CbS7uRL0lWmxDITmqm7C+7F0Odmj6s9l6alZc6AELXhrnggM2CeWSXHGOdX2YtwA==}
+    engines: {node: '>= 6'}
 
   https-proxy-agent@7.0.6:
     resolution: {integrity: sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw==}
@@ -1931,6 +1972,9 @@ packages:
     resolution: {integrity: sha512-TYOanM3wGwNGsZN2cVTYPArw454xnXj5qmWF1bEoAc4+cU/ol7GVh7odevjp1FNHduHc3KZMcFduxU5Xc6uJRQ==}
     engines: {node: '>=10'}
 
+  parse-cache-control@1.0.1:
+    resolution: {integrity: sha512-60zvsJReQPX5/QP0Kzfd/VrpjScIQ7SHBW6bFCYfEP+fp0Eppr1SHhIO5nd1PjZtvclzSzES9D/p5nFJurwfWg==}
+
   path-expression-matcher@1.6.2:
     resolution: {integrity: sha512-enSlaiat05iasnzmgNxRj8reFdj3puY2QpNgP1aPIaVfT6nn9ICuPoFlKHk8EN22HcwewshO+mN2DGbkCEOtqQ==}
     engines: {node: '>=14.0.0'}
@@ -2039,6 +2083,10 @@ packages:
 
   readable-stream@2.3.8:
     resolution: {integrity: sha512-8p0AUk4XODgIewSi0l8Epjs+EVnWiK7NoDIEGU0HhE7+ZyY8D1IMY7odu5lRrFXGg71L15KG8QrPmum45RTtdA==}
+
+  readable-stream@3.6.2:
+    resolution: {integrity: sha512-9u/sniCrY3D5WdsERHzHE4G2YCXqoG5FTHUiCC4SIbr6XcLZBY05ya9EKjYek9O5xOAwjGq+1JdGBAS7Q9ScoA==}
+    engines: {node: '>= 6'}
 
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
@@ -2242,6 +2290,9 @@ packages:
   type-fest@0.13.1:
     resolution: {integrity: sha512-34R7HTnG0XIJcBSn5XhDd7nNFPRcXYRZrBB2O2jdKqYODldSzBAqzsWoZYYvduky73toYS/ESqxPvkDf/F0XMg==}
     engines: {node: '>=10'}
+
+  typedarray@0.0.6:
+    resolution: {integrity: sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA==}
 
   typedoc@0.28.20:
     resolution: {integrity: sha512-uSKqkh8Cr48vllnEy+jdaAgOeR6Y+QCBW7usgUsKj7gJEfR7stw9U/fE49LBnj2tPRKPY0c0EBJSWe9Appmplg==}
@@ -2553,6 +2604,13 @@ snapshots:
       '@babel/helper-validator-identifier': 7.29.7
 
   '@badrap/result@0.2.13': {}
+
+  '@derhuerst/http-basic@8.2.4':
+    dependencies:
+      caseless: 0.12.0
+      concat-stream: 2.0.0
+      http-response-object: 3.0.2
+      parse-cache-control: 1.0.1
 
   '@electron/asar@3.4.1':
     dependencies:
@@ -3054,12 +3112,12 @@ snapshots:
 
   '@naanouff/w3dts-audio@0.0.19(@webgpu/types@0.1.74)':
     dependencies:
-      '@naanouff/w3dts-core': 0.0.36(@webgpu/types@0.1.74)
+      '@naanouff/w3dts-core': 0.0.37(@webgpu/types@0.1.74)
       '@naanouff/w3dts-logger': 0.0.22
     transitivePeerDependencies:
       - '@webgpu/types'
 
-  '@naanouff/w3dts-core@0.0.36(@webgpu/types@0.1.74)':
+  '@naanouff/w3dts-core@0.0.37(@webgpu/types@0.1.74)':
     dependencies:
       '@naanouff/w3dts-animation': 0.0.14(gl-matrix@3.4.4)
       '@naanouff/w3dts-input': 0.0.21
@@ -3072,7 +3130,7 @@ snapshots:
     dependencies:
       '@loaders.gl/core': 4.5.2
       '@loaders.gl/gltf': 4.5.2(@loaders.gl/core@4.5.2)
-      '@naanouff/w3dts-core': 0.0.36(@webgpu/types@0.1.74)
+      '@naanouff/w3dts-core': 0.0.37(@webgpu/types@0.1.74)
       '@naanouff/w3dts-logger': 0.0.22
       fastnoise-lite: 1.1.1
       gl-matrix: 3.4.4
@@ -3093,9 +3151,16 @@ snapshots:
 
   '@naanouff/w3dts-multiplayer-p2p@0.0.18': {}
 
+  '@naanouff/w3dts-particles@0.1.5(@webgpu/types@0.1.74)':
+    dependencies:
+      '@naanouff/w3dts-core': 0.0.37(@webgpu/types@0.1.74)
+      '@naanouff/w3dts-logger': 0.0.22
+    transitivePeerDependencies:
+      - '@webgpu/types'
+
   '@naanouff/w3dts-physics@0.0.28(@webgpu/types@0.1.74)':
     dependencies:
-      '@naanouff/w3dts-core': 0.0.36(@webgpu/types@0.1.74)
+      '@naanouff/w3dts-core': 0.0.37(@webgpu/types@0.1.74)
       gl-matrix: 3.4.4
     transitivePeerDependencies:
       - '@webgpu/types'
@@ -3303,6 +3368,8 @@ snapshots:
 
   '@types/ndarray@1.1.0': {}
 
+  '@types/node@10.17.60': {}
+
   '@types/node@22.20.5':
     dependencies:
       undici-types: 6.21.0
@@ -3393,6 +3460,12 @@ snapshots:
   '@xmldom/xmldom@0.8.15': {}
 
   abbrev@4.0.0: {}
+
+  agent-base@6.0.2:
+    dependencies:
+      debug: 4.4.3
+    transitivePeerDependencies:
+      - supports-color
 
   agent-base@7.1.4: {}
 
@@ -3573,6 +3646,8 @@ snapshots:
 
   caniuse-lite@1.0.30001814: {}
 
+  caseless@0.12.0: {}
+
   chai@5.3.3:
     dependencies:
       assertion-error: 2.0.1
@@ -3630,6 +3705,13 @@ snapshots:
   compare-version@0.1.2: {}
 
   concat-map@0.0.1: {}
+
+  concat-stream@2.0.0:
+    dependencies:
+      buffer-from: 1.1.2
+      inherits: 2.0.4
+      readable-stream: 3.6.2
+      typedarray: 0.0.6
 
   convert-source-map@2.0.0: {}
 
@@ -3937,6 +4019,15 @@ snapshots:
 
   fflate@0.8.3: {}
 
+  ffmpeg-static@5.3.0:
+    dependencies:
+      '@derhuerst/http-basic': 8.2.4
+      env-paths: 2.2.1
+      https-proxy-agent: 5.0.1
+      progress: 2.0.3
+    transitivePeerDependencies:
+      - supports-color
+
   filelist@1.0.6:
     dependencies:
       minimatch: 5.1.9
@@ -4096,10 +4187,21 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  http-response-object@3.0.2:
+    dependencies:
+      '@types/node': 10.17.60
+
   http2-wrapper@1.0.3:
     dependencies:
       quick-lru: 5.1.1
       resolve-alpn: 1.2.1
+
+  https-proxy-agent@5.0.1:
+    dependencies:
+      agent-base: 6.0.2
+      debug: 4.4.3
+    transitivePeerDependencies:
+      - supports-color
 
   https-proxy-agent@7.0.6:
     dependencies:
@@ -4354,6 +4456,8 @@ snapshots:
     dependencies:
       yocto-queue: 0.1.0
 
+  parse-cache-control@1.0.1: {}
+
   path-expression-matcher@1.6.2: {}
 
   path-is-absolute@1.0.1: {}
@@ -4454,6 +4558,12 @@ snapshots:
       isarray: 1.0.0
       process-nextick-args: 2.0.1
       safe-buffer: 5.1.2
+      string_decoder: 1.1.1
+      util-deprecate: 1.0.2
+
+  readable-stream@3.6.2:
+    dependencies:
+      inherits: 2.0.4
       string_decoder: 1.1.1
       util-deprecate: 1.0.2
 
@@ -4693,6 +4803,8 @@ snapshots:
 
   type-fest@0.13.1:
     optional: true
+
+  typedarray@0.0.6: {}
 
   typedoc@0.28.20(typescript@5.9.3):
     dependencies:

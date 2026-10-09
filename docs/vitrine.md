@@ -10,13 +10,22 @@ La règle [`.cursor/rules/docs-min.mdc`](../.cursor/rules/docs-min.mdc) renvoie 
 
 - `README.md` — la partie, les captures, les langues.
 - [Compiler](build.md) — prérequis et scripts.
-- [Coach](coach-ia.md)
+- [Coach](coach-ia.md) — dont installation Ollama
 - [Maquette](maquette-ui.md)
 - [Shell](shell-client.md)
 - [Langues](i18n.md)
 - [Assets 3D](assets-3d.md)
+- [Pièces](pieces.md)
+- [Survol](survol.md)
+- [Ambiances](ambiances.md)
+- [Son](audio.md) — revue : `pnpm review:audio` → `/mockup/audio.html`
 - [Version](semver.md)
 - [Persistance](persistance.md)
+- [Multijoueur](multijoueur.md)
+- [Profil graphique](profil-graphismes.md)
+- [Ombres](ombres.md)
+- [Upscale](upscale.md)
+- [Plan QA de l’alpha](qa-alpha.md)
 
 Les fichiers de `docs/sprints/` sont des archives. On ne les rallonge pas quand le code bouge.
 
@@ -45,7 +54,8 @@ WebP, grand côté 1280, dans `docs/media/`. Prises dans le client (`pnpm dev`),
 
 - Contre l’ordinateur.
 - À deux, la même souris.
-- Une seconde fenêtre sur ce poste, avec un code de table. Pas une partie entre deux machines.
+- Une seconde fenêtre sur ce poste.
+- Deux machines, avec un code de table. Le relais est [multijoueur.md](multijoueur.md).
 - Apprendre une courte ouverture.
 - Les classements sont des exemples.
 - Langues : Français, English, Deutsch, Italiano, Español, Русский, 中文, 日本語. Le français est celle du départ. Le détail est dans [Langues](i18n.md).
