@@ -25,6 +25,7 @@ import { quat, vec3 } from 'gl-matrix';
 import type { ChessTextureQuality } from '../graphics/chessGraphicsSettings';
 import {
   chessGlassTop,
+  chessSetCovePoses,
   chessSetPlacements,
   chessSetPunctualLights,
   chessSetShell,
@@ -119,14 +120,17 @@ async function buildChessSet(
     const cove = cycloramaMesh(shell.cove.floorRun);
     const mesh = new Mesh(cove.vertices, cove.indices, 'ChessSetCove');
     host.resourceManager.uploadMesh(mesh);
-    nodes.push(solidNode(host, 'ChessSetCove', mesh, {
-      color: [0.55, 0.55, 0.52],
-      roughness: 0.96,
-      metallic: 0,
-      doubleSided: true,
-      shadow: false,
-      position: [0, floorY, shell.cove.zFront],
-    }));
+    for (const [index, poseCove] of chessSetCovePoses(shell.cove).entries()) {
+      nodes.push(solidNode(host, index === 0 ? 'ChessSetCove' : 'ChessSetCoveMirror', mesh, {
+        color: [0.55, 0.55, 0.52],
+        roughness: 0.96,
+        metallic: 0,
+        doubleSided: true,
+        shadow: false,
+        position: [0, floorY, poseCove.z],
+        yaw: poseCove.yaw,
+      }));
+    }
   }
 
   if (shell.room) {
@@ -413,6 +417,7 @@ function solidNode(
     shadow: boolean;
     position: [number, number, number];
     scale?: [number, number, number];
+    yaw?: number;
   }
 ): SceneNode {
   host.resourceManager.uploadMesh(mesh);
@@ -429,7 +434,16 @@ function solidNode(
   });
   host.resourceManager.uploadMaterial(material);
   const node = new SceneNode(name, host.world, mesh, material);
-  pose(host.world, node, spec.position[0], spec.position[1], spec.position[2], 0, 0, spec.scale);
+  pose(
+    host.world,
+    node,
+    spec.position[0],
+    spec.position[1],
+    spec.position[2],
+    spec.yaw ?? 0,
+    0,
+    spec.scale
+  );
   const renderable = host.world.getComponent(node.entityId, RenderableComponent);
   if (renderable) renderable.castShadow = spec.shadow;
   return node;

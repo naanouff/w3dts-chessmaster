@@ -206,9 +206,11 @@ describe('chess ambiance', () => {
 
   it('copies the review lights', () => {
     const atelier = chessSetPunctualLights('atelier');
-    expect(atelier.map((light) => light.kind)).toEqual(['spot', 'spot']);
+    expect(atelier.map((light) => light.kind)).toEqual(['spot', 'spot', 'spot', 'spot']);
     expect(atelier[0]?.outerAngle).toBeGreaterThan(0.25);
     expect(atelier[0]?.outerAngle).toBeLessThan(0.4);
+    expect(atelier[2]?.position[2]).toBeCloseTo(-1.15);
+    expect(atelier[3]?.position[2]).toBeCloseTo(1.15);
     const salon = chessSetPunctualLights('salon');
     expect(salon.map((light) => light.kind)).toEqual(['spot', 'spot', 'point']);
     expect(salon.find((light) => light.kind === 'point')?.fromFloor).toBe(0.42);
