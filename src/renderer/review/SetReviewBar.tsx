@@ -251,19 +251,6 @@ export default function SetReviewBar(): ReactElement {
               <button type="button" onClick={() => requestChessCameraArrival()}>
                 Arrivée
               </button>
-            </div>
-            <p>Pièces</p>
-            <div className="set-review-menu-row">
-              <button
-                type="button"
-                className={piece === null ? 'is-on' : undefined}
-                onClick={() => {
-                  setChessReviewPiece(null);
-                  setPiece(null);
-                }}
-              >
-                Jeu
-              </button>
               <button
                 type="button"
                 className={camp === 'white' ? 'is-on' : undefined}
@@ -283,6 +270,19 @@ export default function SetReviewBar(): ReactElement {
                 }}
               >
                 Noir
+              </button>
+            </div>
+            <p>Pièces</p>
+            <div className="set-review-menu-row">
+              <button
+                type="button"
+                className={piece === null ? 'is-on' : undefined}
+                onClick={() => {
+                  setChessReviewPiece(null);
+                  setPiece(null);
+                }}
+              >
+                Jeu
               </button>
             </div>
             <div className="set-review-menu-row">

@@ -53,8 +53,8 @@ export interface ChessSetLook {
 const LOOKS: Record<ChessAmbianceId, ChessSetLook> = {
   atelier: {
     id: 'atelier',
-    sun: 0.36,
-    sunPos: [1.6, 6.5, -0.4],
+    sun: 0,
+    sunPos: null,
     ambient: 3.5,
     thumb: '/ambiances/atelier-kontrast.png',
   },
@@ -89,7 +89,7 @@ const LOOKS: Record<ChessAmbianceId, ChessSetLook> = {
       terraceMoon[2] * TERRACE_MOON_REACH,
     ],
     sunColor: [0.42, 0.55, 0.98],
-    ambient: 0.9,
+    ambient: 1.15,
     thumb: '/ambiances/terrasse-hiver.jpg',
   },
 };
@@ -280,22 +280,12 @@ const LIGHTS: Record<ChessAmbianceId, readonly ChessSetLight[]> = {
     {
       type: 'rect',
       color: 0xfff7f0,
-      intensity: 3.6,
+      intensity: 1.9,
       width: 0.7,
       height: 1.05,
-      // Further on +Z so the black-side game camera is not looking into the softbox.
-      position: [1.35, 0.95, 0.95],
-      target: [0, 0.15, 0],
-    },
-    {
-      type: 'spot',
-      color: 0xfff4ea,
-      intensity: 5.6,
-      distance: 6,
-      angle: 0.45,
-      penumbra: 0.65,
-      position: [-1.15, 1.4, -0.05],
-      target: [0.1, 0.05, 0],
+      // Off to +Z and dim: black-side game camera looks toward this softbox.
+      position: [1.45, 1.05, 1.55],
+      target: [0, 0.1, 0.2],
     },
     {
       type: 'spot',
@@ -312,12 +302,13 @@ const LIGHTS: Record<ChessAmbianceId, readonly ChessSetLight[]> = {
     {
       type: 'spot',
       color: 0xfff4ea,
-      intensity: 1.6,
+      intensity: 0.35,
       distance: 4,
       angle: 0.95,
       penumbra: 0.7,
-      // Behind the black-side game camera after the Z mirror.
-      position: [0, 0.95, 1.15],
+      // Behind the black-side game camera after the Z mirror. Kept very soft: the softbox
+      // already sits on +Z and would otherwise bleach the near ranks and specular board.
+      position: [0, 0.95, 1.25],
       target: [0, 0.05, 0],
       cast: false,
     },

@@ -52,7 +52,7 @@ describe('piece review', () => {
     expect(black.eye[2]).toBeGreaterThan(black.target[2]);
   });
 
-  it('offers the six white pieces on the review bar', () => {
+  it('offers the six pieces and a Blanc/Noir camera side on the review bar', () => {
     const bar = readFileSync(new URL('../src/renderer/review/SetReviewBar.tsx', import.meta.url), 'utf8');
     expect(bar).toContain("{ id: 'pawn', label: 'Pion' }");
     expect(bar).toContain("{ id: 'rook', label: 'Tour' }");
@@ -61,10 +61,16 @@ describe('piece review', () => {
     expect(bar).toContain("{ id: 'queen', label: 'Reine' }");
     expect(bar).toContain("{ id: 'king', label: 'Roi' }");
     expect(bar).toContain('setChessReviewPiece');
+    expect(bar).toContain('Blanc');
     expect(bar).toContain('Noir');
     expect(bar).toContain('setChessReviewColor');
+    const cameraBlock = bar.slice(bar.indexOf('<p>Caméra</p>'), bar.indexOf('<p>Pièces</p>'));
+    expect(cameraBlock).toContain('Blanc');
+    expect(cameraBlock).toContain('Noir');
     const host = readFileSync(new URL('../src/renderer/host/ChessDemoProject.ts', import.meta.url), 'utf8');
     expect(host).toContain('reviewPieceVisible');
     expect(host).toContain('reviewPieceCamera');
+    expect(host).toMatch(/matchCameraColor[\s\S]*chessReviewColor/);
+    expect(host).toContain('syncSetView');
   });
 });
