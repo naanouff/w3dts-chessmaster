@@ -14,8 +14,10 @@ import { cleanGlb } from '../scripts/clean-set-props.mjs';
 import {
   DRACO_VERTEX_THRESHOLD,
   EMISSIVE_LUMA_THRESHOLD,
+  MESHY_NORMAL_CREASE,
   SET_PROPS,
   SET_TEXTURE_SIZES,
+  countFacetedSplits,
   emissiveFromAlbedo,
   emissiveFromGlass,
   needsDraco,
@@ -170,9 +172,18 @@ describe('set prop cleanup', () => {
     expect(setProp('club', 'enseigne')).toMatchObject({ axis: 0, metres: 0.6, emissive: { mode: 'mask' } });
     expect(setProp('club', 'bouteilles')).toMatchObject({ axis: 1, metres: 0.3 });
     expect(setProp('jardin', 'table')).toMatchObject({ axis: 0, metres: 1.5, emissive: { mode: 'none' } });
-    expect(setProp('jardin', 'coupe')).toMatchObject({ axis: 0, metres: 0.18, smooth: Math.PI / 3 });
-    expect(setProp('terrasse', 'coupe').smooth).toBeUndefined();
-    expect(setProp('jardin', 'dalle')).toMatchObject({ axis: 0, metres: 0.3, pitch: -Math.PI / 2 });
+    expect(setProp('jardin', 'coupe')).toMatchObject({ axis: 0, metres: 0.18, smooth: MESHY_NORMAL_CREASE });
+    expect(setProp('terrasse', 'coupe').smooth).toBe(MESHY_NORMAL_CREASE);
+    expect(setProp('jardin', 'dalle')).toMatchObject({
+      axis: 0,
+      metres: 0.3,
+      pitch: -Math.PI / 2,
+      smooth: MESHY_NORMAL_CREASE,
+    });
+    expect(setProp('terrasse', 'dalle').smooth).toBe(MESHY_NORMAL_CREASE);
+    for (const prop of SET_PROPS) {
+      expect(prop.smooth).toBe(MESHY_NORMAL_CREASE);
+    }
     expect(setProp('jardin', 'haie')).toMatchObject({ axis: 0, metres: 2 });
     expect(setProp('jardin', 'banc')).toMatchObject({ axis: 0, metres: 1.4 });
     expect(setProp('jardin', 'arrosoir')).toMatchObject({ axis: 0, metres: 0.4 });
@@ -237,7 +248,7 @@ describe('set prop cleanup', () => {
     const twenty = Math.PI / 9;
     const positions = new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]);
     const normals = new Float32Array([1, 0, 0, Math.cos(twenty), Math.sin(twenty), 0, 0, 1, 0]);
-    const out = smoothSplitNormals(positions, normals, Math.PI / 3);
+    const out = smoothSplitNormals(positions, normals, MESHY_NORMAL_CREASE);
     const bisector = twenty / 2;
     expect(out[0]).toBeCloseTo(Math.cos(bisector));
     expect(out[1]).toBeCloseTo(Math.sin(bisector));
@@ -247,6 +258,12 @@ describe('set prop cleanup', () => {
     expect(out[6]).toBeCloseTo(0);
     expect(out[7]).toBeCloseTo(1);
     expect(out[8]).toBeCloseTo(0);
+    expect(countFacetedSplits(positions, normals, MESHY_NORMAL_CREASE)).toBe(2);
+  });
+
+  it('defaults every Meshy set prop to the 60 degree normal crease', () => {
+    expect(MESHY_NORMAL_CREASE).toBeCloseTo(Math.PI / 3);
+    expect(SET_PROPS.every((prop) => prop.smooth === MESHY_NORMAL_CREASE)).toBe(true);
   });
 
   it('writes the smoothed bowl normals into the baked garden mesh', async () => {

@@ -13,6 +13,7 @@ import sharp from 'sharp';
 
 import {
   EMISSIVE_LUMA_THRESHOLD,
+  MESHY_NORMAL_CREASE,
   SET_PROPS,
   SET_TEXTURE_SIZES,
   emissiveFromAlbedo,
@@ -64,7 +65,7 @@ export function packGlb(json, bin) {
   return out;
 }
 
-function primitive(json) {
+export function primitive(json) {
   if (json.meshes?.length !== 1 || json.meshes[0].primitives?.length !== 1) {
     throw new Error('expected one mesh primitive');
   }
@@ -209,7 +210,7 @@ export async function cleanGlb(file, prop, size) {
   const scale = scaleOf(position.min, position.max, prop.axis, prop.metres);
   const vertices = scalePositions(json, bin, scale);
   rotateX(json, bin, prop.pitch);
-  smoothNormals(json, bin, prop.smooth);
+  smoothNormals(json, bin, prop.smooth ?? MESHY_NORMAL_CREASE);
   if (needsDraco(vertices)) throw new Error(`${prop.file} needs Draco and this pass does not compress`);
 
   const imageBytes = json.images.map((image) => sliceView(json, bin, image.bufferView));

@@ -57,7 +57,7 @@ La caméra de partie reste basse et proche. Deux cyclos se font face (+Z et −Z
 
 ### Maîtres Meshy
 
-Les six meshes texturés sont dans `docs/raw_assets/atelier/`. Ce sont des GLB locaux, ignorés par git, comme les pièces. Chacun porte une couleur, une carte métal/rugosité et une normale en JPEG 2048. Le nombre de sommets va de 2 300 à 5 300.
+Les six meshes texturés sont dans `docs/raw_assets/atelier/`. Ce sont des GLB locaux, ignorés par git, comme les pièces. Chacun porte une couleur, une carte métal/rugosité et une normale en JPEG 2048. Le nombre de sommets va de 2 300 à 5 300. Au nettoyage (`pnpm clean:set-props`), toutes les props Meshy reçoivent le lissage de normales à 60° (`MESHY_NORMAL_CREASE`). Les dumps bruts restent facettés ; les bakes et `public/sets` sont lisses. Audit : `node scripts/audit-set-normals.mjs` (bakes) ou `--masters` (dumps).
 
 Meshy a normé chaque objet pour que son plus grand côté fasse 1. Avant la scène, on remet l’échelle du document : table 1,80 m, plateau 0,28 m, cyclorama 6 m de large, softbox 1,20 m de face, tabouret 0,45 m de haut. Le projecteur suit la hauteur de son pied, calée à 1,60 m.
 
@@ -266,7 +266,7 @@ Cases terre cuite et vert jardin, cadre vert. Pièces buis clair et bois rouge, 
 
 ![Table de pierre](ambiances/jardin-table.png)
 
-**Coupe terre cuite** — Diamètre 18 cm, vide. Deux instances : pièces claires à gauche, pièces foncées à droite. Le maître est facetté. Le nettoyage moyenne les normales des faces qui se rencontrent à moins de 60°. Le rebord plus vif reste.
+**Coupe terre cuite** — Diamètre 18 cm, vide. Deux instances : pièces claires à gauche, pièces foncées à droite. Comme tous les props Meshy, le nettoyage moyenne les normales des faces qui se rencontrent à moins de 60° (`MESHY_NORMAL_CREASE`). Le rebord plus vif reste.
 
 ![Coupe terre cuite](ambiances/jardin-coupe.png)
 
