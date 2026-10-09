@@ -29,7 +29,7 @@ Prise de vue produit. Défaut, toutes les parties. HDRI [studio_kontrast_04_2k.h
 
 Cases ivoire et wengé, cadre foncé. Blancs marbre ou ivoire mat, noirs acier brossé, déjà dans [chessLook.ts](../src/renderer/host/chessLook.ts). La prise fait un clic sec. L’échec ajoute un filet de bloom sur la pièce seule.
 
-La caméra de partie reste basse et proche. Deux cyclos se font face (+Z et −Z) pour que le joueur noir ait aussi un fond derrière les blancs ([CHESS-B27](sprints/CHESS-B27.md)). La softbox et le projecteur restent latéraux ; deux fills derrière chaque caméra de partie éclairent les faces vues.
+La caméra de partie reste basse et proche. Deux cyclos se font face (+Z et −Z). Les props de fond (tabouret, cheminée, bar, banc…) sont mirroirés sur Z ; on n’affiche que la bande loin de la caméra selon blanc ou noir ([CHESS-B27](sprints/CHESS-B27.md)). Softbox et projecteur restent latéraux (partagés) ; deux fills derrière chaque caméra éclairent les faces vues.
 
 **Table studio** — 180 × 100 cm, toile lin beige, retombée de 4 cm, pieds en tube d’acier carré, entretoise basse.
 

@@ -9,6 +9,7 @@ import {
   CHESS_BOARD_BEVEL_M,
   CHESS_BOARD_BODY_HEIGHT,
 } from '../../chess/board/chessBoard';
+import type { ChessColor } from '../../chess/rules/chessTypes';
 import { gardenStagePlacements } from './gardenStage';
 import { terraceStagePlacements, skyMoonDirection, TERRACE_SKY_HOUR } from './terraceStage';
 
@@ -536,6 +537,79 @@ export function chessSetProps(id: ChessAmbianceId): readonly string[] {
  */
 export function chessSetPlacements(id: ChessAmbianceId): readonly ChessSetPlacement[] {
   return PLACEMENTS[id];
+}
+
+/**
+ * Which camera band a prop dresses. Shared stays for white and black.
+ * Backdrop beyond {@link VIEW_BACKDROP_Z} on +Z is mirrored to −Z for black.
+ */
+export type ChessSetViewSide = 'shared' | 'plusZ' | 'minusZ';
+
+/** |z| at or above this is a one-sided backdrop (metres). */
+const VIEW_BACKDROP_Z = 1;
+
+/**
+ * Classifies a placement for white (+Z far) or black (−Z far) game cameras.
+ * Lateral props (|x| > |z|) and near-board props stay shared.
+ */
+export function chessSetPlacementViewSide(spec: ChessSetPlacement): ChessSetViewSide {
+  const z = spec.z ?? 0;
+  const x = spec.x ?? 0;
+  if (Math.abs(z) < VIEW_BACKDROP_Z) return 'shared';
+  if (Math.abs(x) > Math.abs(z)) return 'shared';
+  return z > 0 ? 'plusZ' : 'minusZ';
+}
+
+/**
+ * Z-mirror of a placement, yaw turned to face the other way.
+ */
+export function mirrorChessSetPlacement(spec: ChessSetPlacement): ChessSetPlacement {
+  return {
+    ...spec,
+    z: -(spec.z ?? 0),
+    yaw: (spec.yaw ?? 0) + Math.PI,
+  };
+}
+
+/**
+ * Authoring placements plus a Z-mirror of each +Z backdrop prop.
+ * Floor tiles are not doubled.
+ */
+export function chessSetPlacementsBothSides(id: ChessAmbianceId): readonly ChessSetPlacement[] {
+  const out: ChessSetPlacement[] = [];
+  for (const spec of chessSetPlacements(id)) {
+    out.push(spec);
+    if (spec.file === 'dalle') continue;
+    if (chessSetPlacementViewSide(spec) === 'plusZ') out.push(mirrorChessSetPlacement(spec));
+  }
+  return out;
+}
+
+/**
+ * Whether a view band is drawn for the local player.
+ * White looks toward +Z; black toward −Z — the band behind the camera is hidden.
+ */
+export function chessSetViewSideVisible(side: ChessSetViewSide, localColor: ChessColor): boolean {
+  if (side === 'shared') return true;
+  return localColor === 'white' ? side === 'plusZ' : side === 'minusZ';
+}
+
+/** Tags a set node name with its view band for later visibility. */
+export function tagChessSetNodeName(base: string, side: ChessSetViewSide): string {
+  return `${base}@${side}`;
+}
+
+/** Reads the view band suffix from a set node name. Missing suffix means shared. */
+export function chessSetViewSideFromNodeName(name: string): ChessSetViewSide {
+  if (name.endsWith('@plusZ')) return 'plusZ';
+  if (name.endsWith('@minusZ')) return 'minusZ';
+  return 'shared';
+}
+
+/** View band from a world Z (coves, procedural cubes). */
+export function chessSetViewSideFromZ(z: number): ChessSetViewSide {
+  if (Math.abs(z) < VIEW_BACKDROP_Z) return 'shared';
+  return z > 0 ? 'plusZ' : 'minusZ';
 }
 
 /**
