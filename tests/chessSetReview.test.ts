@@ -210,13 +210,16 @@ describe('chess set review', () => {
     expect(host).toContain('applyReviewGrade');
   });
 
-  it('starts every scene at the same grade', () => {
-    const scene = { brightness: 1.25, contrast: 1.4, saturation: 0.6 };
-    for (const id of ['atelier', 'salon', 'club', 'jardin', 'terrasse'] as const) {
-      expect(reviewGrade(id)).toEqual(scene);
+  it('starts each scene at its stored grade, with a brighter terrace for black pieces', () => {
+    const indoor = { brightness: 1.25, contrast: 1.4, saturation: 0.6 };
+    const terrace = { brightness: 1.7, contrast: 1.2, saturation: 0.65 };
+    for (const id of ['atelier', 'salon', 'club', 'jardin'] as const) {
+      expect(reviewGrade(id)).toEqual(indoor);
     }
+    expect(reviewGrade('terrasse')).toEqual(terrace);
     setReviewGrade('salon', { brightness: 1.4, contrast: 0.8, saturation: 1.25 });
-    expect(reviewGrade('atelier')).toEqual(scene);
+    expect(reviewGrade('atelier')).toEqual(indoor);
+    expect(reviewGrade('terrasse')).toEqual(terrace);
     const tone = {
       name: 'Tone Mapping & Output',
       uniforms: { exposure: { value: 1 }, contrast: { value: 1 }, saturation: { value: 1 } },
@@ -225,11 +228,15 @@ describe('chess set review', () => {
     expect(tone.uniforms.exposure.value).toBe(1.4);
     expect(tone.uniforms.contrast.value).toBe(0.8);
     expect(tone.uniforms.saturation.value).toBe(1.25);
+    applyReviewGrade([tone], 'terrasse');
+    expect(tone.uniforms.exposure.value).toBe(1.7);
+    expect(tone.uniforms.contrast.value).toBe(1.2);
+    expect(tone.uniforms.saturation.value).toBe(0.65);
     applyReviewGrade([tone], 'atelier');
     expect(tone.uniforms.exposure.value).toBe(1.25);
     expect(tone.uniforms.contrast.value).toBe(1.4);
     expect(tone.uniforms.saturation.value).toBe(0.6);
-    setReviewGrade('salon', scene);
+    setReviewGrade('salon', indoor);
   });
 
   it('forwards a review launch argument into the window query', () => {

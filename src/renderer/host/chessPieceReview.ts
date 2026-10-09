@@ -67,7 +67,7 @@ export function subscribeChessReviewPiece(listener: (piece: ChessReviewPiece) =>
 }
 
 /**
- * Colour framed by the piece buttons. The full set ignores it.
+ * Side the review bar frames: camera, set culling, and isolated pieces.
  * @returns `white` until the review bar picks black.
  */
 export function chessReviewColor(): ChessColor {
@@ -75,7 +75,7 @@ export function chessReviewColor(): ChessColor {
 }
 
 /**
- * Chooses which camp the isolated piece belongs to.
+ * Chooses the review camera side and the camp for an isolated piece.
  * @param next - White or black.
  */
 export function setChessReviewColor(next: ChessColor): void {

@@ -23,13 +23,13 @@ Même plateau, mêmes pièces, même caméra. Le preset de niveau échange la ta
 
 ## Atelier Kontrast
 
-Prise de vue produit. Défaut, toutes les parties. HDRI [studio_kontrast_04_2k.hdr](../public/hdri/studio_kontrast_04_2k.hdr) en fill. La softbox est une surface émissive, elle ne remplace pas le soleil.
+Prise de vue produit. Défaut, toutes les parties. HDRI [studio_kontrast_04_2k.hdr](../public/hdri/studio_kontrast_04_2k.hdr) en fill. Pas de soleil ni de spot projecteur : seulement la softbox latérale et les deux fills derrière chaque caméra.
 
 ![Atelier Kontrast](ambiances/atelier-kontrast.png)
 
 Cases ivoire et wengé, cadre foncé. Blancs marbre ou ivoire mat, noirs acier brossé, déjà dans [chessLook.ts](../src/renderer/host/chessLook.ts). La prise fait un clic sec. L’échec ajoute un filet de bloom sur la pièce seule.
 
-La caméra de partie reste basse et proche. Deux cyclos se font face (+Z et −Z). Les props de fond (tabouret, cheminée, bar, banc…) sont mirroirés sur Z ; on n’affiche que la bande loin de la caméra selon blanc ou noir ([CHESS-B27](sprints/CHESS-B27.md)). Softbox et projecteur restent latéraux (partagés) ; deux fills derrière chaque caméra éclairent les faces vues.
+La caméra de partie reste basse et proche : ±30° en yaw et pitch, zoom 30 cm–1 m, sans pan. Deux cyclos se font face (+Z et −Z). Les props de fond (tabouret, cheminée, bar, banc…) sont mirroirés sur Z ; on n’affiche que la bande loin de la caméra selon blanc ou noir ([CHESS-B27](sprints/CHESS-B27.md)). Softbox et pied de projecteur restent des props latéraux (partagés) ; seules la softbox et les fills éclairent. Le fill derrière la caméra noire est plus doux que celui des blancs.
 
 **Table studio** — 180 × 100 cm, toile lin beige, retombée de 4 cm, pieds en tube d’acier carré, entretoise basse.
 
@@ -142,7 +142,7 @@ Les neuf meshes texturés sont dans `docs/raw_assets/salon/`. Même contrat que 
 
 ## Terrasse d’hiver
 
-Dehors, heure bleue. Pour les finales. Dalles mouillées qui portent le ciel. Brouillard dense derrière la balustrade, presque absent sur le damier. Une lanterne est allumée : le verre émet.
+Dehors, heure bleue. Pour les finales. Dalles mouillées qui portent le ciel. Brouillard dense derrière la balustrade, presque absent sur le damier. Une lanterne est allumée : le verre émet. Le grade d’image part plus haut que les intérieurs (luminosité 1,7, contraste 1,2, saturation 0,65) pour que les noirs restent lisibles.
 
 ![Terrasse d'hiver](ambiances/terrasse-hiver.jpg)
 
