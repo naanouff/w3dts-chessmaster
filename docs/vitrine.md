@@ -45,9 +45,9 @@ Pas de nouveau fichier sans une surface nouvelle. Pas de copie du JSDoc. `docs/a
 
 WebP, grand côté 1280, dans `docs/media/`. Prises dans le client (`pnpm dev`), pas dans [la maquette](mockup/index.html).
 
-- `accueil.webp` — blason, Jouer, Classements, Options, Paramètres
-- `modes.webp` — les cinq cartes
-- `partie.webp` — plateau, barre de trait
+- `accueil.webp` — blason, Jouer, Sauvegardes, Classements, Options, Paramètres, À propos
+- `modes.webp` — les cartes modes
+- `partie.webp` — plateau dans une ambiance, barre de trait
 - `langues.webp` — Paramètres, les huit endonymes
 
 ### Ce que le texte a le droit de dire
@@ -57,6 +57,7 @@ WebP, grand côté 1280, dans `docs/media/`. Prises dans le client (`pnpm dev`),
 - Une seconde fenêtre sur ce poste.
 - Deux machines, avec un code de table. Le relais est [multijoueur.md](multijoueur.md).
 - Apprendre une courte ouverture.
+- Cinq ambiances entourent la table : atelier, salon, club, jardin et terrasse.
 - Les classements sont des exemples.
 - Langues : Français, English, Deutsch, Italiano, Español, Русский, 中文, 日本語. Le français est celle du départ. Le détail est dans [Langues](i18n.md).
 
@@ -64,4 +65,4 @@ WebP, grand côté 1280, dans `docs/media/`. Prises dans le client (`pnpm dev`),
 
 Node, pnpm, WebGPU, Electron, les paquets, `BroadcastChannel`, la liste des sprints, les noms de fichiers du code.
 
-Sprint : [CHESS-B12](sprints/CHESS-B12.md).
+Sprint d’origine : [CHESS-B12](sprints/CHESS-B12.md). Rafraîchissement 0.2.1 : [CHESS-B26](sprints/CHESS-B26.md).

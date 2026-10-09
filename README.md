@@ -18,6 +18,8 @@ Une table d’échecs en 3D. On saisit les pièces et on les pose.
 - Deux machines, avec un code de table.
 - Une courte ouverture à apprendre.
 
+Cinq ambiances entourent la table : atelier, salon, club, jardin et terrasse.
+
 Les classements affichés sont des exemples.
 
 ## Langues
