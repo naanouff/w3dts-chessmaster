@@ -42,12 +42,6 @@ export class MouseGrabController {
     return this.state;
   }
 
-  /** Cursor / drop target XZ on the grab plane (not the lagged piece pose). */
-  public dropXZ(): [number, number] | null {
-    if (!this.state) return null;
-    return [this.state.targetX, this.state.targetZ];
-  }
-
   public begin(
     world: World,
     entity: Entity,

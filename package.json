@@ -13,6 +13,7 @@
     "review:audio": "npx --yes serve docs -l 3000",
     "prune:public": "node scripts/prune-public-for-dist.mjs",
     "compress:audio": "node scripts/compress-chess-audio.mjs",
+    "soften:sfx": "node scripts/soften-chess-sfx.mjs",
     "build": "pnpm prune:public && electron-vite build",
     "build:web": "pnpm prune:public && vite build --config vite.web.config.ts",
     "preview": "electron-vite preview",

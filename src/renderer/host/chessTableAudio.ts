@@ -209,9 +209,9 @@ export function chessAmbienceGain(): number {
 
 export const CHESS_AMBIENCE_VOLUME = 0.045;
 export const CHESS_SFX_VOLUME: Record<ChessTableSfxId, number> = {
-  drop: 0.55,
-  capture: 0.7,
-  check: 0.4,
+  drop: 0.3,
+  capture: 0.36,
+  check: 0.3,
   win: 0.55,
   lose: 0.5,
 };

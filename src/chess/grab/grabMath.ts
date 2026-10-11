@@ -7,6 +7,8 @@
  */
 
 import { vec3 } from 'gl-matrix';
+import { worldToSquare } from '../board/chessBoard';
+import type { ChessSquareName } from '../rules/chessTypes';
 
 export const CHESS_GRAB_FREQUENCY_HZ = 8;
 export const CHESS_GRAB_DAMPING_RATIO = 0.55;
@@ -47,6 +49,23 @@ export function intersectRayHorizontalPlane(
   const t = (planeY - origin[1]!) / dy;
   if (t < 0) return null;
   return vec3.fromValues(origin[0]! + direction[0]! * t, planeY, origin[2]! + direction[2]! * t);
+}
+
+/**
+ * Square under a pick ray on the board plane (not the grab lift plane).
+ * @param origin - Ray origin in world metres.
+ * @param direction - Ray direction, any non-zero length.
+ * @param boardY - Board surface height in metres.
+ * @returns File and rank, or null when the ray misses the board.
+ */
+export function boardSquareUnderRay(
+  origin: readonly [number, number, number] | vec3,
+  direction: readonly [number, number, number] | vec3,
+  boardY: number
+): ChessSquareName | null {
+  const hit = intersectRayHorizontalPlane(origin, direction, boardY);
+  if (!hit) return null;
+  return worldToSquare(hit[0]!, hit[2]!);
 }
 
 const SPRING_DT_MAX = 1 / 30;

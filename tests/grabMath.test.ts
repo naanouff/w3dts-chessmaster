@@ -12,7 +12,10 @@ import { Mesh, TransformComponent, World } from '@naanouff/w3dts-core';
 import { ColliderComponent, raycast } from '@naanouff/w3dts-physics';
 import { readFileSync } from 'node:fs';
 import {
+  CHESS_BOARD_SURFACE_Y,
+  CHESS_GRAB_LIFT_M,
   CHESS_GROUP_PIECE,
+  boardSquareUnderRay,
   clientPointToNdc,
   intersectRayHorizontalPlane,
   pickRayFromViewProjection,
@@ -20,6 +23,7 @@ import {
   squareToWorld,
   stauntonPieceColliderShapes,
   viewProjectionLookAt,
+  worldToSquare,
 } from '../src/chess/index';
 import { hdPieceCollider } from '../src/renderer/host/hdChessPieces';
 
@@ -75,6 +79,29 @@ describe('grab math', () => {
       paths: [dirname(physicsEntry)],
     });
     expect(physicsCore).toBe(appCore);
+  });
+
+  it('resolves the board square under the cursor, not the grab plane', () => {
+    const vp = viewProjectionLookAt(
+      [0, 0.55, -0.72],
+      [0, 0.02, 0],
+      (38 * Math.PI) / 180,
+      16 / 9,
+      0.05,
+      20
+    );
+    const e4 = squareToWorld('e4', CHESS_BOARD_SURFACE_Y);
+    const clip = vec4.fromValues(e4[0]!, e4[1]!, e4[2]!, 1);
+    vec4.transformMat4(clip, clip, vp);
+    const ndcX = clip[0]! / clip[3]!;
+    const ndcY = clip[1]! / clip[3]!;
+    const ray = pickRayFromViewProjection(vp, ndcX, ndcY);
+    expect(ray).not.toBeNull();
+    expect(boardSquareUnderRay(ray!.origin, ray!.direction, CHESS_BOARD_SURFACE_Y)).toBe('e4');
+    const grabY = CHESS_BOARD_SURFACE_Y + CHESS_GRAB_LIFT_M + 0.04;
+    const grabHit = intersectRayHorizontalPlane(ray!.origin, ray!.direction, grabY);
+    expect(grabHit).not.toBeNull();
+    expect(worldToSquare(grabHit![0]!, grabHit![2]!)).toBe('e3');
   });
 
   it('hits a pawn collider from the table camera through the piece NDC', () => {

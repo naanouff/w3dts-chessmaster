@@ -179,6 +179,7 @@ export {
   CHESS_GRAB_DAMPING_RATIO,
   CHESS_GRAB_FREQUENCY_HZ,
   CHESS_GRAB_LIFT_M,
+  boardSquareUnderRay,
   clientPointToNdc,
   intersectRayHorizontalPlane,
   stepChessGrabSpring,

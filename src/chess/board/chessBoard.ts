@@ -17,7 +17,7 @@ export const CHESS_BOARD_EXTENT = CHESS_SQUARE_SIZE * 8;
 
 /**
  * Wooden frame on each edge of the board albedo, as a fraction of the cube UV.
- * Must match {@link fillBoardAlbedo}.
+ * Must match {@link fillBoardAlbedo}. Checker: a1 dark via `boardAlbedoCell` (plane v=0 = rank 8).
  */
 export const CHESS_BOARD_BORDER_FRAC = 0.06;
 

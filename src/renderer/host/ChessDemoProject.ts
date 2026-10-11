@@ -72,6 +72,7 @@ import {
   ChessPieceComponent,
   applyCylindricalPieceUvs,
   assignCemeterySlot,
+  boardSquareUnderRay,
   boardColliderShape,
   buildChessBoardBodyMesh,
   splitChessBoardPlayingSurface,
@@ -124,7 +125,6 @@ import {
   stauntonPieceColliderShapes,
   stripChessSanSuffix,
   viewProjectionFromWorldTransform,
-  worldToSquare,
   type ChessColor,
   type ChessDemoQuery,
   type ChessHudP2pStatus,
@@ -385,6 +385,8 @@ export class ChessDemoProject extends LitAbstractProject {
   private match = ChessMatch.starting();
   private grab = new MouseGrabController();
   private grabFrom: ChessSquareName | null = null;
+  /** Board square under the cursor while grabbing (board plane, not grab lift). */
+  private dropSquare: ChessSquareName | null = null;
   private wasSelect = false;
   private entityBySquare = new Map<ChessSquareName, Entity>();
   private squareByEntity = new Map<Entity, ChessSquareName>();
@@ -716,6 +718,7 @@ export class ChessDemoProject extends LitAbstractProject {
   ): void {
     if (this.grab.grabbed) this.grab.end(world);
     this.grabFrom = null;
+    this.dropSquare = null;
     this.wasSelect = false;
     this.flights = [];
     this.motionBusy = false;
@@ -2299,6 +2302,7 @@ export class ChessDemoProject extends LitAbstractProject {
   private clearBoardVisuals(world: World): void {
     if (this.grab.grabbed) this.grab.end(world);
     this.grabFrom = null;
+    this.dropSquare = null;
     this.wasSelect = false;
     this.flights = [];
     this.motionBusy = false;
@@ -2832,19 +2836,27 @@ export class ChessDemoProject extends LitAbstractProject {
     );
   }
 
-  private worldFromPointer(
+  private pickRayFromPointer(
     world: World,
     engine: EngineWithInput,
-    input: InputManager,
-    planeY: number = CHESS_BOARD_SURFACE_Y + CHESS_GRAB_LIFT_M
-  ): vec3 | null {
+    input: InputManager
+  ): { origin: vec3; direction: vec3 } | null {
     const rect = this.gameCanvasRect();
     if (!rect) return null;
     const vp = this.pickViewProjection(world, engine, rect);
     if (!vp) return null;
     const ndc = clientPointToNdc(input.pointer.x, input.pointer.y, rect);
     if (!ndc) return null;
-    const ray = pickRayFromViewProjection(vp, ndc.ndcX, ndc.ndcY);
+    return pickRayFromViewProjection(vp, ndc.ndcX, ndc.ndcY);
+  }
+
+  private worldFromPointer(
+    world: World,
+    engine: EngineWithInput,
+    input: InputManager,
+    planeY: number = CHESS_BOARD_SURFACE_Y + CHESS_GRAB_LIFT_M
+  ): vec3 | null {
+    const ray = this.pickRayFromPointer(world, engine, input);
     if (!ray) return null;
     return intersectRayHorizontalPlane(ray.origin, ray.direction, planeY);
   }
@@ -2855,6 +2867,7 @@ export class ChessDemoProject extends LitAbstractProject {
     const entity = this.grab.end(world);
     const from = this.grabFrom;
     this.grabFrom = null;
+    this.dropSquare = null;
     this.wasSelect = false;
     this.setLegalOverlays(world, []);
     this.setDropHover(world, null);
@@ -2884,6 +2897,7 @@ export class ChessDemoProject extends LitAbstractProject {
     const grabY = this.playingY(CHESS_BOARD_SURFACE_Y + CHESS_GRAB_LIFT_M + 0.04);
     if (!this.grab.begin(world, hit.entity, hit.point, grabY)) return;
     this.grabFrom = from;
+    this.dropSquare = from;
     void this.armAudio();
     this.setLegalOverlays(world, this.match.legalSquares(from));
     this.setDropHover(world, from);
@@ -2895,26 +2909,27 @@ export class ChessDemoProject extends LitAbstractProject {
     input: InputManager,
     dt: number
   ): void {
-    const p = this.worldFromPointer(
-      world,
-      engine,
-      input,
-      this.grab.grabbed?.grabHeightY ?? this.playingY(CHESS_BOARD_SURFACE_Y + CHESS_GRAB_LIFT_M)
-    );
+    const grabY =
+      this.grab.grabbed?.grabHeightY ?? this.playingY(CHESS_BOARD_SURFACE_Y + CHESS_GRAB_LIFT_M);
+    const p = this.worldFromPointer(world, engine, input, grabY);
     if (!p) return;
     this.grab.updateWorldAnchor(world, p[0]!, p[2]!, dt);
-    this.setDropHover(world, worldToSquare(p[0]!, p[2]!));
+    const ray = this.pickRayFromPointer(world, engine, input);
+    this.dropSquare = ray
+      ? boardSquareUnderRay(ray.origin, ray.direction, this.playingY(CHESS_BOARD_SURFACE_Y))
+      : null;
+    this.setDropHover(world, this.dropSquare);
   }
 
   private onSelectUp(world: World): void {
-    const drop = this.grab.dropXZ();
+    const dest = this.dropSquare;
     const entity = this.grab.end(world);
     const from = this.grabFrom;
     this.grabFrom = null;
+    this.dropSquare = null;
     this.setLegalOverlays(world, []);
     this.setDropHover(world, null);
     if (entity === null || !from) return;
-    const dest = drop ? worldToSquare(drop[0], drop[1]) : null;
     if (this.playMode === 'learn' && this.trainer) {
       if (!dest || !this.trainer.isBookMove(from, dest)) {
         this.learnMiss = true;
