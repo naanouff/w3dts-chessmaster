@@ -158,3 +158,48 @@ Si l’entrée Graphiques n’apparaît pas, le panneau NVIDIA → Gérer les pa
 - Sans Ollama, le coach reste utilisable (fantômes, phrases fixes). Pour brancher un modèle : [Installation Ollama](coach-ia.md#installation-ollama-windows).
 - En ligne : un redémarrage du relais vide les salles. Rejoindre avec un **nouveau** code si la table disparaît.
 - Astreinte relais pendant l’ouverture : **Cyril TARRIET**.
+
+## Retours playtest
+
+Journal des signaux pendant la campagne. Une entrée par signal. Statuts : `ouvert`, `repro`, `non-repro`, `corrigé`. Gravité : P1–P3 comme plus haut.
+
+Correctifs découpés dans [CHESS-B28](sprints/CHESS-B28.md).
+
+### PT-001 — Double pas du pion
+
+| | |
+| --- | --- |
+| Date | 2026-10-10 |
+| Signal | Le jeu ne tient pas compte du déplacement de 2 cases des pions au premier coup |
+| Mode | Contre le CPU ; signalé au niveau 3, possible aussi aux niveaux 1 et 2 |
+| Gravité | P1 |
+| Statut | `corrigé` |
+| Ticket | [B28a](sprints/CHESS-B28.md#chess-b28a--dépôt-sous-le-curseur) |
+
+Cause : les règles autorisent `e2→e4` (tests et chessops). Le dépôt et le survol lisaient la case sous le **plan de saisie** (~6,5 cm au-dessus du plateau). Correctif : `boardSquareUnderRay` sur le plan du plateau pour le survol et le dépôt.
+
+### PT-002 — Dames hors de leur couleur
+
+| | |
+| --- | --- |
+| Date | 2026-10-10 |
+| Signal | Les dames ne sont pas sur leur couleur |
+| Mode | Setup / visuel plateau |
+| Gravité | P2 |
+| Statut | `corrigé` |
+| Ticket | [B28b](sprints/CHESS-B28.md#chess-b28b--damier-ancré-sur-a1) |
+
+Cause : FEN correct (dames en d1 / d8). Le damier était inversé en rangées. Correctif : `boardAlbedoCell` avec `light = (fx + fy) % 2 === 0` (v = 0 = rangée 8, a1 foncée).
+
+### PT-003 — SFX pièces agressifs
+
+| | |
+| --- | --- |
+| Date | 2026-10-10 |
+| Signal | Le bruit de pièce n’est pas agréable, très agressif (précision : plutôt SFX que musique) |
+| Mode | En partie (prises / poses) |
+| Gravité | P2 |
+| Statut | `corrigé` |
+| Ticket | [B28c](sprints/CHESS-B28.md#chess-b28c--coups-plus-doux) |
+
+Cause : hits peaking près de 0 dBFS, durées > 150 ms, gains trop hauts. Correctif : gains abaissés ; `pnpm soften:sfx` (≤ 150 ms, pic −12 dBFS) puis compress. Confirmer à l’oreille : `pnpm review:audio`.

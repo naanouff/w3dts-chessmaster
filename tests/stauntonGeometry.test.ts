@@ -19,9 +19,11 @@ import {
   fillBoardAlbedo,
   fillEbonyAlbedo,
   fillIvoryAlbedo,
+  squareToWorld,
   stauntonPieceColliderShapes,
   stauntonPieceHeight,
   type ChessPieceRole,
+  type ChessSquareName,
 } from '../src/chess/index';
 
 const ROLES: ChessPieceRole[] = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'];
@@ -231,22 +233,34 @@ describe('procedural albedo', () => {
       const y = Math.floor(v * size);
       return board[(y * size + x) * 4]!;
     };
-    // Inner UV: border 0.06, square 0 is [0.06, 0.17); fy=0,fx=0 is dark; fy=1,fx=0 is light.
-    const dark = sample(0.06 + 0.88 / 16, 0.06 + 0.88 / 16);
-    const light = sample(0.06 + 0.88 / 16, 0.06 + 0.88 / 16 + 0.88 / 8);
+    // Plane UV: v = 0 is rank 8. fx=0,fy=0 (a8) is light; fx=0,fy=1 (a7) is dark.
+    const light = sample(0.06 + 0.88 / 16, 0.06 + 0.88 / 16);
+    const dark = sample(0.06 + 0.88 / 16, 0.06 + 0.88 / 16 + 0.88 / 8);
     expect(light).toBeGreaterThan(140);
     expect(dark).toBeLessThan(110);
     expect(light).toBeGreaterThan(dark + 40);
   });
 
-  it('maps UV to frame vs 8×8 squares (a1 dark)', () => {
+  it('anchors the checker on world a1 dark (createPlane UV)', () => {
     expect(boardAlbedoCell(0.02, 0.5).kind).toBe('frame');
-    const a1 = boardAlbedoCell(0.06 + 0.88 / 16, 0.06 + 0.88 / 16);
-    expect(a1.kind).toBe('square');
-    if (a1.kind !== 'square') return;
-    expect(a1.fx).toBe(0);
-    expect(a1.fy).toBe(0);
-    expect(a1.light).toBe(false);
+    const half = CHESS_BOARD_MESH_EXTENT / 2;
+    const cellAt = (square: ChessSquareName) => {
+      const p = squareToWorld(square);
+      const u = (p[0]! + half) / (2 * half);
+      const v = (half - p[2]!) / (2 * half);
+      return boardAlbedoCell(u, v);
+    };
+    for (const [square, light] of [
+      ['a1', false],
+      ['h1', true],
+      ['d1', true],
+      ['d8', false],
+    ] as const) {
+      const cell = cellAt(square);
+      expect(cell.kind).toBe('square');
+      if (cell.kind !== 'square') continue;
+      expect(cell.light).toBe(light);
+    }
   });
 });
 
