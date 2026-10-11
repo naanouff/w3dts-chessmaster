@@ -31,7 +31,7 @@ Même ids qu’aujourd’hui : `drop`, `capture`, `check`, `win`, `lose`. La fam
 | Jardin | Bois sec, plus léger que le salon |
 | Terrasse | Pierre |
 
-`check`, `win` et `lose` restent partagés. Un coup dure 50–150 ms.
+`check`, `win` et `lose` restent partagés. Un coup dure 50–150 ms. Pic cible −12 dBFS : `pnpm soften:sfx` puis `pnpm compress:audio` ([CHESS-B28](sprints/CHESS-B28.md) c). Gains `drop` / `capture` sous 0,3 aux curseurs par défaut.
 
 ## Lits et tension
 

@@ -134,7 +134,8 @@ export function boardAlbedoCell(u: number, v: number): BoardAlbedoCell {
   const fy = Math.min(7, Math.floor(sv));
   const lu = su - fx;
   const lv = sv - fy;
-  const light = (fx + (7 - fy)) % 2 === 0;
+  // createPlane: UV v = 0 is +Z (rank 8), v = 1 is −Z (rank 1). a1 is dark.
+  const light = (fx + fy) % 2 === 0;
   return { kind: 'square', fx, fy, lu, lv, light };
 }
 

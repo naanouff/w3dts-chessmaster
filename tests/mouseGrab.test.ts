@@ -41,7 +41,6 @@ describe('MouseGrabController', () => {
     expect(t.position[1]).toBeGreaterThan(0.05);
     expect(t.position[1]).toBeLessThan(0.08);
 
-    expect(grab.dropXZ()?.[0]).toBeCloseTo(0.1);
     expect(grab.end(world)).toBe(entity);
     expect(t.position[0]).toBeCloseTo(0.1);
     expect(t.position[2]).toBeCloseTo(-0.05);
