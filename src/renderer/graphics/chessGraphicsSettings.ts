@@ -119,13 +119,16 @@ export function upscaleRenderScale(mode: ChessUpscale): number {
   return UPSCALE_SCALE[mode];
 }
 
+/** Default RCAS weight when the scene renders under the canvas. */
+export const UPSCALE_SHARPNESS_ON = 0.85;
+
 /**
  * Sharpening applied after the magnify. A one-to-one image stays unsharpened.
  * @param mode - Upscale choice.
  * @returns Weight of the contrast-adaptive sharpen.
  */
 export function upscaleSharpness(mode: ChessUpscale): number {
-  return mode === 'off' ? 0 : 0.7;
+  return mode === 'off' ? 0 : UPSCALE_SHARPNESS_ON;
 }
 
 /**

@@ -4,6 +4,8 @@
  * @description Sliders the engine review writes onto live post-process uniforms.
  */
 
+import { UPSCALE_SHARPNESS_ON } from '../graphics/chessGraphicsSettings';
+
 /** One render-graph pass. Struct uniforms are arrays; a lone f32 is a number. */
 export interface ReviewPostPass {
   name: string;
@@ -64,7 +66,17 @@ export const REVIEW_POST_CONTROLS: readonly ReviewPostControl[] = [
   { id: 'bloom-intensity', group: 'Bloom', label: 'Intensité', pass: '06d_BloomAdd', uniform: 'intensity', min: 0, max: 3, step: 0.05, initial: 1 },
   { id: 'dof-range', group: 'DOF', label: 'Plage', pass: '10_DoF', uniform: 'dofParams', index: 3, min: 0.05, max: 2, step: 0.05, initial: 0.55 },
   { id: 'dof-radius', group: 'DOF', label: 'Rayon', pass: '10_DoF', uniform: 'dofParams', index: 4, min: 0, max: 32, step: 1, initial: 4 },
-  { id: 'upscale-sharpness', group: 'Upscale', label: 'Affûtage', pass: '08_Upscale', uniform: 'sharpness', min: 0, max: 1, step: 0.05, initial: 0.7 },
+  {
+    id: 'upscale-sharpness',
+    group: 'Upscale',
+    label: 'Affûtage',
+    pass: '08_Upscale',
+    uniform: 'sharpness',
+    min: 0,
+    max: 1,
+    step: 0.05,
+    initial: UPSCALE_SHARPNESS_ON,
+  },
 ];
 
 function clamp(control: ReviewPostControl, value: number): number {

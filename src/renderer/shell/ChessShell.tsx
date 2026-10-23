@@ -1128,6 +1128,16 @@ export default function ChessShell({ studioReady }: { studioReady: boolean }): R
             <button type="button" className="primary" id="fin-see" data-primary onClick={() => setHideEnd(true)}>
               {copy.seeBoard}
             </button>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                setHideEnd(true);
+                dispatch({ type: 'open-assistant' });
+              }}
+            >
+              {copy.analyze}
+            </button>
             <button type="button" className="ghost" onClick={replayMatch}>
               {copy.replay}
             </button>

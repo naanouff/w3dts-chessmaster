@@ -358,8 +358,9 @@ describe('chess graphics', () => {
     expect(upscaleRenderScale('performance')).toBe(0.5);
     // Sharpening a one to one image would only add a halo.
     expect(upscaleSharpness('off')).toBe(0);
-    expect(upscaleSharpness('quality')).toBe(0.7);
-    expect(upscaleSharpness('performance')).toBe(0.7);
+    // Playtest PT-007: 0.7 left Qualité/Natif soft after bilinear magnify.
+    expect(upscaleSharpness('quality')).toBeGreaterThanOrEqual(0.85);
+    expect(upscaleSharpness('performance')).toBeGreaterThanOrEqual(0.85);
   });
 
   it('scales the relative targets and leaves the shadow atlas alone', () => {

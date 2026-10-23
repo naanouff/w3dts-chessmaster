@@ -100,3 +100,4 @@ API distante (URL + modèle + clé) reste un choix replié dans Paramètres. La 
 - Remplacer le CPU, brancher Stockfish, ou faire jouer le texte du modèle.
 - Streaming SSE.
 - Fil de plus d’un échange.
+- Archive des parties finies et rapport multi-appels (tranche C de [Suite playtest](playtest-suite.md)). Le replay en session (tranches A et B) est [CHESS-B29](sprints/CHESS-B29.md).

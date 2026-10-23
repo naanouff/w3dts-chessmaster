@@ -190,6 +190,15 @@ export {
   viewProjectionLookAt,
 } from './grab/pickRay';
 export { MouseGrabController, type ChessGrabState } from './grab/MouseGrabController';
+export {
+  chessGrabSelectIntent,
+  sampleChessGrabPointer,
+  type ChessGrabCanvasRect,
+  type ChessGrabPointerSample,
+  type ChessGrabSelectIntent,
+  type SampleChessGrabPointerInput,
+} from './grab/grabPointer';
+export { chessOrbitInputActive } from './grab/chessOrbitGrab';
 export { pieceHoverSquare, type PieceHoverInput } from './grab/pieceHover';
 export { lockChessPieceTilt, seatChessPieceUpright, setChessPieceHeld } from './physics/piecePose';
 export { ChessPieceComponent } from './ecs/ChessPieceComponent';

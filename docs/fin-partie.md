@@ -28,7 +28,9 @@ Une seule carte, trois titres.
 
 Pas de sauvegarde. Une partie finie ne s’enregistre pas, comme le dit [persistance.md](persistance.md).
 
-Boutons : Voir le plateau, Recommencer, Changer de mode, Retour à l’accueil. Voir le plateau referme la carte et laisse le résultat dans la barre, avec un bouton Résultat pour la rouvrir. Recommencer relance le même mode. Échap ne reprend pas une partie finie : il ramène à l’accueil.
+Boutons : Voir le plateau, Analyser, Recommencer, Changer de mode, Retour à l’accueil. Voir le plateau referme la carte et laisse le résultat dans la barre, avec un bouton Résultat pour la rouvrir. Analyser referme la carte et ouvre l’assistant sur la position finale ; l’historique coach reste tant qu’on ne recommence pas et qu’on ne quitte pas la table. Recommencer relance le même mode. Échap ne reprend pas une partie finie : il ramène à l’accueil.
+
+**Relecture (maquette).** Analyser ouvre une barre Précédent / Suivant, le plateau figé, et le tiroir sur le ply courant. Pas d’archive. Le client n’a pas encore ce scrubber : valider la maquette, puis [B29f](sprints/CHESS-B29.md#chess-b29f--replay-en-session-tranche-b).
 
 Dans la maquette, des liens à côté de l’étiquette « Maquette » ouvrent ces états. Ils ne font pas partie de l’écran de production.
 

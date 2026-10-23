@@ -156,6 +156,8 @@ export interface ShellCopy {
   cancel: string;
   lineDone: string;
   seeBoard: string;
+  /** End card: open the coach on the final position. */
+  analyze: string;
   replay: string;
   result: string;
   sound: string;

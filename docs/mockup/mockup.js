@@ -104,6 +104,8 @@ const state = {
   horizon: 3,
   objecting: false,
   ending: null,
+  /** Session replay after Analyser. Null when not reviewing. */
+  review: null,
   hasModel: false,
   hasKey: false,
   provider: 'local',
@@ -120,6 +122,19 @@ const state = {
 
 /** Relative to docs/mockup/ — WAVs live under docs/raw_assets/audio-review/. */
 const SON_ROOT = '../raw_assets/audio-review';
+
+/** Sample line for the end-game scrubber. Index 0 is the start position. */
+const REVIEW_PLIES = [
+  { san: '…', note: 'Position de départ. Le plateau est figé pour la relecture.' },
+  { san: 'e4', note: 'Les blancs ouvrent le centre. Un plan classique.' },
+  { san: 'e5', note: 'Les noirs répondent symétriquement.' },
+  { san: 'Cf3', note: 'Développement : le cavalier attaque e5.' },
+  { san: 'Cc6', note: 'Défense du pion e5.' },
+  { san: 'Fb5', note: 'Ruy Lopez. La pression sur c6 commence.' },
+  { san: 'a6', note: 'Les noirs interrogent le fou.' },
+  { san: 'Fa4', note: 'Le fou se retire sans échanger tout de suite.' },
+  { san: 'Rf7#', note: 'Mat d’exemple. La relecture s’arrête ici.' },
+];
 
 const SON_TENSION = [
   { id: 'calm', label: 'Neutre', hint: 'Lit calm seul.' },
@@ -147,7 +162,10 @@ const $ = (id) => document.getElementById(id);
 function show(screen, back) {
   if (back) state.back = back;
   state.screen = screen;
-  if (screen !== 'partie' && screen !== 'pause' && screen !== 'nulle-offre') state.assistant = false;
+  if (screen !== 'partie' && screen !== 'pause' && screen !== 'nulle-offre') {
+    state.assistant = false;
+    if (screen !== 'fin') state.review = null;
+  }
   if (screen === 'partie' && state.reopenAssistant) {
     state.assistant = true;
     state.reopenAssistant = false;
@@ -530,11 +548,17 @@ function paintPartie() {
   const horizon = $('coach-horizon');
   if (horizon && horizon.value !== String(state.horizon)) horizon.value = String(state.horizon);
   const ended = Boolean(state.ending);
+  const reviewing = Boolean(state.review);
   $('play-move').hidden = !training || state.objecting || ended;
-  $('open-pause').hidden = ended;
-  $('clock').hidden = ended;
-  $('reopen-fin').hidden = !ended || state.screen === 'fin';
-  if (ended) {
+  $('open-pause').hidden = ended || reviewing;
+  $('clock').hidden = ended || reviewing;
+  $('reopen-fin').hidden = !ended || state.screen === 'fin' || reviewing;
+  $('replay-bar').hidden = !reviewing || state.screen === 'fin';
+  $('play-keys').hidden = reviewing;
+  $('review-keys').hidden = !reviewing;
+  if (reviewing) {
+    paintReview();
+  } else if (ended) {
     $('turn-label').textContent = state.ending.title;
     $('mode-label').textContent = state.ending.line;
   } else {
@@ -543,6 +567,37 @@ function paintPartie() {
     else $('turn-label').textContent = state.color === 'black' ? 'Les noirs jouent' : 'Les blancs jouent';
   }
   paintGhosts();
+}
+
+function paintReview() {
+  const review = state.review;
+  if (!review) return;
+  const ply = review.plies[review.index];
+  const total = review.plies.length;
+  $('replay-label').textContent = `${review.index + 1}/${total} · ${ply.san}`;
+  $('replay-prev').disabled = review.index <= 0;
+  $('replay-next').disabled = review.index >= total - 1;
+  $('turn-label').textContent = 'Relecture';
+  $('mode-label').textContent = ply.san === '…' ? 'Position de départ' : `Après ${ply.san}`;
+  if (state.assistant) $('coach-body').textContent = ply.note;
+  $('studio-board').dataset.reviewPly = String(review.index);
+}
+
+function startReview() {
+  state.review = { plies: REVIEW_PLIES, index: REVIEW_PLIES.length - 1 };
+  state.assistant = true;
+  show('partie');
+  $('assistant').hidden = false;
+  paintReview();
+  $('coach-explain').focus();
+}
+
+function stepReview(delta) {
+  if (!state.review) return;
+  const next = state.review.index + delta;
+  if (next < 0 || next >= state.review.plies.length) return;
+  state.review.index = next;
+  paintReview();
 }
 
 function paintGhosts() {
@@ -813,6 +868,7 @@ function openEnding(kind) {
   if (!ending) return;
   dismissObjection();
   state.ending = ending;
+  state.review = null;
   state.assistant = false;
   const card = $('fin-card');
   card.classList.remove('is-won', 'is-lost', 'is-draw');
@@ -825,12 +881,17 @@ function openEnding(kind) {
 
 function replayGame() {
   state.ending = null;
+  state.review = null;
   state.trainingHeld = false;
   show('partie');
 }
 
 function askCoach(kind) {
   const body = $('coach-body');
+  if (state.review) {
+    body.textContent = state.review.plies[state.review.index].note;
+    return;
+  }
   if (!state.hasModel) {
     body.innerHTML = 'Aucun modèle. <button type="button" id="coach-settings">Ouvrir les paramètres</button>';
     return;
@@ -1001,14 +1062,22 @@ document.addEventListener('click', (event) => {
     show('partie');
     $('reopen-fin').focus();
   }
-  if (id === 'reopen-fin' && state.ending) show('fin');
+  if (id === 'fin-analyze') startReview();
+  if (id === 'replay-prev') stepReview(-1);
+  if (id === 'replay-next') stepReview(1);
+  if (id === 'reopen-fin' && state.ending) {
+    state.review = null;
+    show('fin');
+  }
   if (id === 'replay') replayGame();
   if (id === 'fin-modes') {
     state.ending = null;
+    state.review = null;
     show('modes', 'accueil');
   }
   if (id === 'fin-home') {
     state.ending = null;
+    state.review = null;
     show('accueil');
   }
   if (id === 'open-assistant') {
@@ -1030,7 +1099,8 @@ document.addEventListener('click', (event) => {
     state.assistant = false;
     $('assistant').hidden = true;
     paintGhosts();
-    $('open-pause').focus();
+    if (state.review) $('replay-next').focus();
+    else $('open-pause').focus();
   }
   if (id === 'open-pause') show('pause', 'partie');
   if (id === 'resume') show('partie');
@@ -1126,11 +1196,30 @@ document.addEventListener('input', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  if (state.screen === 'partie' && state.review && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+    event.preventDefault();
+    stepReview(event.key === 'ArrowLeft' ? -1 : 1);
+    return;
+  }
   if (event.key !== 'Escape') return;
   if (state.screen === 'chargement') return;
   if (state.objecting) {
     dismissObjection();
     if (state.assistant) $('coach-stop').focus();
+    return;
+  }
+  if (state.assistant && state.screen === 'partie') {
+    state.assistant = false;
+    $('assistant').hidden = true;
+    paintGhosts();
+    if (state.review) $('replay-label').focus?.();
+    else $('open-pause').focus();
+    return;
+  }
+  if (state.review && state.screen === 'partie') {
+    state.review = null;
+    paintPartie();
+    $('reopen-fin').focus();
     return;
   }
   if (state.ending && (state.screen === 'fin' || state.screen === 'partie')) {
@@ -1140,13 +1229,6 @@ document.addEventListener('keydown', (event) => {
   }
   if (state.screen === 'nulle-offre') {
     show('pause', 'partie');
-    return;
-  }
-  if (state.assistant && state.screen === 'partie') {
-    state.assistant = false;
-    $('assistant').hidden = true;
-    paintGhosts();
-    $('open-pause').focus();
     return;
   }
   if (state.screen === 'partie') {

@@ -53,6 +53,34 @@ describe('ChessMatch', () => {
     expect(match.pieceAt('f1')?.role).toBe('rook');
   });
 
+  it('normalizes king-to-rook castling so the rook is not captured', () => {
+    // chessops accepts e8→h8 as O-O (960-style). The host must land on g8 and move the rook.
+    const black = ChessMatch.fromFen('r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1');
+    expect(black.legalSquares('e8')).toEqual(expect.arrayContaining(['g8', 'c8']));
+    expect(black.legalSquares('e8')).not.toContain('h8');
+    expect(black.legalSquares('e8')).not.toContain('a8');
+    const byRook = black.tryMove('e8', 'h8');
+    expect(byRook.ok).toBe(true);
+    if (byRook.ok) {
+      expect(byRook.to).toBe('g8');
+      expect(byRook.capturedSquare).toBeNull();
+      expect(byRook.castle).toEqual({ rookFrom: 'h8', rookTo: 'f8' });
+      expect(byRook.san.replace(/[+#]$/, '')).toBe('O-O');
+    }
+    expect(black.pieceAt('g8')?.role).toBe('king');
+    expect(black.pieceAt('f8')?.role).toBe('rook');
+    expect(black.pieceAt('h8')).toBeNull();
+
+    const white = ChessMatch.fromFen('r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1');
+    const whiteByRook = white.tryMove('e1', 'h1');
+    expect(whiteByRook.ok).toBe(true);
+    if (whiteByRook.ok) {
+      expect(whiteByRook.to).toBe('g1');
+      expect(whiteByRook.capturedSquare).toBeNull();
+      expect(whiteByRook.castle).toEqual({ rookFrom: 'h1', rookTo: 'f1' });
+    }
+  });
+
   it('auto-promotes pawns to queen', () => {
     const match = ChessMatch.fromFen('8/P7/8/8/8/8/8/4K2k w - - 0 1');
     const r = match.tryMove('a7', 'a8');

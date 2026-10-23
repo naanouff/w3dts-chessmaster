@@ -6,10 +6,10 @@
  * @description Legal chess match wrapper around chessops (FEN, dests, SAN, auto-queen).
  */
 
-import { Chess } from 'chessops/chess';
+import { Chess, castlingSide } from 'chessops/chess';
 import { makeFen, parseFen } from 'chessops/fen';
 import { makeSan } from 'chessops/san';
-import { makeSquare, parseSquare } from 'chessops/util';
+import { kingCastlesTo, makeSquare, parseSquare, rookCastlesTo } from 'chessops/util';
 import type { NormalMove, Piece, Role, Square } from 'chessops';
 import type {
   ChessCastleDelta,
@@ -44,18 +44,20 @@ function pieceOn(piece: Piece, square: Square): ChessPieceOnSquare {
   };
 }
 
-function castleRookDelta(from: Square, to: Square, color: ChessColor): ChessCastleDelta | null {
-  const fromFile = from & 7;
-  const toFile = to & 7;
-  if (Math.abs(toFile - fromFile) !== 2) return null;
-  const rankChar = color === 'white' ? '1' : '8';
-  if (toFile > fromFile) {
-    return {
-      rookFrom: `h${rankChar}` as ChessSquareName,
-      rookTo: `f${rankChar}` as ChessSquareName,
-    };
-  }
-  return { rookFrom: `a${rankChar}` as ChessSquareName, rookTo: `d${rankChar}` as ChessSquareName };
+/**
+ * Rook flight for a castling side. Works for king-to-g/c and king-to-rook encodings.
+ */
+function castleRookDelta(
+  pos: Chess,
+  color: ChessColor,
+  side: 'a' | 'h'
+): ChessCastleDelta | null {
+  const rookFrom = pos.castles.rook[color][side];
+  if (rookFrom === undefined) return null;
+  return {
+    rookFrom: asSquareName(rookFrom),
+    rookTo: asSquareName(rookCastlesTo(color, side)),
+  };
 }
 
 function capturedSquareBeforePlay(pos: Chess, to: Square, piece: Piece): ChessSquareName | null {
@@ -161,16 +163,15 @@ export class ChessMatch {
     if (!piece || piece.color !== this.position.turn) return [];
     const names = new Set<ChessSquareName>();
     for (const to of this.position.dests(sq)) {
-      names.add(asSquareName(to));
-    }
-    if (piece.role === 'king') {
-      const rank = piece.color === 'white' ? '1' : '8';
-      for (const file of ['c', 'g'] as const) {
-        const name = `${file}${rank}`;
-        if (!isSquareName(name)) continue;
-        const to = parseSquare(name);
-        if (to !== undefined && this.position.isLegal({ from: sq, to })) names.add(name);
+      // chessops lists king→rook for castling; the table only highlights the king landing square.
+      if (piece.role === 'king') {
+        const side = castlingSide(this.position, { from: sq, to });
+        if (side) {
+          names.add(asSquareName(kingCastlesTo(piece.color, side)));
+          continue;
+        }
       }
+      names.add(asSquareName(to));
     }
     return [...names];
   }
@@ -205,15 +206,17 @@ export class ChessMatch {
     if (!piece) {
       return { ok: false, reason: 'illegal' };
     }
-    const capturedSquare = capturedSquareBeforePlay(this.position, toSq, piece);
-    const castle = piece.role === 'king' ? castleRookDelta(fromSq, toSq, piece.color) : null;
+    const side = piece.role === 'king' ? castlingSide(this.position, move) : undefined;
+    const castle = side ? castleRookDelta(this.position, piece.color, side) : null;
+    const landedTo = side ? asSquareName(kingCastlesTo(piece.color, side)) : to;
+    const capturedSquare = side ? null : capturedSquareBeforePlay(this.position, toSq, piece);
     const promotion = move.promotion ? roleOf(move.promotion) : null;
     const san = makeSan(this.position, move);
     this.position.play(move);
     return {
       ok: true,
       from,
-      to,
+      to: landedTo,
       san,
       capturedSquare,
       castle,

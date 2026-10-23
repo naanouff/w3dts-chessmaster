@@ -130,6 +130,7 @@ export const JA: ShellCopy = {
   cancel: 'キャンセル',
   lineDone: 'この手順は終わりました。',
   seeBoard: '盤面を見る',
+  analyze: '分析する',
   replay: 'もう一局',
   result: '結果',
   sound: '音',

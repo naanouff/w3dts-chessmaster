@@ -162,7 +162,7 @@ describe('chess set review', () => {
       'ssr-steps': 16,
       'fog-steps': 14,
       'dof-radius': 4,
-      'upscale-sharpness': 0.7,
+      'upscale-sharpness': 0.85,
     });
   });
 

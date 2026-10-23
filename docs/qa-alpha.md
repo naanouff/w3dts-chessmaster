@@ -163,7 +163,7 @@ Si l’entrée Graphiques n’apparaît pas, le panneau NVIDIA → Gérer les pa
 
 Journal des signaux pendant la campagne. Une entrée par signal. Statuts : `ouvert`, `repro`, `non-repro`, `corrigé`. Gravité : P1–P3 comme plus haut.
 
-Correctifs découpés dans [CHESS-B28](sprints/CHESS-B28.md).
+Correctifs découpés dans [CHESS-B28](sprints/CHESS-B28.md) (PT-001 à PT-003) et [CHESS-B29](sprints/CHESS-B29.md) (PT-004 à PT-007). L’évaluation de la suite est [playtest-suite.md](playtest-suite.md).
 
 ### PT-001 — Double pas du pion
 
@@ -203,3 +203,55 @@ Cause : FEN correct (dames en d1 / d8). Le damier était inversé en rangées. C
 | Ticket | [B28c](sprints/CHESS-B28.md#chess-b28c--coups-plus-doux) |
 
 Cause : hits peaking près de 0 dBFS, durées > 150 ms, gains trop hauts. Correctif : gains abaissés ; `pnpm soften:sfx` (≤ 150 ms, pic −12 dBFS) puis compress. Confirmer à l’oreille : `pnpm review:audio`.
+
+### PT-004 — Tour en boucle au niveau 1
+
+| | |
+| --- | --- |
+| Date | 2026-10-22 |
+| Signal | Au cran 1, si le joueur est noir, le CPU déplace souvent sa tour gauche–droite en boucle |
+| Mode | Contre le CPU, niveau 1, joueur noir |
+| Gravité | P2 |
+| Statut | `corrigé` |
+| Ticket | [B29a](sprints/CHESS-B29.md#chess-b29a--plus-de-navette-au-cran-1) |
+
+Cause : profondeur 1, scores égaux, premier coup légal toujours choisi ; pas de pénalité de répétition. Pas un bug de couleur. Correctif : pénalité d’annulation du ply précédent à la racine. Voir [Suite playtest](playtest-suite.md#pt-004--tour-en-boucle-au-niveau-1).
+
+### PT-005 — Replay et analyse coach
+
+| | |
+| --- | --- |
+| Date | 2026-10-22 |
+| Signal | Pouvoir rejouer une partie avec analyse coach si l’agent est branché |
+| Mode | Fin de partie / post-partie |
+| Gravité | P3 |
+| Statut | `repro` |
+| Ticket | [B29e](sprints/CHESS-B29.md#chess-b29e--analyse-en-fin-de-partie-tranche-a) ✅, [B29f](sprints/CHESS-B29.md#chess-b29f--replay-en-session-tranche-b) |
+
+Tranche A livrée (Analyser en fin de partie). Scrubber B et archive hors sprint. Voir [Suite playtest](playtest-suite.md#pt-005--replay-et-analyse-coach).
+
+### PT-006 — Saisie tactile (VR plus tard)
+
+| | |
+| --- | --- |
+| Date | 2026-10-22 |
+| Signal | Revoir la saisie des pièces pour le tactile, puis la VR |
+| Mode | Partie |
+| Gravité | P2 |
+| Statut | `corrigé` |
+| Ticket | [B29c](sprints/CHESS-B29.md#chess-b29c--source-de-saisie), [B29d](sprints/CHESS-B29.md#chess-b29d--touch-et-orbit) |
+
+Évaluation : [Suite playtest](playtest-suite.md#pt-006--saisie-tactile-puis-vr). Source de saisie + orbit gelée pendant la prise. WebXR hors sprint.
+
+### PT-007 — Upscale flou
+
+| | |
+| --- | --- |
+| Date | 2026-10-22 |
+| Signal | L’upscale donne une image floue |
+| Mode | Options Qualité / Natif |
+| Gravité | P2 |
+| Statut | `corrigé` |
+| Ticket | [B29b](sprints/CHESS-B29.md#chess-b29b--upscale-moins-flou) |
+
+Cause attendue : upsample spatial + FXAA avant affûtage. Correctif : affûtage 0,85 hors Sans. Voir [Upscale](upscale.md) et [Suite playtest](playtest-suite.md#pt-007--upscale-flou).
