@@ -99,10 +99,19 @@
           <button type="button" class="ghost" id="open-assistant">Assistant</button>
           <button type="button" class="primary" id="open-pause" data-primary>Pause</button>
         </header>
-        <p class="keys">
+        <nav class="replay-bar" id="replay-bar" hidden aria-label="Relecture de la partie">
+          <button type="button" class="ghost" id="replay-prev">Précédent</button>
+          <p id="replay-label">1/1</p>
+          <button type="button" class="ghost" id="replay-next">Suivant</button>
+        </nav>
+        <p class="keys" id="play-keys">
           <span><kbd>LMB</kbd> saisir</span>
           <span><kbd>RMB</kbd> / molette orbiter</span>
           <span><kbd>X</kbd> recommencer</span>
+        </p>
+        <p class="keys" id="review-keys" hidden>
+          <span>Plateau figé · relecture</span>
+          <span><kbd>←</kbd> <kbd>→</kbd> coups</span>
         </p>
         <aside class="drawer" id="assistant" hidden aria-labelledby="assistant-title">
           <div class="presence" aria-hidden="true">
@@ -166,6 +175,7 @@
             <p id="fin-line"></p>
             <p class="hint" id="fin-flag" hidden>Les blancs ont perdu au temps.</p>
             <button type="button" class="primary" id="see-board" data-primary>Voir le plateau</button>
+            <button type="button" class="ghost" id="fin-analyze">Analyser</button>
             <button type="button" class="ghost" id="replay">Recommencer</button>
             <button type="button" class="ghost" id="fin-modes">Changer de mode</button>
             <button type="button" class="ghost" id="fin-home">Retour à l’accueil</button>

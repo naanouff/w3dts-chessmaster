@@ -12,7 +12,7 @@ Choisir `1440` sur un écran 4K rendait déjà en 1440 : le canvas faisait 2560�
 
 ## Trois réglages
 
-Options donne Sans, Qualité, Performance. Sans garde l’échelle 1 et l’affûtage à 0 : la passe est un report, le comportement d’avant. Qualité rend aux deux tiers, Performance à la moitié. L’échelle ne touche pas la résolution choisie : elle divise les cibles internes, le canvas reste à la taille que `gameSurfacePixels` autorise.
+Options donne Sans, Qualité, Performance. Sans garde l’échelle 1 et l’affûtage à 0 : la passe est un report, le comportement d’avant. Qualité rend aux deux tiers, Performance à la moitié. Hors Sans, l’affûtage vaut 0,85 (`UPSCALE_SHARPNESS_ON`). L’échelle ne touche pas la résolution choisie : elle divise les cibles internes, le canvas reste à la taille que `gameSurfacePixels` autorise.
 
 Sans et Qualité sont les deux seules valeurs des préréglages : Fluide et Équilibré en Sans, Qualité et Natif en Qualité. Performance ne vient que d’un choix du joueur.
 
@@ -35,6 +35,10 @@ Ce rechargement dimensionne le graphe sur le canvas caché de 4×4 du moteur, pu
 ## Moteur
 
 `@naanouff/w3dts-core` 0.0.37. Rien n’est ajouté au paquet : `registerResource`, `addPassConfig`, `getPasses` et `reloadGameRenderGraph` sont déjà publics.
+
+## Suite playtest
+
+Le flou ressenti en Qualité / Natif est évalué dans [Suite playtest](playtest-suite.md#pt-007--upscale-flou). Affûtage porté à 0,85 dans [CHESS-B29b](sprints/CHESS-B29.md#chess-b29b--upscale-moins-flou). L’échelle Qualité reste aux deux tiers.
 
 ## Hors de ce document
 

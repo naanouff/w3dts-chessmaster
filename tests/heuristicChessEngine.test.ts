@@ -32,4 +32,29 @@ describe('HeuristicChessEngine', () => {
     match.tryMove('f7', 'h7');
     expect(await engine.chooseMove(match.fen())).toBeNull();
   });
+
+  it('does not undo its previous quiet move at depth 1', async () => {
+    const engine = new HeuristicChessEngine({ depth: 1, thinkMs: 0 });
+    // Against a fixed quiet reply, depth 1 used to shuttle a1↔b1 when scores tied.
+    const match = ChessMatch.starting();
+    let previous: { from: string; to: string } | null = null;
+    let undos = 0;
+    for (let ply = 0; ply < 40; ply += 1) {
+      const move = await engine.chooseMove(match.fen());
+      expect(move).toBeTruthy();
+      if (!move) return;
+      if (previous && move.from === previous.to && move.to === previous.from) {
+        undos += 1;
+      }
+      previous = { from: move.from, to: move.to };
+      expect(match.tryMove(move.from, move.to).ok).toBe(true);
+      if (match.isEnd()) break;
+      const black = match.legalMoves()[0];
+      expect(black).toBeTruthy();
+      if (!black) return;
+      expect(match.tryMove(black.from, black.to).ok).toBe(true);
+      if (match.isEnd()) break;
+    }
+    expect(undos).toBe(0);
+  });
 });

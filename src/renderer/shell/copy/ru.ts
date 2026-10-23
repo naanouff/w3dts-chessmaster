@@ -130,6 +130,7 @@ export const RU: ShellCopy = {
   cancel: 'Отмена',
   lineDone: 'Дебют пройден.',
   seeBoard: 'Смотреть доску',
+  analyze: 'Анализ',
   replay: 'Ещё раз',
   result: 'Итог',
   sound: 'Звук',

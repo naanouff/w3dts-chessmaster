@@ -130,6 +130,7 @@ export const ES: ShellCopy = {
   cancel: 'Cancelar',
   lineDone: 'La línea ha terminado.',
   seeBoard: 'Ver el tablero',
+  analyze: 'Analizar',
   replay: 'Otra vez',
   result: 'Resultado',
   sound: 'Sonido',

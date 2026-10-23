@@ -26,6 +26,7 @@ La règle [`.cursor/rules/docs-min.mdc`](../.cursor/rules/docs-min.mdc) renvoie 
 - [Ombres](ombres.md)
 - [Upscale](upscale.md)
 - [Plan QA de l’alpha](qa-alpha.md)
+- [Suite playtest](playtest-suite.md) — PT-004 à PT-007, sprint [CHESS-B29](sprints/CHESS-B29.md)
 
 Les fichiers de `docs/sprints/` sont des archives. On ne les rallonge pas quand le code bouge.
 

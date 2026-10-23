@@ -130,6 +130,7 @@ export const IT: ShellCopy = {
   cancel: 'Annulla',
   lineDone: 'La linea è finita.',
   seeBoard: 'Vedi la scacchiera',
+  analyze: 'Analizza',
   replay: 'Ricomincia',
   result: 'Risultato',
   sound: 'Suono',

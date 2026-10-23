@@ -86,7 +86,9 @@ import {
   chessTableSfxForPly,
   chessScoreForLocal,
   coachMaterial,
-  clientPointToNdc,
+  chessGrabSelectIntent,
+  chessOrbitInputActive,
+  sampleChessGrabPointer,
   CHESS_CLOCK_START_S,
   ONLINE_GUEST_WAIT_MS,
   guestWaitExpired,
@@ -114,7 +116,6 @@ import {
   parseChessDemoQuery,
   parseChessHudCommand,
   pieceHoverSquare,
-  pickRayFromViewProjection,
   replaceChessDemoQueryInLocation,
   sampleBookMoveSpline,
   samplePieceTravelWorld,
@@ -537,7 +538,10 @@ export class ChessDemoProject extends LitAbstractProject {
     if (cmd.type === 'mode-picker') {
       this.modePickerOpen = cmd.open;
       if (cmd.open) this.rememberInterrupt(true);
-      if (cmd.open && this.world && this.grab.grabbed) this.grab.end(this.world);
+      if (cmd.open && this.world && this.grab.grabbed) {
+        this.grab.end(this.world);
+        this.syncOrbitGrabLock();
+      }
       if (!cmd.open && this.drawOffer === 'refused') {
         this.drawOffer = 'none';
         this.emitHud();
@@ -717,6 +721,7 @@ export class ChessDemoProject extends LitAbstractProject {
     resourceManager: ProjectLoadParams['resourceManager']
   ): void {
     if (this.grab.grabbed) this.grab.end(world);
+    this.syncOrbitGrabLock();
     this.grabFrom = null;
     this.dropSquare = null;
     this.wasSelect = false;
@@ -1594,24 +1599,23 @@ export class ChessDemoProject extends LitAbstractProject {
 
     const input = engine.inputManager;
     if (!input) return;
-    const overGame = this.isPointerOverGame(input);
+    const sample = this.sampleGrabPointer(world, engine, input);
     const gameFocus = engine.isGameViewInputActive?.() ?? false;
-    if (!overGame && !gameFocus && !this.grab.grabbed) {
+    if (!sample.overPlaySurface && !gameFocus && !this.grab.grabbed) {
       this.setDropHover(world, null);
+      this.wasSelect = sample.primaryDown;
       return;
     }
 
     if (input.isActionJustPressed('resetKart')) this.resetMatch(world, true);
 
-    const select = input.isActionPressed('select');
-    const just = select && !this.wasSelect;
-    const released = !select && this.wasSelect;
-    this.wasSelect = select;
+    const intent = chessGrabSelectIntent(sample, this.wasSelect, Boolean(this.grab.grabbed));
+    this.wasSelect = sample.primaryDown;
 
-    if (just) this.onSelectDown(world, engine, input);
-    if (select && this.grab.grabbed) this.onSelectHold(world, engine, input, _deltaTime);
-    else if (released && this.grab.grabbed) this.onSelectUp(world);
-    else if (!this.grab.grabbed) this.updatePieceHover(world, engine, input, overGame);
+    if (intent === 'down') this.onSelectDown(world, sample);
+    if (intent === 'hold') this.onSelectHold(world, sample, _deltaTime);
+    else if (intent === 'up') this.onSelectUp(world);
+    else if (intent === 'hover') this.updatePieceHover(world, sample);
   }
 
   /** Keep Game main flags and FOV; sync aspect to Game panel (see pickViewProjection). */
@@ -2066,37 +2070,14 @@ export class ChessDemoProject extends LitAbstractProject {
   }
 
   /** Ivory square under the piece the ray would grab, before the click. */
-  private updatePieceHover(
-    world: World,
-    engine: EngineWithInput,
-    input: InputManager,
-    overGame: boolean
-  ): void {
-    if (!overGame) {
+  private updatePieceHover(world: World, sample: ReturnType<typeof sampleChessGrabPointer>): void {
+    if (!sample.overPlaySurface || !sample.ray) {
       this.setDropHover(world, null);
       return;
     }
-    const rect = this.gameCanvasRect();
-    if (!rect) {
-      this.setDropHover(world, null);
-      return;
-    }
-    const vp = this.pickViewProjection(world, engine, rect);
-    if (!vp) {
-      this.setDropHover(world, null);
-      return;
-    }
-    const ndc = clientPointToNdc(input.pointer.x, input.pointer.y, rect);
-    if (!ndc) {
-      this.setDropHover(world, null);
-      return;
-    }
-    const ray = pickRayFromViewProjection(vp, ndc.ndcX, ndc.ndcY);
-    if (!ray) {
-      this.setDropHover(world, null);
-      return;
-    }
-    const hit = raycast(world, ray.origin, ray.direction, 8, { collisionMask: CHESS_GROUP_PIECE });
+    const hit = raycast(world, sample.ray.origin, sample.ray.direction, 8, {
+      collisionMask: CHESS_GROUP_PIECE,
+    });
     const square = hit ? this.squareByEntity.get(hit.entity) ?? null : null;
     const piece = square ? this.match.pieceAt(square) : null;
     const hovered = pieceHoverSquare({
@@ -2301,6 +2282,7 @@ export class ChessDemoProject extends LitAbstractProject {
 
   private clearBoardVisuals(world: World): void {
     if (this.grab.grabbed) this.grab.end(world);
+    this.syncOrbitGrabLock();
     this.grabFrom = null;
     this.dropSquare = null;
     this.wasSelect = false;
@@ -2806,17 +2788,6 @@ export class ChessDemoProject extends LitAbstractProject {
     return el instanceof HTMLCanvasElement ? el.getBoundingClientRect() : null;
   }
 
-  private isPointerOverGame(input: InputManager): boolean {
-    const rect = this.gameCanvasRect();
-    if (!rect || rect.width <= 0 || rect.height <= 0) return false;
-    return (
-      input.pointer.x >= rect.left &&
-      input.pointer.x <= rect.right &&
-      input.pointer.y >= rect.top &&
-      input.pointer.y <= rect.bottom
-    );
-  }
-
   /**
    * Game-pass projection uses the Game canvas aspect, not ECS `camera.aspect`.
    * Build the pick VP from the aimed Game camera after {@link aimGameCamera}.
@@ -2836,29 +2807,21 @@ export class ChessDemoProject extends LitAbstractProject {
     );
   }
 
-  private pickRayFromPointer(
+  /** Mouse (and later touch) path into a modality-agnostic grab sample. */
+  private sampleGrabPointer(
     world: World,
     engine: EngineWithInput,
     input: InputManager
-  ): { origin: vec3; direction: vec3 } | null {
+  ): ReturnType<typeof sampleChessGrabPointer> {
     const rect = this.gameCanvasRect();
-    if (!rect) return null;
-    const vp = this.pickViewProjection(world, engine, rect);
-    if (!vp) return null;
-    const ndc = clientPointToNdc(input.pointer.x, input.pointer.y, rect);
-    if (!ndc) return null;
-    return pickRayFromViewProjection(vp, ndc.ndcX, ndc.ndcY);
-  }
-
-  private worldFromPointer(
-    world: World,
-    engine: EngineWithInput,
-    input: InputManager,
-    planeY: number = CHESS_BOARD_SURFACE_Y + CHESS_GRAB_LIFT_M
-  ): vec3 | null {
-    const ray = this.pickRayFromPointer(world, engine, input);
-    if (!ray) return null;
-    return intersectRayHorizontalPlane(ray.origin, ray.direction, planeY);
+    const vp = rect ? this.pickViewProjection(world, engine, rect) : null;
+    return sampleChessGrabPointer({
+      clientX: input.pointer.x,
+      clientY: input.pointer.y,
+      canvasRect: rect,
+      viewProjection: vp,
+      primaryDown: input.isActionPressed('select'),
+    });
   }
 
   /** Pause / Stop: abort in-flight grab without applying a move. */
@@ -2871,22 +2834,26 @@ export class ChessDemoProject extends LitAbstractProject {
     this.wasSelect = false;
     this.setLegalOverlays(world, []);
     this.setDropHover(world, null);
+    this.syncOrbitGrabLock();
     if (entity !== null && from) {
       this.snapEntityToSquare(world, entity, from);
     }
   }
 
-  private onSelectDown(world: World, engine: EngineWithInput, input: InputManager): void {
+  /** Freezes orbit for the whole grab so one finger (or LMB) cannot rotate the camera. */
+  private syncOrbitGrabLock(): void {
+    const orbit = this.cameraControllers?.getActiveController();
+    if (!(orbit instanceof OrbitalCameraController)) return;
+    if (chessOrbitInputActive(Boolean(this.grab.grabbed))) orbit.enable();
+    else orbit.disable();
+  }
+
+  private onSelectDown(world: World, sample: ReturnType<typeof sampleChessGrabPointer>): void {
     if (this.gameOver()) return;
-    const rect = this.gameCanvasRect();
-    if (!rect) return;
-    const vp = this.pickViewProjection(world, engine, rect);
-    if (!vp) return;
-    const ndc = clientPointToNdc(input.pointer.x, input.pointer.y, rect);
-    if (!ndc) return;
-    const ray = pickRayFromViewProjection(vp, ndc.ndcX, ndc.ndcY);
-    if (!ray) return;
-    const hit = raycast(world, ray.origin, ray.direction, 8, { collisionMask: CHESS_GROUP_PIECE });
+    if (!sample.ray) return;
+    const hit = raycast(world, sample.ray.origin, sample.ray.direction, 8, {
+      collisionMask: CHESS_GROUP_PIECE,
+    });
     if (!hit) return;
     const from = this.squareByEntity.get(hit.entity);
     if (!from) return;
@@ -2898,6 +2865,7 @@ export class ChessDemoProject extends LitAbstractProject {
     if (!this.grab.begin(world, hit.entity, hit.point, grabY)) return;
     this.grabFrom = from;
     this.dropSquare = from;
+    this.syncOrbitGrabLock();
     void this.armAudio();
     this.setLegalOverlays(world, this.match.legalSquares(from));
     this.setDropHover(world, from);
@@ -2905,19 +2873,20 @@ export class ChessDemoProject extends LitAbstractProject {
 
   private onSelectHold(
     world: World,
-    engine: EngineWithInput,
-    input: InputManager,
+    sample: ReturnType<typeof sampleChessGrabPointer>,
     dt: number
   ): void {
+    if (!sample.ray) return;
     const grabY =
       this.grab.grabbed?.grabHeightY ?? this.playingY(CHESS_BOARD_SURFACE_Y + CHESS_GRAB_LIFT_M);
-    const p = this.worldFromPointer(world, engine, input, grabY);
+    const p = intersectRayHorizontalPlane(sample.ray.origin, sample.ray.direction, grabY);
     if (!p) return;
     this.grab.updateWorldAnchor(world, p[0]!, p[2]!, dt);
-    const ray = this.pickRayFromPointer(world, engine, input);
-    this.dropSquare = ray
-      ? boardSquareUnderRay(ray.origin, ray.direction, this.playingY(CHESS_BOARD_SURFACE_Y))
-      : null;
+    this.dropSquare = boardSquareUnderRay(
+      sample.ray.origin,
+      sample.ray.direction,
+      this.playingY(CHESS_BOARD_SURFACE_Y)
+    );
     this.setDropHover(world, this.dropSquare);
   }
 
@@ -2927,6 +2896,7 @@ export class ChessDemoProject extends LitAbstractProject {
     const from = this.grabFrom;
     this.grabFrom = null;
     this.dropSquare = null;
+    this.syncOrbitGrabLock();
     this.setLegalOverlays(world, []);
     this.setDropHover(world, null);
     if (entity === null || !from) return;
@@ -3466,6 +3436,7 @@ export class ChessDemoProject extends LitAbstractProject {
     if (mode === 'idle') {
       if (!this.benchMoved) return;
       if (this.grab.grabbed) this.grab.end(world);
+      this.syncOrbitGrabLock();
       this.flights = [];
       this.motionBusy = false;
       if (this.benchPawn !== null) this.snapEntityToSquare(world, this.benchPawn, 'e2');
@@ -3480,6 +3451,7 @@ export class ChessDemoProject extends LitAbstractProject {
     if (entity === null) return;
     if (mode === 'flight') {
       if (this.grab.grabbed) this.grab.end(world);
+      this.syncOrbitGrabLock();
       if (this.flights.length === 0) {
         const to = this.benchTowardE4 ? 'e4' : 'e2';
         this.benchTowardE4 = !this.benchTowardE4;

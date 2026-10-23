@@ -129,6 +129,7 @@ export const ZH: ShellCopy = {
   cancel: '取消',
   lineDone: '这条开局走完了。',
   seeBoard: '看棋盘',
+  analyze: '分析',
   replay: '再来一局',
   result: '结果',
   sound: '声音',

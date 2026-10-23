@@ -21,6 +21,9 @@ const MATERIAL: Record<ChessPieceRole, number> = {
 
 const MATE = 10_000;
 
+/** Breaks equal quiet scores so the root does not undo its previous ply. */
+const UNDO_PENALTY = 1;
+
 export interface HeuristicChessEngineOptions {
   /** Full-move plies (1 = greedy capture, 2 = reply). */
   depth?: number;
@@ -40,9 +43,17 @@ function evaluateSideToMove(match: ChessMatch): number {
   return match.sideToMove() === 'white' ? white : -white;
 }
 
+function isUndoOf(move: ChessEngineMove, previous: ChessEngineMove): boolean {
+  return move.from === previous.to && move.to === previous.from;
+}
+
+/**
+ * @param undoOf - Root only: the engine's previous ply. Reversing it costs `UNDO_PENALTY`.
+ */
 function negamax(
   match: ChessMatch,
-  depth: number
+  depth: number,
+  undoOf: ChessEngineMove | null
 ): { score: number; move: ChessEngineMove | null } {
   const moves = match.legalMoves();
   if (depth <= 0 || moves.length === 0 || match.isEnd()) {
@@ -54,7 +65,8 @@ function negamax(
   for (const move of moves) {
     const child = ChessMatch.fromFen(fen);
     if (!child.tryMove(move.from, move.to).ok) continue;
-    const score = -negamax(child, depth - 1).score;
+    let score = -negamax(child, depth - 1, null).score;
+    if (undoOf && isUndoOf(move, undoOf)) score -= UNDO_PENALTY;
     if (score > bestScore) {
       bestScore = score;
       bestMove = move;
@@ -67,6 +79,8 @@ function negamax(
 export class HeuristicChessEngine implements IChessEngine {
   private readonly depth: number;
   private readonly thinkMs: number;
+  /** Last root move this instance returned. Used to break quiet shuttles. */
+  private lastMove: ChessEngineMove | null = null;
 
   constructor(options: HeuristicChessEngineOptions = {}) {
     this.depth = Math.max(1, Math.floor(options.depth ?? 2));
@@ -81,6 +95,8 @@ export class HeuristicChessEngine implements IChessEngine {
     }
     const match = ChessMatch.fromFen(fen);
     if (match.isEnd()) return null;
-    return negamax(match, this.depth).move;
+    const move = negamax(match, this.depth, this.lastMove).move;
+    this.lastMove = move;
+    return move;
   }
 }
